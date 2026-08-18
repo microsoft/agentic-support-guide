@@ -1,0 +1,61 @@
+locals {
+  suffix                 = random_string.suffix.result
+  ai_services_name       = "${var.ai_services_name}-${local.suffix}"
+  custom_subdomain_name  = replace("${var.ai_services_name}${local.suffix}", "-", "")
+  effective_principal_id = length(var.principal_id) > 0 ? var.principal_id : data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+  tags     = var.tags
+}
+
+resource "azurerm_cognitive_account" "ai_services" {
+  name                = local.ai_services_name
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  kind                          = "AIServices"
+  sku_name                      = "S0"
+  project_management_enabled    = true
+  custom_subdomain_name         = local.custom_subdomain_name
+  local_auth_enabled            = false
+  public_network_access_enabled = true
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_cognitive_account_project" "foundry_project" {
+  name                 = var.foundry_project_name
+  cognitive_account_id = azurerm_cognitive_account.ai_services.id
+  location             = azurerm_resource_group.main.location
+  display_name         = var.foundry_project_display_name
+  description          = "Azure AI Foundry project hosting the three-agent workflow model deployment."
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = var.tags
+}
+
+resource "azurerm_cognitive_deployment" "chat" {
+  name                 = var.model_deployment_name
+  cognitive_account_id = azurerm_cognitive_account.ai_services.id
+
+  model {
+    format  = "OpenAI"
+    name    = var.model_name
+    version = var.model_version
+  }
+
+  sku {
+    name     = var.model_sku_name
+    capacity = var.model_capacity
+  }
+}

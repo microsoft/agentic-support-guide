@@ -1,0 +1,13 @@
+# Example variables for the agentic-support-guide prototype.
+# Copy to terraform.tfvars and edit locally. Do NOT commit terraform.tfvars.
+
+location            = "eastus2"
+resource_group_name = "rg-agentic-support-guide"
+
+model_name     = "gpt-4o-mini"
+model_version  = "2024-07-18"
+model_sku_name = "GlobalStandard"
+model_capacity = 10
+
+# Leave principal_id empty to default to the caller's object_id.
+principal_id = ""

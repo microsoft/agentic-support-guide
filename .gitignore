@@ -427,3 +427,41 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# --- Local prototype additions ---
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Node / Vite
+node_modules/
+dist/
+build/
+.vite/
+*.local
+.env
+.env.local
+
+# Denylist local override (never commit real terms)
+services/api/denylist.local.txt
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+!*.tfvars.example

@@ -1,0 +1,15 @@
+# Synthetic denylist for the privacy guardrail scanner.
+# This file MUST contain only placeholder tokens. Do not add real customer,
+# vendor, product, person, district, meeting, or opportunity names.
+# For local scanning of real terms, create denylist.local.txt (untracked).
+
+REPLACE_WITH_TERM_1
+REPLACE_WITH_TERM_2
+FORBIDDEN_CUSTOMER_NAME
+FORBIDDEN_PRODUCT_NAME
+FORBIDDEN_VENDOR_NAME
+FORBIDDEN_PERSON_NAME
+FORBIDDEN_DISTRICT_NAME
+FORBIDDEN_MEETING_NAME
+FORBIDDEN_OPPORTUNITY_NAME
+SECRET_PROJECT_X
