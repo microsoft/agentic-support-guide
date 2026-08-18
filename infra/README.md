@@ -46,11 +46,25 @@ interactively prompt for `location` because it has no default.
 
 ```powershell
 terraform fmt -check -recursive
-terraform init -upgrade
+terraform init                # uses versions from .terraform.lock.hcl
 terraform validate
 terraform plan -out tfplan
 terraform apply tfplan
 ```
+
+### When to use `terraform init -upgrade`
+
+Plain `terraform init` respects the committed `.terraform.lock.hcl` and
+gives you the exact provider versions the maintainers tested against. Use
+that for demos and CI.
+
+Use `terraform init -upgrade` only when you deliberately want newer
+providers within the version constraints in `providers.tf` (currently
+`azurerm >= 4.40.0, < 5.0.0` and `random ~> 3.6`). It re-resolves and
+rewrites the lock file. After running it, re-run `terraform validate` and
+`terraform plan` before committing the new lock, because a newer provider
+can change plan output or fail against `azurerm_cognitive_account_project`
+in edge cases.
 
 To tear everything down:
 
@@ -100,8 +114,8 @@ costs. Destroy the stack when not in use.
 
 Region choice is explicit — the `location` variable has no default, so
 you must supply it via `terraform.tfvars`, `-var location=<region>`, or
-answer the interactive prompt. Common choices: `eastus2`,
-`swedencentral`, `westus3`.
+answer the interactive prompt. Common choices: `westus3`, `eastus2`,
+`swedencentral`.
 
 The default `model_sku_name` is `DataZoneStandard`, which keeps inference
 traffic inside a single Azure data zone (US or EU). Other valid values:

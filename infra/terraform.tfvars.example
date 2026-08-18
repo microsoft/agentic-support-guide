@@ -13,8 +13,8 @@
 
 # Azure region. There is no default - Terraform will prompt if this is unset.
 # Model, SKU, and quota availability is region-dependent. Common choices:
-#   eastus2, swedencentral, westus3
-location = "eastus2"
+#   westus3, eastus2, swedencentral
+location = "westus3"
 
 
 # ---- Resource naming --------------------------------------------------------

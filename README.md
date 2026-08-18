@@ -83,6 +83,51 @@ Local ports:
 
 ---
 
+## Prerequisites
+
+Install these once on the machine that will run the demo.
+
+### Local software
+
+| Tool | Minimum version | Purpose | Install / verify |
+| --- | --- | --- | --- |
+| Git | any recent | Clone this repo. | `git --version` |
+| Visual Studio Code | any recent | Editing `terraform.tfvars` and `.env` (this guide assumes VS Code). | `code --version` |
+| Python | 3.12+ (3.13 tested) | Backend service. | `py --version` on Windows; `python3 --version` elsewhere |
+| Node.js | 18+ (25 tested) | Vite frontend. | `node --version` and `npm --version` |
+| Terraform | 1.9+ | Provisions Azure AI Foundry infrastructure. | `terraform version` |
+| Azure CLI (`az`) | any recent | Sign in for keyless auth (`az login`). | `az version` |
+| PowerShell | 5.1+ or PowerShell 7 | The commands below use PowerShell syntax. macOS/Linux users can adapt with `bash`. | `$PSVersionTable.PSVersion` |
+
+No Docker. No local database. No global npm or pip packages required.
+
+### Azure prerequisites
+
+- An **Azure subscription** where you can create resource groups, Cognitive
+  Services accounts, and Log Analytics/Application Insights resources.
+- A user or admin who can create **role assignments** (`Owner` or
+  `User Access Administrator` on the target subscription or resource
+  group). The stack assigns two roles: `Cognitive Services OpenAI User`
+  and `Azure AI User`. If you cannot create role assignments yourself, ask
+  your subscription admin to run `terraform apply` on your behalf, or to
+  grant those two roles to your Object ID after apply.
+- **Model quota** in the region you choose. Quota is per-region and
+  per-SKU. If your subscription is new, request quota for `gpt-4.1-mini`
+  on `DataZoneStandard` in your chosen region before the demo.
+- The **subscription ID** that will host the demo. `az account show
+  --query id -o tsv` prints the current subscription.
+
+### Time and cost
+
+- End-to-end setup from a fresh clone takes roughly 15–25 minutes,
+  most of which is `terraform apply` provisioning the Cognitive Services
+  account and model deployment.
+- Cost is **pay-as-you-go** based on the model deployment and telemetry.
+  For an intermittently-used demo, expect single-digit USD per day. Run
+  `terraform destroy` when finished.
+
+---
+
 ## Customer demo setup (Azure AI Foundry)
 
 The customer demo path uses **Azure AI Foundry with real LLM calls**. There
@@ -102,7 +147,7 @@ Setup Status shows *Customer demo NOT ready*.
 
 Terraform requires you to pick a region. The `location` variable has no
 default. Model availability, SKU support, and TPM quota vary by region.
-Common choices: `eastus2`, `swedencentral`, `westus3`.
+Common choices: `westus3`, `eastus2`, `swedencentral`.
 
 The default `model_sku_name` is `DataZoneStandard`, which keeps inference
 traffic inside a single Azure data zone (US or EU) rather than routing
@@ -131,10 +176,16 @@ top-to-bottom. At minimum, set `location`. Save and close.
 **Step 3 — deploy Azure AI Foundry infrastructure.**
 
 ```powershell
-terraform init -upgrade
+terraform init
 terraform plan
 terraform apply
 ```
+
+Plain `terraform init` respects the committed `.terraform.lock.hcl` and
+gives you the exact provider versions this repo was validated against.
+Use `terraform init -upgrade` **only** when you deliberately want to pull
+newer providers within the version constraints in `infra/providers.tf`;
+see [`infra/README.md`](infra/README.md#commands) for the trade-offs.
 
 **Step 4 — populate the backend `.env` in VS Code.**
 
@@ -304,7 +355,7 @@ Infrastructure (`infra`):
 
 ```powershell
 terraform fmt -check -recursive
-terraform init -upgrade
+terraform init
 terraform validate
 ```
 
@@ -350,8 +401,8 @@ terraform validate
 
 ### Model deployment quota or region issues
 - `terraform apply` fails on the deployment. Options:
-  - Pick a region that supports your chosen model + SKU (`eastus2`,
-    `swedencentral`, and `westus3` are common). Update the `location`
+  - Pick a region that supports your chosen model + SKU (`westus3`,
+    `eastus2`, and `swedencentral` are common). Update the `location`
     variable in `terraform.tfvars`.
   - Try a smaller SKU: `model_sku_name = "Standard"` with
     `model_capacity = 1`.
