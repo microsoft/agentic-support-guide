@@ -410,8 +410,11 @@ terraform validate
     `GlobalStandard` and note the change in your demo notes.
 
 ### Terraform provider or resource errors
-- Run `terraform init -upgrade` again to refresh providers.
-- Confirm `azurerm` provider version is `>= 4.40.0, < 5.0.0`.
+- Try `terraform init -upgrade` to re-resolve providers within the
+  version constraints in `providers.tf`, then re-run `terraform validate`
+  and `terraform plan`. If the new resolution introduces problems, revert
+  by restoring the committed `.terraform.lock.hcl`.
+- Confirm the `azurerm` provider version is `>= 4.40.0, < 5.0.0`.
 
 ### Throttling (HTTP 429)
 - The provider retries with jittered backoff. If it persists, request
