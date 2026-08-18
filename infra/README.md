@@ -74,29 +74,38 @@ terraform destroy
 
 ## Populate the backend `.env` from outputs
 
-After `terraform apply`, print the values you need:
+After `terraform apply`, the fastest path is the helper script from the
+repo root:
 
 ```powershell
-terraform output
+cd ..
+.\scripts\populate-env.ps1
 ```
 
-Then, in VS Code:
+The script reads all Terraform outputs (including the sensitive
+Application Insights connection string), writes `services/api/.env`,
+overwrites any prior file, and never prints the sensitive value to the
+console. Re-run it after any future `terraform apply` that changes
+outputs.
 
-1. Open `services/api/.env.example`, right-click and **Copy**, then paste
-   as `services/api/.env` in the same folder. (Or from a terminal:
-   `Copy-Item ../services/api/.env.example ../services/api/.env`.)
-2. Open the new `services/api/.env` in VS Code and paste in the values
-   from `terraform output`:
+### Manual alternative
+
+If you'd rather do it by hand:
+
+1. Copy `services/api/.env.example` to `services/api/.env`.
+2. From `infra/`, run `terraform output`.
+3. Open `services/api/.env` in VS Code and paste the values into the
+   corresponding `AZURE_AI_FOUNDRY_*` keys:
 
    - `ai_services_endpoint`     → `AZURE_AI_FOUNDRY_ENDPOINT`
    - `foundry_project_name`     → `AZURE_AI_FOUNDRY_PROJECT_NAME`
    - `model_deployment_name`    → `AZURE_AI_FOUNDRY_DEPLOYMENT`
-   - `application_insights_connection_string` (sensitive output; run
-     `terraform output -raw application_insights_connection_string` to
-     see it) → `APPLICATIONINSIGHTS_CONNECTION_STRING`
+   - `application_insights_connection_string` (sensitive; see it with
+     `terraform output -raw application_insights_connection_string`) →
+     `APPLICATIONINSIGHTS_CONNECTION_STRING`
 
-3. Save. `.env` is gitignored; the `.env.example` file is tracked and
-   contains only placeholders.
+4. Save. `.env` is gitignored; `.env.example` is tracked and contains
+   only placeholders.
 
 ## Expected cost
 

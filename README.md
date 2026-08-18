@@ -187,32 +187,25 @@ Use `terraform init -upgrade` **only** when you deliberately want to pull
 newer providers within the version constraints in `infra/providers.tf`;
 see [`infra/README.md`](infra/README.md#commands) for the trade-offs.
 
-**Step 4 — populate the backend `.env` in VS Code.**
+**Step 4 — populate the backend `.env` from Terraform outputs.**
 
-```powershell
-Copy-Item ..\services\api\.env.example ..\services\api\.env
-terraform output           # prints non-secret values inline
-```
-
-For the Application Insights connection string (marked sensitive):
-
-```powershell
-terraform output -raw application_insights_connection_string
-```
-
-Open `services/api/.env` in VS Code and paste the values in:
-
-- `ai_services_endpoint`     → `AZURE_AI_FOUNDRY_ENDPOINT`
-- `foundry_project_name`     → `AZURE_AI_FOUNDRY_PROJECT_NAME`
-- `model_deployment_name`    → `AZURE_AI_FOUNDRY_DEPLOYMENT`
-- Application Insights connection string → `APPLICATIONINSIGHTS_CONNECTION_STRING`
-
-Leave `AZURE_AI_FOUNDRY_API_VERSION`, `AZURE_AI_FOUNDRY_AUTH_MODE`, and
-`DEMO_RESET_ENABLED` at their defaults. Save.
+Run the helper script from the repo root:
 
 ```powershell
 cd ..
+.\scripts\populate-env.ps1
 ```
+
+It reads `terraform output` (including the sensitive Application Insights
+connection string), writes `services/api/.env`, and overwrites any
+previous file. Nothing sensitive is printed to the console. Re-run it
+after any future `terraform apply` that changes outputs.
+
+If you'd rather do it by hand, copy `services/api/.env.example` to
+`services/api/.env`, then run `terraform output` inside `infra/` and
+paste the values into the corresponding `AZURE_AI_FOUNDRY_*` keys in
+`.env`. Use `terraform output -raw application_insights_connection_string`
+to reveal the sensitive value.
 
 ### Start the app for the demo
 
@@ -432,6 +425,8 @@ terraform validate
 
 ## Scripts
 
+- `scripts/populate-env.ps1` — read `terraform output` and write
+  `services/api/.env` (overwrites).
 - `scripts/run-backend.ps1` — activate the venv and start uvicorn.
 - `scripts/run-frontend.ps1` — start the Vite dev server.
 - `scripts/verify-demo.ps1` — call `/api/health/details` and print
