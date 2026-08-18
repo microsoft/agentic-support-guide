@@ -83,8 +83,8 @@ refresh providers within the pinned range, followed by re-running
   documentation.
 - Terraform state may contain resource metadata and must never be
   committed.
-- RBAC role assignments (`Cognitive Services OpenAI User` and
-  `Azure AI User`) can take several minutes to propagate. First-run
+- RBAC role assignment (`Cognitive Services OpenAI User`) can take
+  several minutes to propagate. First-run
   inference may briefly return 401/403.
 - No manual follow-up is required after a successful
   `terraform apply` other than populating `.env` from the outputs (see

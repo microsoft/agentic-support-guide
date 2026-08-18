@@ -147,8 +147,14 @@ model_capacity = 1
 
 The role assignments grant your local principal:
 
+The role assignment grants your local principal:
+
 - `Cognitive Services OpenAI User` at the AI Services account scope.
-- `Azure AI User` at the Foundry project scope.
+
+That's the role the runtime actually uses. A project-scope role is
+intentionally not created (see `rbac.tf`) because the backend calls the
+account endpoint. If you later switch to the Foundry project endpoint,
+add `Cognitive Services User` at the project scope.
 
 Role assignments can take several minutes to propagate. First-run
 inference may return `401` or `403` briefly.

@@ -42,7 +42,7 @@ model_capacity = 10
 
 # ---- RBAC principal ---------------------------------------------------------
 # Entra ID Object ID that will receive access to call the model deployment
-# (roles: Cognitive Services OpenAI User + Azure AI User).
+# (role: Cognitive Services OpenAI User on the AI Services account).
 #
 # Leave empty ("") to grant access to WHOEVER RUNS `terraform apply` - that
 # identity's Object ID is discovered automatically. That is the normal case

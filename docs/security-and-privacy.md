@@ -51,8 +51,8 @@ partner data can leak through the LLM or through logs.
   `https://cognitiveservices.azure.com/.default`.
 - Terraform sets `local_auth_enabled = false` on the AI Services account
   and never reads model keys. No key is written to Key Vault.
-- The backend expects RBAC assignments (`Cognitive Services OpenAI User`
-  and `Azure AI User`) provisioned by Terraform.
+- The backend expects the `Cognitive Services OpenAI User` RBAC role at
+  the AI Services account scope, provisioned by Terraform.
 
 ## Secret handling
 

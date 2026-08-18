@@ -389,8 +389,8 @@ terraform validate
   Terraform outputs and restart the backend.
 
 ### RBAC 401 / 403 after Terraform apply
-- Wait a few minutes. Role assignments (`Cognitive Services OpenAI User`
-  and `Azure AI User`) can take time to propagate.
+- Wait a few minutes. The `Cognitive Services OpenAI User` role
+  assignment can take time to propagate.
 - Confirm you are signed in as the same principal referenced by
   `principal_id`, or set `principal_id` explicitly in
   `infra/terraform.tfvars`.

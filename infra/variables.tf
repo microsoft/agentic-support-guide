@@ -83,10 +83,9 @@ variable "model_capacity" {
 
 variable "principal_id" {
   description = <<EOT
-Entra ID Object ID of the identity that will call the deployed model. Two
-role assignments (`Cognitive Services OpenAI User` on the AI Services
-account, `Azure AI User` on the Foundry project) are granted to this
-principal so `az login` + DefaultAzureCredential can reach the model.
+Entra ID Object ID of the identity that will call the deployed model. The
+`Cognitive Services OpenAI User` role is granted at the AI Services
+account scope so `az login` + DefaultAzureCredential can reach the model.
 
 Leave empty to default to whoever runs `terraform apply` (that principal's
 `object_id` is discovered from `azurerm_client_config.current`). Set this

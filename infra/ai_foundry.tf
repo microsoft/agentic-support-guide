@@ -48,6 +48,10 @@ resource "azurerm_cognitive_deployment" "chat" {
   name                 = var.model_deployment_name
   cognitive_account_id = azurerm_cognitive_account.ai_services.id
 
+  # Cognitive Services serializes control-plane ops per account. Forcing the
+  # deployment after the project prevents 409 RequestConflict on parallel apply.
+  depends_on = [azurerm_cognitive_account_project.foundry_project]
+
   model {
     format  = "OpenAI"
     name    = var.model_name
