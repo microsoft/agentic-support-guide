@@ -34,8 +34,13 @@ combination, plus workspace-based Application Insights.
   - Attached to the AI Services account (not the project).
   - `model.format = "OpenAI"`, `name = var.model_name`,
     `version = var.model_version`.
-  - `sku.name = var.model_sku_name` (`GlobalStandard` by default),
+  - `sku.name = var.model_sku_name` (`DataZoneStandard` by default,
+    which keeps inference traffic inside a single Azure data zone),
     `sku.capacity = var.model_capacity`.
+  - `location` has no default; the operator must provide it via
+    `terraform.tfvars` or `-var`. This forces an explicit region
+    decision because model availability, SKU support, and quota are
+    region-dependent.
 - **Observability**: `azurerm_log_analytics_workspace` +
   `azurerm_application_insights` (workspace-based). Not a dependency of
   the Foundry project.

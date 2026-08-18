@@ -1,12 +1,17 @@
 # Example variables for the agentic-support-guide prototype.
 # Copy to terraform.tfvars and edit locally. Do NOT commit terraform.tfvars.
 
+# REQUIRED: pick an Azure region that supports Azure AI Foundry and your
+# chosen model + SKU. Common choices: eastus2, swedencentral, westus3.
+# `terraform apply` will prompt for this if it is not set.
 location            = "eastus2"
 resource_group_name = "rg-agentic-support-guide"
 
 model_name     = "gpt-4o-mini"
 model_version  = "2024-07-18"
-model_sku_name = "GlobalStandard"
+# DataZoneStandard keeps inference traffic inside a single Azure data zone.
+# Alternatives: Standard, GlobalStandard, DataZoneBatch.
+model_sku_name = "DataZoneStandard"
 model_capacity = 10
 
 # Leave principal_id empty to default to the caller's object_id.

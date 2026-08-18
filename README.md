@@ -98,6 +98,17 @@ Setup Status shows *Customer demo NOT ready*.
   Administrator** on the subscription/resource group), or an admin who can
   create them for you.
 
+### Region and deployment SKU
+
+Terraform requires you to pick a region. The `location` variable has no
+default. Model availability, SKU support, and TPM quota vary by region.
+Common choices: `eastus2`, `swedencentral`, `westus3`.
+
+The default `model_sku_name` is `DataZoneStandard`, which keeps inference
+traffic inside a single Azure data zone (US or EU) rather than routing
+globally. Override in `terraform.tfvars` if you need a different SKU
+(`Standard`, `GlobalStandard`, `DataZoneBatch`).
+
 ### One-time setup
 
 ```powershell
@@ -105,13 +116,17 @@ Setup Status shows *Customer demo NOT ready*.
 az login
 $env:ARM_SUBSCRIPTION_ID = "<your-subscription-id>"
 
-# 2. Deploy Azure AI Foundry infrastructure.
+# 2. Choose a region and confirm model/SKU choices.
 cd infra
+Copy-Item terraform.tfvars.example terraform.tfvars
+notepad terraform.tfvars     # set `location` (required) and confirm the SKU
+
+# 3. Deploy Azure AI Foundry infrastructure.
 terraform init -upgrade
 terraform plan
 terraform apply
 
-# 3. Copy the outputs into services/api/.env.
+# 4. Copy the outputs into services/api/.env.
 $rg   = terraform output -raw resource_group_name
 $ep   = terraform output -raw ai_services_endpoint
 $proj = terraform output -raw foundry_project_name
@@ -316,9 +331,14 @@ terraform validate
   matches the deployment name output by Terraform (`model_deployment_name`).
 
 ### Model deployment quota or region issues
-- `terraform apply` fails on the deployment. Try a different region or
-  `model_sku_name = "Standard"` with `model_capacity = 1` in
-  `terraform.tfvars`.
+- `terraform apply` fails on the deployment. Options:
+  - Pick a region that supports your chosen model + SKU (`eastus2`,
+    `swedencentral`, and `westus3` are common). Update the `location`
+    variable in `terraform.tfvars`.
+  - Try a smaller SKU: `model_sku_name = "Standard"` with
+    `model_capacity = 1`.
+  - If `DataZoneStandard` is not available in your region, fall back to
+    `GlobalStandard` and note the change in your demo notes.
 
 ### Terraform provider or resource errors
 - Run `terraform init -upgrade` again to refresh providers.

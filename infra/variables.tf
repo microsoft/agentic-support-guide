@@ -5,9 +5,18 @@ variable "resource_group_name" {
 }
 
 variable "location" {
-  description = "Azure region. Must support Azure AI Foundry and the selected model deployment."
+  description = <<EOT
+Azure region for the resource group, AI Services account, Foundry project, and
+model deployment. Must be a region that supports Azure AI Foundry and the
+selected model / SKU combination. Provide via terraform.tfvars, `-var`, or the
+interactive prompt. No default is set so this decision is explicit.
+EOT
   type        = string
-  default     = "eastus2"
+
+  validation {
+    condition     = length(var.location) > 0
+    error_message = "location must be a non-empty Azure region, e.g. eastus2 or swedencentral."
+  }
 }
 
 variable "ai_services_name" {
@@ -47,9 +56,14 @@ variable "model_version" {
 }
 
 variable "model_sku_name" {
-  description = "Deployment SKU (e.g. GlobalStandard, Standard). Availability is region-dependent."
+  description = <<EOT
+Deployment SKU. Defaults to `DataZoneStandard`, which keeps inference traffic
+inside a single Azure data zone (US or EU) rather than routing globally. Other
+valid values include `Standard`, `GlobalStandard`, and `DataZoneBatch`.
+Availability is region-dependent.
+EOT
   type        = string
-  default     = "GlobalStandard"
+  default     = "DataZoneStandard"
 }
 
 variable "model_capacity" {

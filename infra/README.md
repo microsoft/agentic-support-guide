@@ -30,9 +30,13 @@ Copy the example vars file and edit locally:
 
 ```powershell
 Copy-Item terraform.tfvars.example terraform.tfvars
+notepad terraform.tfvars    # set `location` and confirm SKU/model choices
 ```
 
 `terraform.tfvars` is gitignored. `terraform.tfvars.example` is tracked.
+
+At minimum, set `location`. There is no default: `terraform plan` or
+`terraform apply` will prompt for it if it is missing.
 
 ## Commands
 
@@ -86,10 +90,22 @@ costs. Destroy the stack when not in use.
 
 ## Model / SKU / region availability
 
+Region choice is explicit — the `location` variable has no default, so
+you must supply it via `terraform.tfvars`, `-var location=<region>`, or
+answer the interactive prompt. Common choices: `eastus2`,
+`swedencentral`, `westus3`.
+
+The default `model_sku_name` is `DataZoneStandard`, which keeps inference
+traffic inside a single Azure data zone (US or EU). Other valid values:
+
+- `Standard` — regional single-region deployment.
+- `GlobalStandard` — traffic can route globally.
+- `DataZoneBatch` — batch equivalent of `DataZoneStandard`.
+
 Model availability, SKU support, and TPM quota are region-dependent.
-`gpt-4o-mini` on `GlobalStandard` is a broadly available combination but
-may require quota. If your region does not support the defaults,
-override:
+`gpt-4o-mini` on `DataZoneStandard` is a broadly available combination
+in supported regions but still requires quota. If your region does not
+support the defaults, override:
 
 ```powershell
 terraform apply `
