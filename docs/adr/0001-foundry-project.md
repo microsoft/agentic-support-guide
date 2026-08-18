@@ -50,7 +50,10 @@ combination, plus workspace-based Application Insights.
 `azurerm_cognitive_account_project` requires a recent azurerm provider.
 This project pins `>= 4.40.0, < 5.0.0`. The lock file
 (`.terraform.lock.hcl`) is committed to ensure provider reproducibility.
-`terraform init -upgrade` is documented as the initial-setup step.
+Standard setup uses plain `terraform init`, which respects the lock file.
+`terraform init -upgrade` is used only when the maintainers deliberately
+refresh providers within the pinned range, followed by re-running
+`terraform validate` and `terraform plan` before committing the new lock.
 
 ### Endpoint used by the backend
 
