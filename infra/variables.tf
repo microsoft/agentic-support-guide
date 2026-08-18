@@ -44,15 +44,24 @@ variable "model_deployment_name" {
 }
 
 variable "model_name" {
-  description = "Model name to deploy (e.g. gpt-4o-mini). Availability is region-dependent."
+  description = <<EOT
+Model to deploy. Default `gpt-4.1-mini` is a broadly available cost-efficient
+chat model with a support horizon well past the demo window. Check the
+current model retirement schedule before customer demos:
+https://learn.microsoft.com/azure/ai-services/openai/concepts/model-retirements
+EOT
   type        = string
-  default     = "gpt-4o-mini"
+  default     = "gpt-4.1-mini"
 }
 
 variable "model_version" {
-  description = "Model version. Availability is region-dependent."
+  description = <<EOT
+Model version. Default `2025-04-14` is the GA version of `gpt-4.1-mini`.
+Standard and DataZoneStandard SKUs auto-upgrade at base-model retirement,
+so this default is safe for demos but should be reviewed for production.
+EOT
   type        = string
-  default     = "2024-07-18"
+  default     = "2025-04-14"
 }
 
 variable "model_sku_name" {
@@ -73,7 +82,29 @@ variable "model_capacity" {
 }
 
 variable "principal_id" {
-  description = "Principal ID that receives RBAC to call the deployed model. Defaults to the current caller."
+  description = <<EOT
+Entra ID Object ID of the identity that will call the deployed model. Two
+role assignments (`Cognitive Services OpenAI User` on the AI Services
+account, `Azure AI User` on the Foundry project) are granted to this
+principal so `az login` + DefaultAzureCredential can reach the model.
+
+Leave empty to default to whoever runs `terraform apply` (that principal's
+`object_id` is discovered from `azurerm_client_config.current`). Set this
+explicitly to a different Object ID when:
+
+- A different developer will run the demo (they need `az login` as that user).
+- A CI or backend service principal will call the model in production.
+
+How to look up an Object ID:
+
+- Your own:  az ad signed-in-user show --query id -o tsv
+- Someone else: az ad user show --id someone@example.invalid --query id -o tsv
+- Service principal: az ad sp show --id <app-id> --query id -o tsv
+
+This variable takes a single principal today. Extend `rbac.tf` with
+additional `azurerm_role_assignment` resources if multiple people need
+access.
+EOT
   type        = string
   default     = ""
 }

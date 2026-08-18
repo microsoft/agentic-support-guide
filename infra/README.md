@@ -26,17 +26,21 @@ $env:ARM_SUBSCRIPTION_ID = "<your-subscription-id>"
 
 ## Configure
 
-Copy the example vars file and edit locally:
+1. Copy `terraform.tfvars.example` to `terraform.tfvars` in the same folder.
+   In VS Code, right-click the file in the Explorer and choose **Copy**,
+   then paste and rename to `terraform.tfvars`. From a terminal:
 
-```powershell
-Copy-Item terraform.tfvars.example terraform.tfvars
-notepad terraform.tfvars    # set `location` and confirm SKU/model choices
-```
+   ```powershell
+   Copy-Item terraform.tfvars.example terraform.tfvars
+   ```
+
+2. Open `terraform.tfvars` in VS Code and edit the values. The file is
+   commented top-to-bottom; the only required value is `location`.
 
 `terraform.tfvars` is gitignored. `terraform.tfvars.example` is tracked.
 
-At minimum, set `location`. There is no default: `terraform plan` or
-`terraform apply` will prompt for it if it is missing.
+If you skip this step, `terraform plan` and `terraform apply` will
+interactively prompt for `location` because it has no default.
 
 ## Commands
 
@@ -56,25 +60,29 @@ terraform destroy
 
 ## Populate the backend `.env` from outputs
 
-After `terraform apply`, the outputs contain everything the backend needs:
+After `terraform apply`, print the values you need:
 
 ```powershell
-$rg   = terraform output -raw resource_group_name
-$ep   = terraform output -raw ai_services_endpoint
-$proj = terraform output -raw foundry_project_name
-$dep  = terraform output -raw model_deployment_name
-$ai   = terraform output -raw application_insights_connection_string
-
-Set-Content ../services/api/.env @"
-AZURE_AI_FOUNDRY_ENDPOINT=$ep
-AZURE_AI_FOUNDRY_PROJECT_NAME=$proj
-AZURE_AI_FOUNDRY_DEPLOYMENT=$dep
-AZURE_AI_FOUNDRY_API_VERSION=2024-10-21
-AZURE_AI_FOUNDRY_AUTH_MODE=entra
-APPLICATIONINSIGHTS_CONNECTION_STRING=$ai
-DEMO_RESET_ENABLED=false
-"@
+terraform output
 ```
+
+Then, in VS Code:
+
+1. Open `services/api/.env.example`, right-click and **Copy**, then paste
+   as `services/api/.env` in the same folder. (Or from a terminal:
+   `Copy-Item ../services/api/.env.example ../services/api/.env`.)
+2. Open the new `services/api/.env` in VS Code and paste in the values
+   from `terraform output`:
+
+   - `ai_services_endpoint`     → `AZURE_AI_FOUNDRY_ENDPOINT`
+   - `foundry_project_name`     → `AZURE_AI_FOUNDRY_PROJECT_NAME`
+   - `model_deployment_name`    → `AZURE_AI_FOUNDRY_DEPLOYMENT`
+   - `application_insights_connection_string` (sensitive output; run
+     `terraform output -raw application_insights_connection_string` to
+     see it) → `APPLICATIONINSIGHTS_CONNECTION_STRING`
+
+3. Save. `.env` is gitignored; the `.env.example` file is tracked and
+   contains only placeholders.
 
 ## Expected cost
 
@@ -103,17 +111,22 @@ traffic inside a single Azure data zone (US or EU). Other valid values:
 - `DataZoneBatch` — batch equivalent of `DataZoneStandard`.
 
 Model availability, SKU support, and TPM quota are region-dependent.
-`gpt-4o-mini` on `DataZoneStandard` is a broadly available combination
-in supported regions but still requires quota. If your region does not
-support the defaults, override:
+The default `gpt-4.1-mini` (`2025-04-14`) on `DataZoneStandard` is a
+broadly available cost-efficient combination with a support horizon well
+past a demo window. Standard and DataZoneStandard SKUs auto-upgrade at
+base-model retirement. See the current
+[model retirement schedule](https://learn.microsoft.com/azure/ai-services/openai/concepts/model-retirements)
+before customer demos.
 
-```powershell
-terraform apply `
-  -var location=westus3 `
-  -var model_name=gpt-4o-mini `
-  -var model_version=2024-07-18 `
-  -var model_sku_name=Standard `
-  -var model_capacity=1
+If your region does not support the defaults, override in
+`terraform.tfvars`:
+
+```hcl
+location       = "westus3"
+model_name     = "gpt-4.1-mini"
+model_version  = "2025-04-14"
+model_sku_name = "Standard"
+model_capacity = 1
 ```
 
 ## RBAC propagation

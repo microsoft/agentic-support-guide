@@ -111,37 +111,55 @@ globally. Override in `terraform.tfvars` if you need a different SKU
 
 ### One-time setup
 
+**Step 1 — sign in and pick the subscription.**
+
 ```powershell
-# 1. Sign in and pick the subscription that will host the demo.
 az login
 $env:ARM_SUBSCRIPTION_ID = "<your-subscription-id>"
+```
 
-# 2. Choose a region and confirm model/SKU choices.
+**Step 2 — configure Terraform variables in VS Code.**
+
+```powershell
 cd infra
 Copy-Item terraform.tfvars.example terraform.tfvars
-notepad terraform.tfvars     # set `location` (required) and confirm the SKU
+```
 
-# 3. Deploy Azure AI Foundry infrastructure.
+Open `infra/terraform.tfvars` in VS Code. The file is commented
+top-to-bottom. At minimum, set `location`. Save and close.
+
+**Step 3 — deploy Azure AI Foundry infrastructure.**
+
+```powershell
 terraform init -upgrade
 terraform plan
 terraform apply
+```
 
-# 4. Copy the outputs into services/api/.env.
-$rg   = terraform output -raw resource_group_name
-$ep   = terraform output -raw ai_services_endpoint
-$proj = terraform output -raw foundry_project_name
-$dep  = terraform output -raw model_deployment_name
-$ai   = terraform output -raw application_insights_connection_string
+**Step 4 — populate the backend `.env` in VS Code.**
 
-Set-Content ..\services\api\.env @"
-AZURE_AI_FOUNDRY_ENDPOINT=$ep
-AZURE_AI_FOUNDRY_PROJECT_NAME=$proj
-AZURE_AI_FOUNDRY_DEPLOYMENT=$dep
-AZURE_AI_FOUNDRY_API_VERSION=2024-10-21
-AZURE_AI_FOUNDRY_AUTH_MODE=entra
-APPLICATIONINSIGHTS_CONNECTION_STRING=$ai
-DEMO_RESET_ENABLED=false
-"@
+```powershell
+Copy-Item ..\services\api\.env.example ..\services\api\.env
+terraform output           # prints non-secret values inline
+```
+
+For the Application Insights connection string (marked sensitive):
+
+```powershell
+terraform output -raw application_insights_connection_string
+```
+
+Open `services/api/.env` in VS Code and paste the values in:
+
+- `ai_services_endpoint`     → `AZURE_AI_FOUNDRY_ENDPOINT`
+- `foundry_project_name`     → `AZURE_AI_FOUNDRY_PROJECT_NAME`
+- `model_deployment_name`    → `AZURE_AI_FOUNDRY_DEPLOYMENT`
+- Application Insights connection string → `APPLICATIONINSIGHTS_CONNECTION_STRING`
+
+Leave `AZURE_AI_FOUNDRY_API_VERSION`, `AZURE_AI_FOUNDRY_AUTH_MODE`, and
+`DEMO_RESET_ENABLED` at their defaults. Save.
+
+```powershell
 cd ..
 ```
 

@@ -1,18 +1,60 @@
-# Example variables for the agentic-support-guide prototype.
-# Copy to terraform.tfvars and edit locally. Do NOT commit terraform.tfvars.
+# ============================================================================
+# agentic-support-guide - Terraform variables
+#
+# HOW TO USE:
+#   1. In VS Code, right-click this file and pick "Copy" -> paste as
+#      terraform.tfvars in the same folder (or from a terminal:
+#      `Copy-Item terraform.tfvars.example terraform.tfvars`).
+#   2. Open terraform.tfvars in VS Code and edit the values below.
+#   3. Save. `terraform.tfvars` is gitignored; this .example file is tracked.
+# ============================================================================
 
-# REQUIRED: pick an Azure region that supports Azure AI Foundry and your
-# chosen model + SKU. Common choices: eastus2, swedencentral, westus3.
-# `terraform apply` will prompt for this if it is not set.
-location            = "eastus2"
+# ---- REQUIRED ---------------------------------------------------------------
+
+# Azure region. There is no default - Terraform will prompt if this is unset.
+# Model, SKU, and quota availability is region-dependent. Common choices:
+#   eastus2, swedencentral, westus3
+location = "eastus2"
+
+
+# ---- Resource naming --------------------------------------------------------
+
 resource_group_name = "rg-agentic-support-guide"
 
-model_name     = "gpt-4o-mini"
-model_version  = "2024-07-18"
-# DataZoneStandard keeps inference traffic inside a single Azure data zone.
-# Alternatives: Standard, GlobalStandard, DataZoneBatch.
+
+# ---- Model deployment -------------------------------------------------------
+# The values below are safe defaults for a demo. Change them in this file
+# rather than passing `-var` on the CLI.
+#
+# Model retirement schedule:
+# https://learn.microsoft.com/azure/ai-services/openai/concepts/model-retirements
+
+model_name    = "gpt-4.1-mini"
+model_version = "2025-04-14"
+
+# DataZoneStandard keeps inference traffic inside a single Azure data zone
+# (US or EU). Alternatives: Standard, GlobalStandard, DataZoneBatch.
 model_sku_name = "DataZoneStandard"
+
+# Deployment capacity in thousands of tokens per minute. Requires quota.
 model_capacity = 10
 
-# Leave principal_id empty to default to the caller's object_id.
+
+# ---- RBAC principal ---------------------------------------------------------
+# Entra ID Object ID that will receive access to call the model deployment
+# (roles: Cognitive Services OpenAI User + Azure AI User).
+#
+# Leave empty ("") to grant access to WHOEVER RUNS `terraform apply` - that
+# identity's Object ID is discovered automatically. That is the normal case
+# for a single-developer demo.
+#
+# Set this to a specific Object ID when:
+#   - a different colleague will run the demo,
+#   - a backend service principal or CI runner will call the model.
+#
+# How to look up an Object ID:
+#   Yours:              az ad signed-in-user show --query id -o tsv
+#   Another user:       az ad user show --id someone@example.invalid --query id -o tsv
+#   Service principal:  az ad sp show --id <app-id> --query id -o tsv
+
 principal_id = ""
