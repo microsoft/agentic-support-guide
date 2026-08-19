@@ -7,17 +7,25 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import AzureFoundrySettings
-from app.llm import LlmProvider, MockLlmProvider
+from app.foundry_agents import FoundryRemoteAgentAdapter
 from app.main import create_app
+
+from .fakes import (
+    DEFAULT_ENDPOINT,
+    FakeFoundryClient,
+    build_bindings,
+    make_fake_adapter,
+)
 
 ENV_KEYS = (
     "AZURE_AI_FOUNDRY_ENDPOINT",
-    "AZURE_AI_FOUNDRY_PROJECT_NAME",
-    "AZURE_AI_FOUNDRY_DEPLOYMENT",
-    "AZURE_AI_FOUNDRY_API_VERSION",
+    "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT",
     "AZURE_AI_FOUNDRY_AUTH_MODE",
     "APPLICATIONINSIGHTS_CONNECTION_STRING",
     "DEMO_RESET_ENABLED",
+    "FOUNDRY_MODEL_DEPLOYMENT_ANALYST",
+    "FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER",
+    "FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR",
 )
 
 
@@ -26,6 +34,11 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for key in ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
     yield
+
+
+# ---------------------------------------------------------------------
+# Canonical canned agent outputs used across tests
+# ---------------------------------------------------------------------
 
 
 def canned_data_analyst_output() -> dict[str, Any]:
@@ -78,60 +91,79 @@ def canned_validator_critique() -> dict[str, Any]:
     return {"warning_codes": [], "repair_guidance": ""}
 
 
-def _canned_mock_provider() -> MockLlmProvider:
-    provider = MockLlmProvider()
-    provider.register("data_analyst_output", canned_data_analyst_output())
-    provider.register(
-        "support_recommendation_draft",
+# ---------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------
+
+
+def _canned_client(
+    *,
+    resource_ids: list[str] | None = None,
+    smart_goal_ids: list[str] | None = None,
+    strategy_ids: list[str] | None = None,
+) -> FakeFoundryClient:
+    client = FakeFoundryClient()
+    bindings = build_bindings()
+    client.register_response(
+        bindings["data-analyst-agent"].assistant_id,
+        canned_data_analyst_output(),
+    )
+    client.register_response(
+        bindings["support-recommendation-agent"].assistant_id,
         canned_recommendation_draft(
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
+            resource_ids=resource_ids,
+            smart_goal_ids=smart_goal_ids or ["SG-early-literacy-1"],
+            strategy_ids=strategy_ids or ["ST-early-literacy-1"],
         ),
     )
-    provider.register("validator_llm_critique", canned_validator_critique())
-    return provider
+    client.register_response(
+        bindings["validator-agent"].assistant_id,
+        canned_validator_critique(),
+    )
+    return client
 
 
 @pytest.fixture()
-def mock_provider() -> MockLlmProvider:
-    return _canned_mock_provider()
+def fake_client() -> FakeFoundryClient:
+    return _canned_client()
 
 
 @pytest.fixture()
-def make_client() -> Callable[[LlmProvider, bool], TestClient]:
-    def _factory(provider: LlmProvider, demo_reset_enabled: bool = False) -> TestClient:
-        def factory(_settings: AzureFoundrySettings) -> LlmProvider:
-            return provider
+def fake_adapter(fake_client: FakeFoundryClient) -> FoundryRemoteAgentAdapter:
+    return make_fake_adapter(fake_client)
 
-        app = create_app(provider_factory=factory)
+
+@pytest.fixture()
+def make_client() -> Callable[..., TestClient]:
+    def _factory(
+        adapter: FoundryRemoteAgentAdapter | None = None,
+        *,
+        demo_reset_enabled: bool = False,
+        project_endpoint: str | None = DEFAULT_ENDPOINT,
+    ) -> TestClient:
+        if adapter is None:
+            adapter = make_fake_adapter(_canned_client())
+        app = create_app(adapter=adapter)
         app.state.settings = AzureFoundrySettings(
-            endpoint=None,
-            project_name=None,
-            deployment=None,
-            api_version=None,
+            project_endpoint=project_endpoint,
             auth_mode="entra",
             application_insights_connection_string=None,
             demo_reset_enabled=demo_reset_enabled,
         )
+        app.state.adapter = adapter
         return TestClient(app)
 
     return _factory
 
 
 def make_default_client(*, demo_reset_enabled: bool = False) -> TestClient:
-    provider = _canned_mock_provider()
-
-    def factory(_settings: AzureFoundrySettings) -> LlmProvider:
-        return provider
-
-    app = create_app(provider_factory=factory)
+    adapter = make_fake_adapter(_canned_client())
+    app = create_app(adapter=adapter)
     app.state.settings = AzureFoundrySettings(
-        endpoint=None,
-        project_name=None,
-        deployment=None,
-        api_version=None,
+        project_endpoint=DEFAULT_ENDPOINT,
         auth_mode="entra",
         application_insights_connection_string=None,
         demo_reset_enabled=demo_reset_enabled,
     )
+    app.state.adapter = adapter
     return TestClient(app)

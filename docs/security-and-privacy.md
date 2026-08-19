@@ -46,9 +46,8 @@ partner data can leak through the LLM or through logs.
 
 ## Keyless auth
 
-- `AzureFoundryLlmProvider` uses `DefaultAzureCredential` from
-  `azure-identity` and requests bearer tokens for
-  `https://cognitiveservices.azure.com/.default`.
+- `FoundryAgentClient` uses `DefaultAzureCredential` from
+  `azure-identity` when talking to the Azure AI Foundry Agent Service.
 - Terraform sets `local_auth_enabled = false` on the AI Services account
   and never reads model keys. No key is written to Key Vault.
 - The backend expects the `Cognitive Services OpenAI User` RBAC role at
@@ -56,13 +55,19 @@ partner data can leak through the LLM or through logs.
 
 ## Secret handling
 
-- `.env` and `terraform.tfvars` are gitignored.
-- `.env.example` and `terraform.tfvars.example` contain placeholder
-  names only.
+- `.env`, `terraform.tfvars`, and `.foundry/agent-bindings.local.json`
+  are gitignored.
+- `.env.example`, `terraform.tfvars.example`, and
+  `.foundry/agent-bindings.example.json` contain placeholder values
+  only.
 - Application Insights connection string is marked `sensitive = true`
   in Terraform outputs.
 - The privacy scanner test flags any 32+ character base64/hex value on a
   line that begins with `AZURE_*=`.
+- `.foundry/agent-bindings.local.json` contains only assistant IDs and
+  metadata hashes. It never contains tokens or connection strings, and
+  the runtime refuses to use it if the `project_endpoint_hash` does not
+  match the configured endpoint.
 
 ## Validation gates
 
@@ -83,9 +88,11 @@ review before any use, and the UI shows a persistent prototype banner.
 
 ## Content filter handling
 
-- The provider layer classifies content-filter responses and raises
-  `LlmError("content_filter", ...)`.
-- The coordinator maps that to a `provider_content_filter` status code.
+- The Foundry adapter classifies content-filter responses (via terminal
+  run status and error code) and raises
+  `ContentFilterError("CONTENT_FILTER", ...)`.
+- The coordinator maps that to a `provider_content_filter` status code
+  and returns a safe user-facing message.
 - The UI shows a distinct safe state for content-filter blocks with no
   raw model text.
 

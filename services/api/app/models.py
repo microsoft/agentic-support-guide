@@ -31,10 +31,9 @@ class HealthDetailsResponse(BaseModel):
     service: str
     version: str
     active_provider: str
-    foundry_configured: bool
-    foundry_project_config_present: bool
-    deployment_config_present: bool
-    application_insights_configured: bool
+    foundry_project_configured: bool
+    foundry_agents_bound: bool
+    service_side_remote_workflow_active: bool
     customer_demo_ready: bool
     checks: list[HealthCheckItem]
     warnings: list[str] = Field(default_factory=list)

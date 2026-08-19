@@ -8,7 +8,7 @@ def test_health_reports_provider_status() -> None:
     body = client.get("/api/health").json()
     assert body["service"] == "agentic-support-guide-api"
     assert body["auth_mode"] == "entra"
-    assert body["provider_configured"] is False
+    assert body["provider_configured"] is True
     assert "mock_mode" not in body
 
 
@@ -65,7 +65,7 @@ def test_recommendation_endpoint_returns_envelope_and_appends_audit() -> None:
     assert body["status"] == "ok"
     assert body["recommendation"] is not None
     assert "mock_mode" not in body
-    assert body["provider_model"].startswith("mock")
+    assert "Azure AI Foundry" in body["provider_model"]
     assert len(body["agent_trace"]) == 3
 
     after_audit = client.get("/api/audit/events").json()["total"]

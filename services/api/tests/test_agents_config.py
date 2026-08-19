@@ -1,26 +1,20 @@
-"""Tests for the /agents definitions and the LocalManifestAgentAdapter."""
+"""Tests for the /agents definitions and remote-agent binding metadata."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
+import yaml
 
-from app.agents import adapter
-from app.agents.adapter import (
+from app.foundry_agents import (
     AGENTS_DIR,
-    AgentAssets,
-    AgentManifest,
-    LocalManifestAgentAdapter,
-    compose_prompt,
-    load_assets,
+    RUNTIME_ENVELOPE,
+    compose_instructions,
+    instructions_hash,
+    load_agent_assets,
 )
-from app.agents.data_analyst import DataAnalystAgent
-from app.agents.support_recommender import SupportRecommendationAgent
-from app.agents.validator import ValidatorAgent
-from app.llm import MockLlmProvider
 
 AGENT_IDS = ("data-analyst", "support-recommender", "validator")
 
@@ -37,15 +31,23 @@ def test_each_agent_folder_has_required_files() -> None:
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
 def test_agent_manifest_has_required_top_level_keys(agent_id: str) -> None:
-    assets = load_assets(agent_id)
+    assets = load_agent_assets(agent_id)
     m = assets.manifest
-    assert m.id == f"{agent_id.replace('-', '-')}-agent" or m.id.endswith(agent_id) or True
-    assert m.version
-    assert m.runtime
-    assert m.contracts.get("input"), f"{agent_id}: manifest.contracts.input missing"
-    assert m.contracts.get("output"), f"{agent_id}: manifest.contracts.output missing"
-    assert m.handoff, f"{agent_id}: manifest.handoff missing"
-    assert m.safety, f"{agent_id}: manifest.safety missing"
+    assert m.get("id"), f"{agent_id}: missing id"
+    assert m.get("version"), f"{agent_id}: missing version"
+    assert m.get("runtime"), f"{agent_id}: missing runtime block"
+    assert m.get("contracts", {}).get("input"), f"{agent_id}: manifest.contracts.input missing"
+    assert m.get("contracts", {}).get("output"), f"{agent_id}: manifest.contracts.output missing"
+    assert m.get("handoff"), f"{agent_id}: manifest.handoff missing"
+    assert m.get("safety"), f"{agent_id}: manifest.safety missing"
+
+
+@pytest.mark.parametrize("agent_id", AGENT_IDS)
+def test_agent_manifest_has_foundry_binding_block(agent_id: str) -> None:
+    assets = load_agent_assets(agent_id)
+    foundry = assets.manifest.get("foundry") or {}
+    for key in ("foundry_agent_name", "model_deployment_env", "response_format"):
+        assert foundry.get(key), f"{agent_id}: foundry.{key} missing"
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
@@ -59,30 +61,22 @@ def test_agent_local_schemas_are_valid_json(agent_id: str) -> None:
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
-def test_adapter_composes_prompt_from_agent_md(agent_id: str) -> None:
-    provider = MockLlmProvider()
-    adapter_obj = LocalManifestAgentAdapter(agent_id, provider)
-    assets = load_assets(agent_id)
-    expected = compose_prompt(assets)
-    assert adapter_obj.system_prompt == expected
-    # Sanity: role-specific content from the Markdown body must appear.
-    assert assets.agent_md_body.splitlines()[0] in adapter_obj.system_prompt
+def test_composed_instructions_include_agent_md_body_and_envelope(agent_id: str) -> None:
+    assets = load_agent_assets(agent_id)
+    instructions = compose_instructions(assets.agent_md_body)
+    # role-specific content from the Markdown body must appear.
+    assert assets.agent_md_body.splitlines()[0] in instructions
+    assert RUNTIME_ENVELOPE.strip() in instructions
 
 
-@pytest.mark.parametrize(
-    ("agent_cls", "agent_id"),
-    [
-        (DataAnalystAgent, "data-analyst"),
-        (SupportRecommendationAgent, "support-recommender"),
-        (ValidatorAgent, "validator"),
-    ],
-)
-def test_python_agent_classes_load_prompt_from_agent_md(agent_cls, agent_id):
-    provider = MockLlmProvider()
-    instance = agent_cls(provider)
-    expected = compose_prompt(load_assets(agent_id))
-    assert instance.system_prompt == expected
-    assert instance.spec_version == load_assets(agent_id).manifest.version
+@pytest.mark.parametrize("agent_id", AGENT_IDS)
+def test_instructions_hash_is_stable_across_whitespace(agent_id: str) -> None:
+    assets = load_agent_assets(agent_id)
+    ihash1 = instructions_hash(compose_instructions(assets.agent_md_body))
+    # Same body with different line-ending style should hash identically.
+    crlf_body = assets.agent_md_body.replace("\n", "\r\n")
+    ihash2 = instructions_hash(compose_instructions(crlf_body))
+    assert ihash1 == ihash2
 
 
 def test_python_source_has_no_hardcoded_role_prompt() -> None:
@@ -103,60 +97,12 @@ def test_python_source_has_no_hardcoded_role_prompt() -> None:
             )
 
 
-def test_changing_agent_md_changes_constructed_prompt(tmp_path: Path) -> None:
-    """Mutating the assets changes the composed prompt with no Python change."""
-
-    original = load_assets("data-analyst")
-    mutated = AgentAssets(
-        manifest=original.manifest,
-        agent_md_body="MUTATED AGENT.MD BODY FOR TEST",
-        agent_md_frontmatter=original.agent_md_frontmatter,
-    )
-    with patch.object(adapter, "load_assets", return_value=mutated):
-        agent = DataAnalystAgent(MockLlmProvider())
-    assert "MUTATED AGENT.MD BODY FOR TEST" in agent.system_prompt
-
-
-def test_changing_manifest_changes_runtime_metadata(tmp_path: Path) -> None:
-    original = load_assets("data-analyst")
-    new_manifest = AgentManifest(
-        id=original.manifest.id,
-        name=original.manifest.name,
-        version="9.9.9",
-        runtime=original.manifest.runtime,
-        contracts=original.manifest.contracts,
-        handoff=original.manifest.handoff,
-        safety=original.manifest.safety,
-        source_path=original.manifest.source_path,
-    )
-    mutated = AgentAssets(
-        manifest=new_manifest,
-        agent_md_body=original.agent_md_body,
-        agent_md_frontmatter=original.agent_md_frontmatter,
-    )
-    with patch.object(adapter, "load_assets", return_value=mutated):
-        agent = DataAnalystAgent(MockLlmProvider())
-    assert agent.spec_version == "9.9.9"
-
-
-def test_adapter_rejects_manifest_missing_required_key(tmp_path: Path) -> None:
-    (tmp_path / "bad-agent").mkdir()
-    (tmp_path / "bad-agent" / "manifest.yaml").write_text("id: bad\nname: Bad\n", encoding="utf-8")
-    (tmp_path / "bad-agent" / "agent.md").write_text("body", encoding="utf-8")
-    with (
-        patch.object(adapter, "AGENTS_DIR", tmp_path),
-        pytest.raises(ValueError, match="missing required manifest keys"),
-    ):
-        load_assets("bad-agent")
-
-
 def test_agents_do_not_import_each_other() -> None:
     """Enforce the independence rule from the architecture."""
 
     agents_root = Path(__file__).resolve().parents[1] / "app" / "agents"
     for py in agents_root.rglob("agent.py"):
         text = py.read_text(encoding="utf-8")
-        # Any of these substrings would indicate a cross-import.
         for forbidden in (
             "from ..data_analyst",
             "from ..support_recommender",
@@ -181,3 +127,37 @@ def test_agents_do_not_import_api_internals() -> None:
             "from ..runtime_audit",
         ):
             assert forbidden not in text, f"{py}: forbidden API-internals import '{forbidden}'."
+
+
+def test_no_direct_model_calls_outside_sdk_client() -> None:
+    """No app-code file (except the SDK client wrapper) may import openai
+    or reference AzureOpenAI / chat.completions. This asserts that the
+    recommendation path goes through the remote-agent adapter only.
+    """
+
+    py_root = Path(__file__).resolve().parents[1] / "app"
+    forbidden = ("AzureOpenAI", "openai.", "chat.completions")
+    permitted = (
+        # The wrapper file exists in the foundry_agents package if we ever
+        # add one that talks to the base model directly. Today the SDK
+        # wrapper only uses azure-ai-agents; keep the allowlist here so
+        # future direct-model helpers can be quarantined.
+        py_root / "foundry_agents" / "sdk_client.py",
+    )
+    for py_file in py_root.rglob("*.py"):
+        if py_file in permitted:
+            continue
+        text = py_file.read_text(encoding="utf-8")
+        for token in forbidden:
+            assert token not in text, (
+                f"{py_file}: forbidden reference to '{token}'. "
+                "All model calls must go through the Foundry remote adapter."
+            )
+
+
+def test_all_manifests_load_via_yaml() -> None:
+    """Belt-and-suspenders: every manifest.yaml round-trips through yaml.safe_load."""
+    for agent_id in AGENT_IDS:
+        text = (AGENTS_DIR / agent_id / "manifest.yaml").read_text(encoding="utf-8")
+        data = yaml.safe_load(text)
+        assert isinstance(data, dict)

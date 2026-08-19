@@ -3,6 +3,11 @@
 All routes are mounted under /api. OpenAPI is served at /api/openapi.json
 and the interactive docs at /api/docs. There is no CORS middleware because
 the frontend uses the Vite dev proxy.
+
+Runtime shape: every recommendation request is orchestrated by the
+AgentCoordinator, which invokes three remote Azure AI Foundry Agent
+Service assistants through FoundryRemoteAgentAdapter. There is no local
+model call and no local fallback.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from . import learners as learners_mod
 from .agents.shared.contracts import ResourceRef
 from .config import (
     BASE_TIMESTAMP,
+    FOUNDRY_RUN_TIMEOUT_SECONDS,
     PROTOTYPE_BANNER,
     SERVICE_NAME,
     SERVICE_VERSION,
@@ -29,7 +35,12 @@ from .config import (
 )
 from .contracts_registry import ContractsRegistry, load_registry
 from .diagnostics import build_health_details
-from .llm import AzureFoundryLlmProvider, LlmCallResult, LlmError, LlmProvider
+from .foundry_agents import (
+    FoundryAgentClient,
+    FoundryAgentClientProtocol,
+    FoundryRemoteAgentAdapter,
+    load_bindings,
+)
 from .models import (
     AssessmentsSummary,
     AuditEvent,
@@ -55,57 +66,59 @@ from .telemetry import TelemetryRecorder
 from .workflows import AgentCoordinator
 from .workflows.coordinator import CoordinatorRequest
 
+PROVIDER_DISPLAY_CONFIGURED = "Azure AI Foundry Agent Service (remote agents)"
+PROVIDER_DISPLAY_UNCONFIGURED = "unconfigured (Azure AI Foundry Agent Service not set up)"
+
 
 def _next_iso(offset_seconds: int) -> str:
     base = datetime.strptime(BASE_TIMESTAMP, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     return (base + timedelta(seconds=offset_seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class _UnconfiguredProvider(LlmProvider):
-    name = "unconfigured"
-    model = "unconfigured"
-    display_name = "unconfigured (Azure AI Foundry not set up)"
+def _default_client_factory(endpoint: str) -> FoundryAgentClientProtocol:
+    """Build the real Foundry Agent Service client.
 
-    def complete_json(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-        max_output_tokens: int,
-        timeout_seconds: float,
-        response_schema_name: str,
-    ) -> LlmCallResult:
-        raise LlmError(
-            "provider_missing",
-            "Azure AI Foundry environment variables are not configured. "
-            "Populate services/api/.env from the Terraform outputs.",
-        )
+    Import DefaultAzureCredential lazily so tests that never hit this
+    path do not need azure-identity fully wired.
+    """
+
+    from azure.identity import DefaultAzureCredential
+
+    return FoundryAgentClient(endpoint=endpoint, credential=DefaultAzureCredential())
 
 
-def _select_provider(settings: AzureFoundrySettings) -> LlmProvider:
-    if not settings.configured:
-        return _UnconfiguredProvider()
-    assert settings.endpoint and settings.deployment and settings.api_version
-    return AzureFoundryLlmProvider(
-        endpoint=settings.endpoint,
-        deployment=settings.deployment,
-        api_version=settings.api_version,
+def _build_adapter(
+    settings: AzureFoundrySettings,
+    client_factory: Callable[[str], FoundryAgentClientProtocol],
+) -> FoundryRemoteAgentAdapter | None:
+    if not settings.project_endpoint:
+        return None
+    bindings = load_bindings()
+    if not bindings:
+        return None
+    client = client_factory(settings.project_endpoint)
+    return FoundryRemoteAgentAdapter(
+        client=client,
+        bindings=bindings,
+        project_endpoint=settings.project_endpoint,
+        run_timeout_seconds=FOUNDRY_RUN_TIMEOUT_SECONDS,
     )
 
 
-LEARNERS_RESPONSE_MODEL = "LearnersResponse"  # kept for schema reference in tests
+LEARNERS_RESPONSE_MODEL = "LearnersResponse"
 
 
 def create_app(
     *,
-    provider_factory: Callable[[AzureFoundrySettings], LlmProvider] | None = None,
+    adapter: FoundryRemoteAgentAdapter | None = None,
+    client_factory: Callable[[str], FoundryAgentClientProtocol] | None = None,
 ) -> FastAPI:
     settings = load_foundry_settings()
     app = FastAPI(
         title="Agentic Support Guide API",
         description=(
-            "Prototype API demonstrating three collaborating agents backed "
-            "by Azure AI Foundry. Synthetic data only."
+            "Prototype API demonstrating three collaborating agents hosted "
+            "in Azure AI Foundry Agent Service. Synthetic data only."
         ),
         version=SERVICE_VERSION,
         openapi_url="/api/openapi.json",
@@ -124,7 +137,8 @@ def create_app(
     )
     telemetry = TelemetryRecorder(settings.application_insights_connection_string)
     runtime_audit = RuntimeAuditLog()
-    provider = (provider_factory or _select_provider)(settings)
+    if adapter is None:
+        adapter = _build_adapter(settings, client_factory or _default_client_factory)
     contracts = load_registry()
 
     app.state.settings = settings
@@ -132,11 +146,11 @@ def create_app(
     app.state.plans_store = plans_store
     app.state.telemetry = telemetry
     app.state.runtime_audit = runtime_audit
-    app.state.provider = provider
+    app.state.adapter = adapter
     app.state.contracts = contracts
 
-    def get_provider(request: Request) -> LlmProvider:
-        return request.app.state.provider  # type: ignore[no-any-return]
+    def get_adapter(request: Request) -> FoundryRemoteAgentAdapter | None:
+        return request.app.state.adapter  # type: ignore[no-any-return]
 
     def get_settings_dep(request: Request) -> AzureFoundrySettings:
         return request.app.state.settings  # type: ignore[no-any-return]
@@ -174,11 +188,11 @@ def create_app(
     @router.get("/health/details", response_model=HealthDetailsResponse)
     def get_health_details(
         settings: AzureFoundrySettings = Depends(get_settings_dep),
-        provider: LlmProvider = Depends(get_provider),
+        adapter: FoundryRemoteAgentAdapter | None = Depends(get_adapter),
     ) -> HealthDetailsResponse:
         return build_health_details(
             settings=settings,
-            provider=provider,
+            adapter=adapter,
             service=SERVICE_NAME,
             version=SERVICE_VERSION,
         )
@@ -257,7 +271,7 @@ def create_app(
     def post_recommendation(
         payload: SupportPlanRequest,
         repos: Repositories = Depends(get_repos),
-        provider: LlmProvider = Depends(get_provider),
+        adapter: FoundryRemoteAgentAdapter | None = Depends(get_adapter),
         telemetry: TelemetryRecorder = Depends(get_telemetry),
         audit: RuntimeAuditLog = Depends(get_audit),
         contracts: ContractsRegistry = Depends(get_contracts),
@@ -268,6 +282,19 @@ def create_app(
         )
         if learner is None:
             raise HTTPException(status_code=404, detail="Unknown learner_id")
+
+        if adapter is None:
+            return RecommendationEnvelope(
+                status="provider_missing",
+                error_code="AGENT_PROVIDER_MISSING",
+                error_message=(
+                    "Azure AI Foundry Agent Service is not configured or bindings "
+                    "are missing. Run scripts/sync_foundry_agents.py --apply."
+                ),
+                recommendation=None,
+                agent_trace=[],
+                provider_model=PROVIDER_DISPLAY_UNCONFIGURED,
+            )
 
         options = build_support_options(
             [(le.learner_id, le.display_label) for le in repos.learners]
@@ -283,9 +310,10 @@ def create_app(
         )
 
         coordinator = AgentCoordinator(
-            provider=provider,
+            adapter=adapter,
             telemetry=telemetry,
             contracts=contracts,
+            provider_display=PROVIDER_DISPLAY_CONFIGURED,
         )
         crequest = CoordinatorRequest(
             learner_label=learner.display_label,

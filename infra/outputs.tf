@@ -9,7 +9,7 @@ output "ai_services_account_name" {
 }
 
 output "ai_services_endpoint" {
-  description = "AI Services endpoint used by the AzureFoundryLlmProvider for chat completions."
+  description = "AI Services account endpoint (base). Not used directly by the backend."
   value       = azurerm_cognitive_account.ai_services.endpoint
 }
 
@@ -23,13 +23,18 @@ output "foundry_project_id" {
   value       = azurerm_cognitive_account_project.foundry_project.id
 }
 
+output "foundry_project_endpoint" {
+  description = "Azure AI Foundry project endpoint used by AgentsClient. Set as AZURE_AI_FOUNDRY_PROJECT_ENDPOINT in the backend .env."
+  value       = "https://${local.custom_subdomain_name}.services.ai.azure.com/api/projects/${azurerm_cognitive_account_project.foundry_project.name}"
+}
+
 output "foundry_project_endpoints" {
-  description = "Endpoint map exported by the Foundry project. Used for observability and future project-scoped SDK routing."
+  description = "Endpoint map exported by the Foundry project. Debug output; do not consume in scripts."
   value       = azurerm_cognitive_account_project.foundry_project.endpoints
 }
 
 output "model_deployment_name" {
-  description = "Deployment name to set as AZURE_AI_FOUNDRY_DEPLOYMENT in the backend .env."
+  description = "Shared model deployment name. Use for FOUNDRY_MODEL_DEPLOYMENT_ANALYST/RECOMMENDER/VALIDATOR unless you split deployments."
   value       = azurerm_cognitive_deployment.chat.name
 }
 

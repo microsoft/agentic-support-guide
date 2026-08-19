@@ -22,10 +22,9 @@ export interface HealthDetailsResponse {
   service: string;
   version: string;
   active_provider: string;
-  foundry_configured: boolean;
-  foundry_project_config_present: boolean;
-  deployment_config_present: boolean;
-  application_insights_configured: boolean;
+  foundry_project_configured: boolean;
+  foundry_agents_bound: boolean;
+  service_side_remote_workflow_active: boolean;
   customer_demo_ready: boolean;
   checks: HealthCheckItem[];
   warnings: string[];

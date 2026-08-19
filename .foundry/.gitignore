@@ -1,0 +1,2 @@
+# Local, environment-specific Foundry agent bindings. Never commit.
+agent-bindings.local.json

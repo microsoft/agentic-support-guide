@@ -469,3 +469,6 @@ override.tf.json
 # --- Eval results (never commit) ---
 evals/results/
 
+
+# Foundry bindings (env-specific, never commit)
+.foundry/agent-bindings.local.json

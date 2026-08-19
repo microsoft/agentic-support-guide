@@ -1,30 +1,23 @@
 """Validator Agent.
 
 Deterministic pass/fail plus optional LLM critique. Deterministic
-checks are the source of truth. LLM critique may only add advisory
-warning codes, and only if they match the fixed `enforce_code` format.
-
-Instructions for the LLM critique step live in
-/agents/validator/agent.md. Runtime metadata lives in
-/agents/validator/manifest.yaml.
+checks are the source of truth. The LLM critique step delegates to a
+remote Azure AI Foundry Agent Service assistant. If the remote critique
+is not bound or fails, deterministic pass/fail still applies.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from ..adapter import LocalManifestAgentAdapter
+from ...foundry_agents import FoundryProviderError, FoundryRemoteAgentAdapter
 from ..shared.contracts import (
     DataAnalystOutput,
     SupportRecommendationDraft,
     ValidatorReport,
 )
 from ..shared.sanitization import enforce_code, wrap_untrusted
-
-if TYPE_CHECKING:
-    from ...llm import LlmProvider
 
 AGENT_ID = "validator"
 AGENT_NAME = "validator-agent"
@@ -49,24 +42,14 @@ class ValidatorInput:
 
 
 class ValidatorAgent:
-    def __init__(self, provider: LlmProvider) -> None:
-        self._adapter = LocalManifestAgentAdapter(AGENT_ID, provider)
-
-    @property
-    def system_prompt(self) -> str:
-        return self._adapter.system_prompt
-
-    @property
-    def spec_version(self) -> str:
-        return self._adapter.manifest.version
+    def __init__(self, adapter: FoundryRemoteAgentAdapter) -> None:
+        self._adapter = adapter
 
     def validate(
         self,
         payload: ValidatorInput,
         *,
         use_llm_critique: bool,
-        max_tokens: int,
-        timeout_seconds: float,
     ) -> ValidatorReport:
         issue_codes: list[str] = []
 
@@ -109,16 +92,14 @@ class ValidatorAgent:
         repair_guidance = _build_repair_guidance(issue_codes, unknown_res)
         warning_codes: list[str] = []
 
-        if use_llm_critique:
+        if use_llm_critique and self._adapter.is_bound(AGENT_NAME):
             try:
-                llm_warnings, llm_repair = self._llm_critique(
-                    payload,
-                    max_tokens=max_tokens,
-                    timeout_seconds=timeout_seconds,
-                )
+                llm_warnings, llm_repair = self._llm_critique(payload)
                 warning_codes.extend(llm_warnings)
                 if llm_repair and not repair_guidance:
                     repair_guidance = llm_repair
+            except FoundryProviderError:
+                warning_codes.append("VALIDATOR_LLM_CRITIQUE_UNAVAILABLE")
             except Exception:  # noqa: BLE001 - advisory only
                 warning_codes.append("VALIDATOR_LLM_CRITIQUE_UNAVAILABLE")
 
@@ -129,13 +110,7 @@ class ValidatorAgent:
             repair_guidance=repair_guidance[:1000],
         )
 
-    def _llm_critique(
-        self,
-        payload: ValidatorInput,
-        *,
-        max_tokens: int,
-        timeout_seconds: float,
-    ) -> tuple[list[str], str]:
+    def _llm_critique(self, payload: ValidatorInput) -> tuple[list[str], str]:
         analyst_block = wrap_untrusted(
             "prior_agent_output_data_analyst",
             json.dumps(payload.analysis.model_dump()),
@@ -151,12 +126,11 @@ class ValidatorAgent:
             "must be under 500 characters.\n"
             f"{analyst_block}\n{draft_block}"
         )
-        data = self._adapter.call(
-            user_prompt=user_prompt,
-            response_schema_name="validator_llm_critique",
-            max_output_tokens=max_tokens,
-            timeout_seconds=timeout_seconds,
-        )
+        response = self._adapter.invoke(role=AGENT_NAME, user_message=user_prompt)
+        try:
+            data = json.loads(response.text)
+        except json.JSONDecodeError:
+            return [], ""
         warnings_raw = data.get("warning_codes") or []
         repair_raw = data.get("repair_guidance") or ""
         warnings: list[str] = []

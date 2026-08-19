@@ -8,9 +8,9 @@ from app.agents.support_recommender import (
     SupportRecommenderContext,
 )
 from app.agents.validator import ValidatorAgent, ValidatorContext, ValidatorInput
-from app.llm import MockLlmProvider
 
 from .conftest import canned_data_analyst_output, canned_recommendation_draft
+from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
 
 
 def _analyst_ctx() -> DataAnalystContext:
@@ -30,24 +30,31 @@ def _analyst_ctx() -> DataAnalystContext:
     )
 
 
-def _mock_with_adversarial_critique(critique: dict[str, Any]) -> MockLlmProvider:
-    provider = MockLlmProvider()
-    provider.register("data_analyst_output", canned_data_analyst_output())
-    provider.register(
-        "support_recommendation_draft",
+def _adapter_with_adversarial_critique(critique: dict[str, Any]) -> Any:
+    client = FakeFoundryClient()
+    bindings = build_bindings()
+    client.register_response(
+        bindings["data-analyst-agent"].assistant_id,
+        canned_data_analyst_output(),
+    )
+    client.register_response(
+        bindings["support-recommendation-agent"].assistant_id,
         canned_recommendation_draft(
             smart_goal_ids=["SG-early-literacy-1"],
             strategy_ids=["ST-early-literacy-1"],
         ),
     )
-    provider.register("validator_llm_critique", critique)
-    return provider
+    client.register_response(
+        bindings["validator-agent"].assistant_id,
+        critique,
+    )
+    return make_fake_adapter(client)
 
 
 def test_validator_drops_non_conforming_llm_warnings() -> None:
     """Warning codes not matching UPPER_SNAKE format must be discarded."""
 
-    provider = _mock_with_adversarial_critique(
+    adapter = _adapter_with_adversarial_critique(
         {
             "warning_codes": [
                 "leaked user secret abcdef",  # freeform text
@@ -60,8 +67,8 @@ def test_validator_drops_non_conforming_llm_warnings() -> None:
             "repair_guidance": "",
         }
     )
-    analysis = DataAnalystAgent(provider).analyze(_analyst_ctx(), max_tokens=200, timeout_seconds=5)
-    draft = SupportRecommendationAgent(provider).recommend(
+    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
+    draft = SupportRecommendationAgent(adapter).recommend(
         analysis,
         SupportRecommenderContext(
             category="early-literacy",
@@ -70,10 +77,8 @@ def test_validator_drops_non_conforming_llm_warnings() -> None:
             allowed_smart_goal_ids=("SG-early-literacy-1",),
             allowed_strategy_ids=("ST-early-literacy-1",),
         ),
-        max_tokens=200,
-        timeout_seconds=5,
     )
-    report = ValidatorAgent(provider).validate(
+    report = ValidatorAgent(adapter).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -85,8 +90,6 @@ def test_validator_drops_non_conforming_llm_warnings() -> None:
             ),
         ),
         use_llm_critique=True,
-        max_tokens=200,
-        timeout_seconds=5,
     )
     # Only the properly-shaped codes survive; freeform text is discarded.
     assert set(report.warning_codes) == {"REAL_WARNING_CODE", "TRIMMED_CODE"}

@@ -1,24 +1,21 @@
-"""Data Analyst Agent - thin adapter over LocalManifestAgentAdapter.
+"""Data Analyst Agent - remote Foundry agent invocation.
 
-Instructions live in /agents/data-analyst/agent.md. Runtime metadata
-lives in /agents/data-analyst/manifest.yaml. No role-specific prompt
-text lives in Python.
+The role-specific prompt template and expected schema live here. The
+underlying LLM call is delegated to a remote Azure AI Foundry Agent
+Service assistant via FoundryRemoteAgentAdapter. There is no local
+model call and no local fallback.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from ..adapter import LocalManifestAgentAdapter
+from ...foundry_agents import FoundryRemoteAgentAdapter
 from ..shared.contracts import AnalysisSummary, DataAnalystOutput
 from ..shared.sanitization import wrap_untrusted
-
-if TYPE_CHECKING:
-    from ...llm import LlmProvider
 
 AGENT_ID = "data-analyst"
 AGENT_NAME = "data-analyst-agent"
@@ -41,20 +38,10 @@ class DataAnalystContext:
 
 
 class DataAnalystAgent:
-    def __init__(self, provider: LlmProvider) -> None:
-        self._adapter = LocalManifestAgentAdapter(AGENT_ID, provider)
+    def __init__(self, adapter: FoundryRemoteAgentAdapter) -> None:
+        self._adapter = adapter
 
-    @property
-    def system_prompt(self) -> str:
-        return self._adapter.system_prompt
-
-    @property
-    def spec_version(self) -> str:
-        return self._adapter.manifest.version
-
-    def analyze(
-        self, context: DataAnalystContext, *, max_tokens: int, timeout_seconds: float
-    ) -> DataAnalystOutput:
+    def analyze(self, context: DataAnalystContext) -> DataAnalystOutput:
         facts = {
             "learner_label": context.learner_label,
             "grade": context.grade,
@@ -75,13 +62,11 @@ class DataAnalystAgent:
             + "\n"
             + wrap_untrusted("concern_text", context.sanitized_concern_text)
         )
-
-        payload = self._adapter.call(
-            user_prompt=user_prompt,
-            response_schema_name="data_analyst_output",
-            max_output_tokens=max_tokens,
-            timeout_seconds=timeout_seconds,
-        )
+        response = self._adapter.invoke(role=AGENT_NAME, user_message=user_prompt)
+        try:
+            payload = json.loads(response.text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("invalid_model_json") from exc
         try:
             analysis = AnalysisSummary.model_validate(payload.get("analysis", {}))
         except ValidationError as exc:

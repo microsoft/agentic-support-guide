@@ -14,7 +14,7 @@ describe("SetupStatus", () => {
         /customer demo ready/i,
       ),
     );
-    expect(screen.getByText(/azure_foundry/i)).toBeInTheDocument();
+    expect(screen.getByText(/azure_foundry_agents/i)).toBeInTheDocument();
   });
 
   it("warns that the customer demo is not ready when the backend reports missing config", async () => {
@@ -27,10 +27,10 @@ describe("SetupStatus", () => {
       ),
     );
     expect(
-      screen.getByText(/azure ai foundry environment variables are missing/i),
+      screen.getByText(/azure ai foundry project endpoint is not configured/i),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("setup-check-foundry_endpoint")).toBeInTheDocument();
-    expect(screen.getByTestId("setup-check-foundry_deployment")).toBeInTheDocument();
+    expect(screen.getByTestId("setup-check-foundry_project_endpoint")).toBeInTheDocument();
+    expect(screen.getByTestId("setup-check-agent_bindings")).toBeInTheDocument();
   });
 
   it("shows the API unavailable state on network failure", async () => {

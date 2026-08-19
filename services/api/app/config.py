@@ -1,6 +1,7 @@
 """Static configuration for the local prototype.
 
-Azure OpenAI settings are read from environment. No secrets are baked in.
+Azure AI Foundry Agent Service settings are read from environment.
+No secrets are baked in.
 """
 
 from __future__ import annotations
@@ -11,14 +12,19 @@ from dataclasses import dataclass
 SEED: int = 20260101
 BASE_TIMESTAMP: str = "2026-01-05T09:00:00Z"
 SERVICE_NAME: str = "agentic-support-guide-api"
-SERVICE_VERSION: str = "0.2.0"
+SERVICE_VERSION: str = "0.3.0"
 
 PROTOTYPE_BANNER: str = (
-    "Prototype - synthetic data, three agents backed by Azure AI Foundry, not a production system."
+    "Prototype - synthetic data, three collaborating agents hosted in "
+    "Azure AI Foundry Agent Service, not a production system."
 )
 
-AGENT_REQUEST_TIMEOUT_SECONDS: float = 30.0
-ORCHESTRATION_TOTAL_BUDGET_SECONDS: float = 90.0
+# Per-run remote agent budget (single Foundry run).
+FOUNDRY_RUN_TIMEOUT_SECONDS: float = 30.0
+# Whole-workflow budget across all remote agent invocations.
+ORCHESTRATION_TOTAL_BUDGET_SECONDS: float = 120.0
+# Deprecated: kept for backwards-compat with any test that still imports it.
+AGENT_REQUEST_TIMEOUT_SECONDS: float = FOUNDRY_RUN_TIMEOUT_SECONDS
 AGENT_MAX_OUTPUT_TOKENS: int = 800
 AGENT_MAX_RETRIES: int = 3
 CONCERN_TEXT_MAX_LEN: int = 1000
@@ -42,29 +48,32 @@ COUNTS = MockDataCounts()
 
 @dataclass(frozen=True)
 class AzureFoundrySettings:
-    endpoint: str | None
-    project_name: str | None
-    deployment: str | None
-    api_version: str | None
+    """Runtime settings for Azure AI Foundry Agent Service.
+
+    - `project_endpoint`: the Foundry project endpoint. Required.
+    - `application_insights_connection_string`: optional telemetry sink.
+    - `auth_mode`: only "entra" (Microsoft Entra ID) is supported.
+    - `demo_reset_enabled`: dev/demo toggle for /api/demo/reset.
+    """
+
+    project_endpoint: str | None
     auth_mode: str
     application_insights_connection_string: str | None
     demo_reset_enabled: bool
 
     @property
     def configured(self) -> bool:
-        return bool(self.endpoint and self.deployment and self.api_version)
-
-
-DEFAULT_FOUNDRY_API_VERSION = "2024-10-21"
+        return bool(self.project_endpoint)
 
 
 def load_foundry_settings() -> AzureFoundrySettings:
+    endpoint = (
+        os.environ.get("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT")
+        or os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT")
+        or None
+    )
     return AzureFoundrySettings(
-        endpoint=os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT") or None,
-        project_name=os.environ.get("AZURE_AI_FOUNDRY_PROJECT_NAME") or None,
-        deployment=os.environ.get("AZURE_AI_FOUNDRY_DEPLOYMENT") or None,
-        api_version=os.environ.get("AZURE_AI_FOUNDRY_API_VERSION")
-        or (DEFAULT_FOUNDRY_API_VERSION if os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT") else None),
+        project_endpoint=endpoint,
         auth_mode=os.environ.get("AZURE_AI_FOUNDRY_AUTH_MODE", "entra"),
         application_insights_connection_string=(
             os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING") or None

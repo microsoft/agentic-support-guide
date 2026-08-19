@@ -1,40 +1,11 @@
 from __future__ import annotations
 
-import pytest
-
 from app.agents.shared.sanitization import (
     DATA_CLOSE,
     DATA_OPEN,
     sanitize_free_text,
     wrap_untrusted,
 )
-from app.llm import LlmError, MockLlmProvider
-
-
-def test_mock_provider_returns_registered_json() -> None:
-    provider = MockLlmProvider()
-    provider.register("foo", {"hello": "world"})
-    result = provider.complete_json(
-        system_prompt="s",
-        user_prompt="u",
-        max_output_tokens=10,
-        timeout_seconds=1.0,
-        response_schema_name="foo",
-    )
-    assert result.content == '{"hello": "world"}'
-    assert result.provider == "mock"
-
-
-def test_mock_provider_missing_schema_raises() -> None:
-    provider = MockLlmProvider()
-    with pytest.raises(LlmError):
-        provider.complete_json(
-            system_prompt="s",
-            user_prompt="u",
-            max_output_tokens=10,
-            timeout_seconds=1.0,
-            response_schema_name="unknown",
-        )
 
 
 def test_sanitize_strips_injection_patterns() -> None:

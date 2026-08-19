@@ -32,10 +32,10 @@ Add-Result "terraform_state_present" (Test-Path $tfstate) `
 # 2. Backend .env present with all required keys (presence-only, values hidden).
 $envFile = Join-Path $repoRoot "services\api\.env"
 $envRequired = @(
-    "AZURE_AI_FOUNDRY_ENDPOINT",
-    "AZURE_AI_FOUNDRY_PROJECT_NAME",
-    "AZURE_AI_FOUNDRY_DEPLOYMENT",
-    "AZURE_AI_FOUNDRY_API_VERSION",
+    "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT",
+    "FOUNDRY_MODEL_DEPLOYMENT_ANALYST",
+    "FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER",
+    "FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR",
     "AZURE_AI_FOUNDRY_AUTH_MODE"
 )
 if (Test-Path $envFile) {
@@ -68,15 +68,17 @@ try {
 }
 
 if ($health) {
-    Add-Result "active_provider_azure_foundry" `
-        ($health.active_provider -eq "azure_foundry") `
+    Add-Result "active_provider_azure_foundry_agents" `
+        ($health.active_provider -eq "azure_foundry_agents") `
         "active_provider = $($health.active_provider)"
     Add-Result "customer_demo_ready" ([bool]$health.customer_demo_ready) `
         "customer_demo_ready = $($health.customer_demo_ready)"
-    Add-Result "foundry_configured" ([bool]$health.foundry_configured) `
-        "foundry_configured = $($health.foundry_configured)"
-    Add-Result "deployment_config_present" ([bool]$health.deployment_config_present) `
-        "deployment_config_present = $($health.deployment_config_present)"
+    Add-Result "foundry_project_configured" ([bool]$health.foundry_project_configured) `
+        "foundry_project_configured = $($health.foundry_project_configured)"
+    Add-Result "foundry_agents_bound" ([bool]$health.foundry_agents_bound) `
+        "foundry_agents_bound = $($health.foundry_agents_bound)"
+    Add-Result "service_side_remote_workflow_active" ([bool]$health.service_side_remote_workflow_active) `
+        "service_side_remote_workflow_active = $($health.service_side_remote_workflow_active)"
 }
 
 # 7. Recommendation endpoint works end-to-end using synthetic data.

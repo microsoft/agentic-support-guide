@@ -2,12 +2,15 @@ id: validator-agent
 name: Validator Agent
 version: 1.0.0
 
-runtime:
-  provider: azure_foundry
-  deployment_env: AZURE_AI_FOUNDRY_DEPLOYMENT
-  api_version_env: AZURE_AI_FOUNDRY_API_VERSION
+foundry:
+  foundry_agent_name: asg-validator-agent
+  model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR
   response_format: json_object
+  temperature: 0.2
   max_output_tokens: 800
+
+runtime:
+  provider: azure_foundry_agents
   timeout_seconds: 30
 
 contracts:

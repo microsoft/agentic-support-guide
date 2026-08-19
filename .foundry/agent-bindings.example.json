@@ -1,0 +1,32 @@
+{
+  "data-analyst-agent": {
+    "agent_name": "asg-data-analyst-agent",
+    "assistant_id": "asst_example_analyst",
+    "instructions_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "manifest_version": "1.0.0",
+    "model": "gpt-4.1-mini-analyst",
+    "project_endpoint_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "response_format_mode": "json_object",
+    "updated_at": "1970-01-01T00:00:00Z"
+  },
+  "support-recommendation-agent": {
+    "agent_name": "asg-support-recommendation-agent",
+    "assistant_id": "asst_example_recommender",
+    "instructions_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "manifest_version": "1.0.0",
+    "model": "gpt-4.1-mini-recommender",
+    "project_endpoint_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "response_format_mode": "json_object",
+    "updated_at": "1970-01-01T00:00:00Z"
+  },
+  "validator-agent": {
+    "agent_name": "asg-validator-agent",
+    "assistant_id": "asst_example_validator",
+    "instructions_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "manifest_version": "1.0.0",
+    "model": "gpt-4.1-mini-validator",
+    "project_endpoint_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "response_format_mode": "json_object",
+    "updated_at": "1970-01-01T00:00:00Z"
+  }
+}

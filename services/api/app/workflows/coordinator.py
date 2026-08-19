@@ -1,14 +1,13 @@
 """Agent Coordinator - orchestrates the three-agent workflow.
 
-Sequence: build context -> Data Analyst -> validate contract -> Support
-Recommender -> validate contract -> Validator -> optional single repair of
-the recommender -> re-run deterministic validation once -> return.
+The coordinator is deterministic orchestration, not a fourth agent. It
+does not talk to a base model directly. Every LLM call goes through
+FoundryRemoteAgentAdapter, which invokes a remote Azure AI Foundry
+Agent Service assistant.
 
-Guarantees:
-- No recursion, no repeated repair loops.
-- Data Analyst is never re-run during repair.
-- Unvalidated recommendations never leave the coordinator as successful.
-- Trace metadata contains only safe generalized codes.
+Sequence: sanitize -> Data Analyst -> protocol validate -> Support
+Recommender -> protocol validate -> Validator -> optional single repair
+of the recommender -> re-validate -> return.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from ..agents.data_analyst import DataAnalystAgent, DataAnalystContext
 from ..agents.data_analyst.agent import AGENT_NAME as DATA_ANALYST_NAME
@@ -38,18 +37,23 @@ from ..agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
 from ..agents.validator import ValidatorAgent, ValidatorContext, ValidatorInput
 from ..agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
 from ..config import (
-    AGENT_MAX_OUTPUT_TOKENS,
-    AGENT_REQUEST_TIMEOUT_SECONDS,
     CONCERN_TEXT_MAX_LEN,
     ORCHESTRATION_TOTAL_BUDGET_SECONDS,
 )
 from ..contracts_registry import ContractsRegistry, ContractValidationError
-from ..llm import LlmError, LlmProvider
+from ..foundry_agents import (
+    AuthError,
+    ConfigurationError,
+    ContentFilterError,
+    FoundryProviderError,
+    FoundryRemoteAgentAdapter,
+    FoundryRunError,
+    FoundryTimeoutError,
+    RequiresActionError,
+    ThrottledError,
+)
 from ..models import AgentTraceStep, Recommendation, RecommendationResource
 from ..telemetry import TelemetryRecorder
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass(frozen=True)
@@ -84,12 +88,14 @@ class CoordinatorResult:
 _T = TypeVar("_T")
 
 
-ERROR_CATEGORY_TO_STATUS = {
-    "timeout": "provider_timeout",
-    "throttling": "provider_throttling",
-    "content_filter": "provider_content_filter",
-    "provider_error": "provider_error",
-    "provider_missing": "provider_missing",
+PROVIDER_ERROR_TO_STATUS: dict[type[FoundryProviderError], tuple[str, str]] = {
+    ConfigurationError: ("provider_missing", "AGENT_PROVIDER_MISSING"),
+    AuthError: ("provider_error", "AGENT_PROVIDER_AUTH_DENIED"),
+    ThrottledError: ("provider_throttling", "AGENT_PROVIDER_THROTTLING"),
+    ContentFilterError: ("provider_content_filter", "AGENT_PROVIDER_CONTENT_FILTER"),
+    FoundryTimeoutError: ("provider_timeout", "AGENT_PROVIDER_TIMEOUT"),
+    RequiresActionError: ("provider_error", "AGENT_PROVIDER_REQUIRES_ACTION"),
+    FoundryRunError: ("provider_error", "AGENT_PROVIDER_ERROR"),
 }
 
 
@@ -97,22 +103,24 @@ class AgentCoordinator:
     def __init__(
         self,
         *,
-        provider: LlmProvider,
+        adapter: FoundryRemoteAgentAdapter,
         telemetry: TelemetryRecorder,
         contracts: ContractsRegistry,
+        provider_display: str,
     ) -> None:
-        self._provider = provider
+        self._adapter = adapter
         self._telemetry = telemetry
         self._contracts = contracts
-        self._data_analyst = DataAnalystAgent(provider)
-        self._recommender = SupportRecommendationAgent(provider)
-        self._validator = ValidatorAgent(provider)
+        self._provider_display = provider_display
+        self._data_analyst = DataAnalystAgent(adapter)
+        self._recommender = SupportRecommendationAgent(adapter)
+        self._validator = ValidatorAgent(adapter)
 
     def run(self, request: CoordinatorRequest) -> CoordinatorResult:
         trace: list[AgentTraceStep] = []
         trace_id = str(uuid.uuid4())
         deadline = time.monotonic() + ORCHESTRATION_TOTAL_BUDGET_SECONDS
-        provider_model = f"{self._provider.name} / {self._provider.model}"
+        provider_model = self._provider_display
 
         sanitized_concern = sanitize_free_text(request.concern_text, max_len=CONCERN_TEXT_MAX_LEN)
 
@@ -133,11 +141,7 @@ class AgentCoordinator:
 
         analysis_result = self._call(
             DATA_ANALYST_NAME,
-            lambda: self._data_analyst.analyze(
-                analyst_ctx,
-                max_tokens=AGENT_MAX_OUTPUT_TOKENS,
-                timeout_seconds=self._remaining(deadline),
-            ),
+            lambda: self._data_analyst.analyze(analyst_ctx),
             trace=trace,
             provider_model=provider_model,
             deadline=deadline,
@@ -145,7 +149,6 @@ class AgentCoordinator:
         if isinstance(analysis_result, CoordinatorResult):
             return analysis_result
 
-        # Protocol validation: analyst output must satisfy the wire contract.
         env = self._envelope(
             source_agent="data-analyst-agent",
             target_agent="support-recommendation-agent",
@@ -179,8 +182,6 @@ class AgentCoordinator:
                 analysis_result,
                 rec_ctx,
                 repair_guidance="",
-                max_tokens=AGENT_MAX_OUTPUT_TOKENS,
-                timeout_seconds=self._remaining(deadline),
             ),
             trace=trace,
             provider_model=provider_model,
@@ -189,7 +190,6 @@ class AgentCoordinator:
         if isinstance(draft_result, CoordinatorResult):
             return draft_result
 
-        # Protocol validation: recommender output must satisfy the wire contract.
         env = self._envelope(
             source_agent="support-recommendation-agent",
             target_agent="validator-agent",
@@ -224,7 +224,6 @@ class AgentCoordinator:
         if isinstance(report, CoordinatorResult):
             return report
 
-        # Protocol validation: validator report must satisfy the wire contract.
         env = self._envelope(
             source_agent="validator-agent",
             target_agent="coordinator",
@@ -249,8 +248,6 @@ class AgentCoordinator:
                     analysis_result,
                     rec_ctx,
                     repair_guidance=repair_guidance,
-                    max_tokens=AGENT_MAX_OUTPUT_TOKENS,
-                    timeout_seconds=self._remaining(deadline),
                 ),
                 trace=trace,
                 provider_model=provider_model,
@@ -260,7 +257,6 @@ class AgentCoordinator:
                 return repair_result
             draft_result = repair_result
 
-            # Protocol validation on the repaired draft.
             env = self._envelope(
                 source_agent="support-recommendation-agent",
                 target_agent="validator-agent",
@@ -289,7 +285,6 @@ class AgentCoordinator:
             if isinstance(report, CoordinatorResult):
                 return report
 
-            # Protocol validation on the second-pass validator report.
             env = self._envelope(
                 source_agent="validator-agent",
                 target_agent="coordinator",
@@ -324,7 +319,7 @@ class AgentCoordinator:
             draft=draft_result,
             allowed=request.allowed_resources,
             report=report,
-            provider_display=self._provider.display_name,
+            provider_display=self._provider_display,
         )
         return CoordinatorResult(
             status="ok",
@@ -334,10 +329,6 @@ class AgentCoordinator:
             agent_trace=trace,
             provider_model=provider_model,
         )
-
-    def _remaining(self, deadline: float) -> float:
-        remaining = deadline - time.monotonic()
-        return max(1.0, min(AGENT_REQUEST_TIMEOUT_SECONDS, remaining))
 
     def _envelope(
         self,
@@ -375,8 +366,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status="failed",
-                    provider=self._provider.name,
-                    model=self._provider.model,
+                    provider="azure_foundry_agents",
+                    model="remote",
                     latency_ms=0,
                     token_estimate=None,
                     issue_codes=["PROTOCOL_VALIDATION_FAILED"],
@@ -437,8 +428,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status="budget_exhausted",
-                    provider=self._provider.name,
-                    model=self._provider.model,
+                    provider="azure_foundry_agents",
+                    model="remote",
                     latency_ms=0,
                     token_estimate=None,
                     issue_codes=["ORCHESTRATION_BUDGET_EXHAUSTED"],
@@ -455,16 +446,15 @@ class AgentCoordinator:
         started = time.monotonic()
         try:
             result = fn()
-        except LlmError as exc:
+        except FoundryProviderError as exc:
             latency = int((time.monotonic() - started) * 1000)
-            status = ERROR_CATEGORY_TO_STATUS.get(exc.category, "provider_error")
-            code = f"AGENT_{status.upper()}"
+            status, code = _classify_provider_error(exc)
             trace.append(
                 AgentTraceStep(
                     agent=agent_name,
                     status=status,
-                    provider=self._provider.name,
-                    model=self._provider.model,
+                    provider="azure_foundry_agents",
+                    model="remote",
                     latency_ms=latency,
                     token_estimate=None,
                     issue_codes=[code],
@@ -489,8 +479,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status="invalid_model_json",
-                    provider=self._provider.name,
-                    model=self._provider.model,
+                    provider="azure_foundry_agents",
+                    model="remote",
                     latency_ms=latency,
                     token_estimate=None,
                     issue_codes=[f"AGENT_INVALID_JSON:{code}"],
@@ -499,7 +489,7 @@ class AgentCoordinator:
             return CoordinatorResult(
                 status="invalid_model_json",
                 error_code="AGENT_INVALID_JSON",
-                error_message="Model returned invalid or off-schema JSON.",
+                error_message="Remote agent returned invalid or off-schema JSON.",
                 recommendation=None,
                 agent_trace=trace,
                 provider_model=provider_model,
@@ -509,8 +499,8 @@ class AgentCoordinator:
             AgentTraceStep(
                 agent=agent_name,
                 status="ok",
-                provider=self._provider.name,
-                model=self._provider.model,
+                provider="azure_foundry_agents",
+                model="remote",
                 latency_ms=latency,
                 token_estimate=None,
             )
@@ -537,8 +527,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=VALIDATOR_NAME,
                     status="budget_exhausted",
-                    provider=self._provider.name,
-                    model=self._provider.model,
+                    provider="azure_foundry_agents",
+                    model="remote",
                     latency_ms=0,
                     token_estimate=None,
                     issue_codes=["ORCHESTRATION_BUDGET_EXHAUSTED"],
@@ -556,16 +546,14 @@ class AgentCoordinator:
         report = self._validator.validate(
             ValidatorInput(analysis=analysis, draft=draft, context=ctx),
             use_llm_critique=use_llm_critique,
-            max_tokens=AGENT_MAX_OUTPUT_TOKENS,
-            timeout_seconds=self._remaining(deadline),
         )
         latency = int((time.monotonic() - started) * 1000)
         trace.append(
             AgentTraceStep(
                 agent=VALIDATOR_NAME,
                 status="passed" if report.passed else "failed",
-                provider=self._provider.name,
-                model=self._provider.model,
+                provider="azure_foundry_agents",
+                model="remote",
                 latency_ms=latency,
                 token_estimate=None,
                 issue_codes=list(report.issue_codes),
@@ -575,23 +563,30 @@ class AgentCoordinator:
         return report
 
 
+def _classify_provider_error(exc: FoundryProviderError) -> tuple[str, str]:
+    for cls, mapping in PROVIDER_ERROR_TO_STATUS.items():
+        if isinstance(exc, cls):
+            return mapping
+    return ("provider_error", "AGENT_PROVIDER_ERROR")
+
+
 _SAFE_MESSAGES = {
-    "provider_timeout": "Model provider timed out.",
-    "provider_throttling": "Model provider throttled the request.",
-    "provider_content_filter": "Model provider blocked the request via content safety.",
-    "provider_error": "Model provider returned an error.",
-    "provider_missing": "Model provider configuration is missing.",
+    "provider_timeout": "Remote agent run timed out.",
+    "provider_throttling": "Remote agent was throttled.",
+    "provider_content_filter": "Remote agent blocked the request via content safety.",
+    "provider_error": "Remote agent returned an error.",
+    "provider_missing": (
+        "Foundry Agent Service is not configured or bindings are missing. "
+        "Run scripts/sync_foundry_agents.py --apply."
+    ),
 }
 
 
 def _safe_message(status: str) -> str:
-    return _SAFE_MESSAGES.get(status, "Unknown provider error.")
+    return _SAFE_MESSAGES.get(status, "Unknown remote agent error.")
 
 
 def _sanitize_repair(text: str) -> str:
-    # Only structured template lines produced by the validator can pass. The
-    # LLM critique text was intentionally coerced through fixed templates in
-    # the Validator; here we just cap length.
     return text[:800]
 
 

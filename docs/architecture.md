@@ -1,8 +1,9 @@
 # Architecture
 
 `agentic-support-guide` is a customer-demo prototype demonstrating an
-Azure AI Foundry three-agent workflow. All data is synthetic. LLM calls
-go to a real Azure AI Foundry model deployment.
+Azure AI Foundry three-agent workflow. All data is synthetic. Every LLM
+call is a run against a remote **Azure AI Foundry Agent Service**
+assistant. There is no local model call in the recommendation path.
 
 ## Repository layout
 
@@ -11,6 +12,7 @@ go to a real Azure AI Foundry model deployment.
   data-analyst/
     agent.md                   # Source of truth for instructions
     manifest.yaml              # Source of truth for runtime metadata
+                               #  incl. `foundry:` binding block
     schemas/                   # Agent-local input/output shapes
   support-recommender/
   validator/
@@ -18,105 +20,118 @@ go to a real Azure AI Foundry model deployment.
 /contracts/v1/                 # Source of truth for inter-agent protocol
   *.schema.json
 
-/services/api/                 # Generic runtime engine (FastAPI)
-  app/agents/adapter.py        # LocalManifestAgentAdapter
-  app/contracts_registry.py    # Central JSON Schema registry
-  app/workflows/coordinator.py # Orchestrator; validates every hop
+/.foundry/                     # Local, environment-specific Foundry bindings
+  agent-bindings.example.json  # Committed example (not real IDs)
+  agent-bindings.local.json    # Gitignored, produced by sync script
+
+/services/api/                 # Orchestration + FastAPI (no direct model calls)
+  app/foundry_agents/          # ONLY place that imports azure-ai-agents
+    sdk_client.py              #   thin wrapper around AgentsClient
+    adapter.py                 #   FoundryRemoteAgentAdapter (role -> asst)
+    bindings.py                #   read/write .foundry/agent-bindings.local.json
+    prompt_envelope.py         #   compose_instructions() shared with sync script
+    errors.py                  #   typed provider errors
   app/agents/{data_analyst,support_recommender,validator}/agent.py
-      # Thin Python wrappers that delegate to LocalManifestAgentAdapter
+                               # Role wrappers that call the remote adapter
+  app/workflows/coordinator.py # Deterministic orchestrator; validates every hop
+  app/contracts_registry.py    # Central JSON Schema registry
 
 /apps/web/                     # React + TS UI
 /infra/                        # Terraform for Azure AI Foundry
 /docs/                         # Architecture, security, ADRs, GenAIOps
 /evals/                        # Synthetic evaluation cases
-/scripts/                      # PowerShell + Python demo helpers
+/scripts/                      # sync_foundry_agents.py, populate-env.ps1, ...
 ```
 
 ## Source-of-truth rules
 
-- **`/agents/<id>/agent.md`** — human-readable instructions for the LLM.
-  No role-specific prompt text lives in Python.
-- **`/agents/<id>/manifest.yaml`** — runtime metadata (which model
-  deployment, timeouts, contract references, safety policy).
+- **`/agents/<id>/agent.md`** — instructions the remote Foundry agent
+  sees. No role-specific prompt text lives in Python.
+- **`/agents/<id>/manifest.yaml`** — runtime metadata + the `foundry:`
+  binding block (agent name, model deployment env var, temperature,
+  response format).
 - **`/contracts/v1/*.schema.json`** — inter-agent protocol. Every
   message that crosses an agent boundary validates against these.
-- **`/services/api/`** — the runtime engine. Owns orchestration but not
-  agent definitions.
+- **`/.foundry/agent-bindings.local.json`** — the role → remote
+  assistant ID map. Environment-specific and gitignored. Produced by
+  `scripts/sync_foundry_agents.py --apply`.
+- **`/services/api/`** — the orchestration engine and Foundry adapter.
 
 ## Independence rules
 
 - Agents (in `/agents`) are configuration-only. No Python
   implementation lives under `/agents`.
-- The three Python wrappers (`app/agents/*/agent.py`) do not import each
-  other and do not import API internals (`workflows/`, `main`, `models`,
-  `plans_store`, `runtime_audit`).
+- The three Python wrappers (`app/agents/*/agent.py`) do not import
+  each other and do not import API internals (`workflows/`, `main`,
+  `models`, `plans_store`, `runtime_audit`).
 - The coordinator is the only place all three agents meet.
-- There is no shared runtime contracts package. `/contracts/v1` holds
-  JSON Schemas only. Python's Pydantic types under `services/api/` are
-  internal type stubs, not the source of truth.
+- No file outside `app/foundry_agents/sdk_client.py` may import
+  `azure.ai.agents`, `AzureOpenAI`, `openai.`, or reference
+  `chat.completions`. This is asserted by
+  `tests/test_agents_config.py::test_no_direct_model_calls_outside_sdk_client`.
 
 ## Runtime execution
 
-### LocalManifestAgentAdapter
+### FoundryRemoteAgentAdapter
 
-Location: [`services/api/app/agents/adapter.py`](../services/api/app/agents/adapter.py).
+Location:
+[`services/api/app/foundry_agents/adapter.py`](../services/api/app/foundry_agents/adapter.py).
 
-For any `agent_id`, the adapter:
+For a given role name (e.g. `data-analyst-agent`) and user message, the
+adapter:
 
-1. Reads `/agents/<agent_id>/agent.md` and parses out the body.
-2. Reads `/agents/<agent_id>/manifest.yaml` and requires seven keys
-   (`id`, `name`, `version`, `runtime`, `contracts`, `handoff`,
-   `safety`).
-3. Composes a system prompt as `agent.md body + fixed generic envelope`.
-   The envelope contains only:
-   - "return JSON only",
-   - untrusted-data delimiter rule,
-   - determination boundaries,
-   - "must satisfy the referenced output schema".
-4. Calls `LlmProvider.complete_json(...)` with the composed prompt and
-   the manifest's `max_output_tokens` / `timeout_seconds` defaults.
-5. Parses the response body as JSON and returns the dict. Contract
-   validation happens in the coordinator, not here, so this adapter
-   stays generic across all agents.
+1. Looks up the role in the loaded bindings map.
+2. Refuses to invoke if the binding was produced against a different
+   Foundry project endpoint (`project_endpoint_hash` mismatch) — the
+   operator must re-run the sync script with `--rebind`.
+3. Delegates to `FoundryAgentClient.run_agent(...)`, which creates a
+   thread, adds the user message, creates a run bound to the
+   assistant, polls until a terminal status, reads the last assistant
+   message, and returns the raw text.
+4. Maps SDK-level failures into typed `FoundryProviderError` subclasses
+   (`ConfigurationError`, `AuthError`, `ThrottledError`,
+   `ContentFilterError`, `FoundryTimeoutError`, `RequiresActionError`,
+   `FoundryRunError`).
 
-Because the system prompt is derived from `agent.md` at construction
-time, editing `agent.md` on disk changes the constructed prompt on next
-backend restart — no Python change required.
+There is no local fallback: if the adapter cannot invoke the remote
+agent, it raises. The coordinator translates that into a typed API
+error.
 
-### The three Python agent classes
+### The three Python role classes
 
 `DataAnalystAgent`, `SupportRecommendationAgent`, and `ValidatorAgent`
-are now thin wrappers. Each:
+are now thin role wrappers. Each:
 
-- Constructs a `LocalManifestAgentAdapter(agent_id, provider)`.
-- Exposes `system_prompt` and `spec_version` properties.
-- Wraps the adapter call with a small helper method (`analyze()`,
-  `recommend()`, or `validate()`) that formats the user prompt from
-  typed context objects and parses the returned payload into internal
-  Pydantic types.
+- Holds a reference to a `FoundryRemoteAgentAdapter`.
+- Builds the role-specific user message (untrusted-data delimiters,
+  sanitized concern text, prior-agent output as an untrusted block).
+- Calls `adapter.invoke(role=..., user_message=...)`.
+- Parses the returned text as JSON and validates it with the internal
+  Pydantic type for that role.
 
 The Validator additionally runs deterministic Python checks against the
 allowed catalog, required caveats, and required tier framing. The LLM
-critique is advisory only and cannot flip a deterministic pass to
-failure.
+critique step delegates to the remote validator agent and is advisory
+only — it cannot flip a deterministic pass to failure.
 
 ### Coordinator + contracts registry
 
-Location: [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py)
-and [`services/api/app/contracts_registry.py`](../services/api/app/contracts_registry.py).
+Location:
+[`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py)
+and
+[`services/api/app/contracts_registry.py`](../services/api/app/contracts_registry.py).
 
 `AgentCoordinator.run()`:
 
 1. Sanitizes the free-text concern.
-2. Calls Data Analyst; if a `provider_missing`/`timeout`/`content_filter`
-   error occurs, returns a typed failure envelope with a safe message
-   and no recommendation content.
+2. Calls Data Analyst; if any typed provider error occurs, returns a
+   typed failure envelope with a safe message and no recommendation.
 3. Validates the analyst output as a `data-analysis-result` envelope
    against `/contracts/v1/`. If validation fails, returns
    `PROTOCOL_VALIDATION_FAILED`.
 4. Calls Support Recommender.
 5. Validates the recommender output as `support-recommendation-result`.
-6. Runs the Validator Agent (deterministic + optional LLM critique).
+6. Runs the Validator Agent (deterministic + advisory LLM critique).
 7. Validates the validator report as `validation-result`.
 8. If the validator failed, re-runs Support Recommender exactly once
    with sanitized repair guidance and re-validates. Data Analyst is
@@ -125,44 +140,49 @@ and [`services/api/app/contracts_registry.py`](../services/api/app/contracts_reg
    recommendation and safe trace metadata.
 
 There is no path where `status == "ok"` returns without a validated
-recommendation. `status == "ok"` implies contracts registry validation
-passed at each step and the Validator deterministic checks passed.
+recommendation.
+
+## The coordinator is not an agent
+
+The coordinator is deterministic Python that ordered the calls, ran the
+protocol registry, and enforced the one-shot repair loop. It is not a
+fourth agent, does not talk to a base model, and does not appear as a
+Foundry agent. This is intentional — it keeps the sequence, the
+protocol validation, and the failure taxonomy in code the test suite
+can exercise with a fake client.
 
 ## Trust boundaries
 
 - User concern text is sanitized (`sanitize_free_text`) before wrapping.
-- Every untrusted block reaches the LLM inside
+- Every untrusted block reaches the remote agent inside
   `<<<UNTRUSTED_DATA>>> ... <<<END_UNTRUSTED_DATA>>>` delimiters.
 - Prior-agent outputs are treated as untrusted data.
 - Validator LLM critique text is filtered through `enforce_code()` —
   only strings matching `^[A-Z][A-Z0-9_]{3,59}$` survive.
 - Trace metadata exposed to the UI contains only agent name, status,
-  provider, model, latency, token estimate, and enumerated
-  issue/warning codes.
+  provider (always `azure_foundry_agents`), latency, and enumerated
+  issue/warning codes. No prompts, completions, thread IDs, run IDs,
+  or assistant IDs are exposed.
 
-## Independent deployability
+## Deployment / provisioning flow
 
-Because `/agents/<id>/` folders are configuration-only and the Python
-wrappers do not depend on each other, each agent can move to its own
-runtime later:
+1. `terraform apply` in `/infra` provisions the Foundry project and
+   model deployments.
+2. `scripts/populate-env.ps1` copies the outputs into
+   `services/api/.env` (including `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
+   and the per-role `FOUNDRY_MODEL_DEPLOYMENT_*` names).
+3. `python scripts/sync_foundry_agents.py --apply` reads
+   `/agents/<id>/{agent.md, manifest.yaml}`, creates or updates one
+   remote assistant per role, and writes
+   `.foundry/agent-bindings.local.json` with the assistant IDs and
+   an `instructions_hash` for drift detection.
+4. Restart the backend. `/api/health/details` reports
+   `foundry_project_configured`, `foundry_agents_bound`, and
+   `service_side_remote_workflow_active`.
 
-1. Deploy a small FastAPI (or Foundry-hosted-agent) service per agent.
-2. Each service reads its `/agents/<id>/` folder at startup and exposes
-   a single endpoint that takes the contract's request envelope and
-   returns the response envelope.
-3. Update the coordinator's HTTP client to call the remote endpoints
-   instead of instantiating the wrapper classes.
-4. Nothing about the prompt content or the schemas changes.
-
-## Mapping to Microsoft Agent Framework / Azure AI Foundry
-
-- Each `manifest.yaml` maps to a Microsoft Agent Framework agent
-  registration and to a Foundry hosted-agent definition.
-- Each `agent.md` maps to the hosted-agent system instructions.
-- Each `/contracts/v1/*.schema.json` maps to the hosted workflow's
-  strongly-typed message contracts.
-- The coordinator maps to a Foundry workflow when the SDK stabilizes.
-  Until then, the local Python coordinator is the runtime.
+Editing `/agents/<id>/agent.md` or `manifest.yaml` and re-running
+`--apply` updates the remote agent in place. The instructions hash
+guards against silent drift.
 
 See [`adr/0001-agent-hosting.md`](adr/0001-agent-hosting.md) and
 [`adr/0001-foundry-project.md`](adr/0001-foundry-project.md).

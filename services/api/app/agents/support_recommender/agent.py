@@ -1,23 +1,15 @@
-"""Support Recommendation Agent - thin adapter over LocalManifestAgentAdapter.
-
-Instructions live in /agents/support-recommender/agent.md. Runtime metadata
-lives in /agents/support-recommender/manifest.yaml.
-"""
+"""Support Recommendation Agent - remote Foundry agent invocation."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from ..adapter import LocalManifestAgentAdapter
+from ...foundry_agents import FoundryRemoteAgentAdapter
 from ..shared.contracts import DataAnalystOutput, ResourceRef, SupportRecommendationDraft
 from ..shared.sanitization import wrap_untrusted
-
-if TYPE_CHECKING:
-    from ...llm import LlmProvider
 
 AGENT_ID = "support-recommender"
 AGENT_NAME = "support-recommendation-agent"
@@ -33,16 +25,8 @@ class SupportRecommenderContext:
 
 
 class SupportRecommendationAgent:
-    def __init__(self, provider: LlmProvider) -> None:
-        self._adapter = LocalManifestAgentAdapter(AGENT_ID, provider)
-
-    @property
-    def system_prompt(self) -> str:
-        return self._adapter.system_prompt
-
-    @property
-    def spec_version(self) -> str:
-        return self._adapter.manifest.version
+    def __init__(self, adapter: FoundryRemoteAgentAdapter) -> None:
+        self._adapter = adapter
 
     def recommend(
         self,
@@ -50,8 +34,6 @@ class SupportRecommendationAgent:
         context: SupportRecommenderContext,
         *,
         repair_guidance: str = "",
-        max_tokens: int,
-        timeout_seconds: float,
     ) -> SupportRecommendationDraft:
         allowed = {
             "resource_ids": [r.id for r in context.allowed_resources],
@@ -71,13 +53,11 @@ class SupportRecommendationAgent:
             f"Category: {context.category}. Produce a SupportRecommendationDraft.\n"
             f"{analyst_block}\n{allowed_block}\n{concern_block}\n{repair_block}"
         )
-
-        payload = self._adapter.call(
-            user_prompt=user_prompt,
-            response_schema_name="support_recommendation_draft",
-            max_output_tokens=max_tokens,
-            timeout_seconds=timeout_seconds,
-        )
+        response = self._adapter.invoke(role=AGENT_NAME, user_message=user_prompt)
+        try:
+            payload = json.loads(response.text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("invalid_model_json") from exc
         try:
             return SupportRecommendationDraft.model_validate(payload)
         except ValidationError as exc:

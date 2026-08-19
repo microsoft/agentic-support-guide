@@ -6,28 +6,40 @@ endpoint URLs, tokens, connection strings, or raw environment values.
 
 from __future__ import annotations
 
+from .agents.data_analyst.agent import AGENT_NAME as DATA_ANALYST_NAME
+from .agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
+from .agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
 from .config import AzureFoundrySettings
-from .llm import LlmProvider
+from .foundry_agents import FoundryRemoteAgentAdapter
 from .models import HealthCheckItem, HealthDetailsResponse
 
 SERVICE_STATUS = "ok"
+REQUIRED_ROLES: tuple[str, ...] = (
+    DATA_ANALYST_NAME,
+    RECOMMENDER_NAME,
+    VALIDATOR_NAME,
+)
 
 
 def build_health_details(
     *,
     settings: AzureFoundrySettings,
-    provider: LlmProvider,
+    adapter: FoundryRemoteAgentAdapter | None,
     service: str,
     version: str,
 ) -> HealthDetailsResponse:
-    if provider.name == "azure-openai":
-        active_provider = "azure_foundry"
-    elif provider.name == "mock":
-        active_provider = "test_double"
+    project_configured = settings.configured
+    agents_bound = adapter is not None and adapter.all_roles_bound(REQUIRED_ROLES)
+
+    # Runtime is "azure_foundry_agents" only when both the project is
+    # configured AND all three roles are bound to remote assistants.
+    if project_configured and agents_bound:
+        active_provider = "azure_foundry_agents"
     else:
         active_provider = "unconfigured"
 
-    customer_demo_ready = active_provider == "azure_foundry" and settings.configured
+    service_side_remote_workflow_active = active_provider == "azure_foundry_agents"
+    customer_demo_ready = service_side_remote_workflow_active
 
     checks: list[HealthCheckItem] = [
         HealthCheckItem(
@@ -37,43 +49,24 @@ def build_health_details(
             detail="FastAPI is responding to requests.",
         ),
         HealthCheckItem(
-            name="foundry_endpoint",
-            label="Azure AI Foundry endpoint configured",
-            ok=bool(settings.endpoint),
+            name="foundry_project_endpoint",
+            label="Azure AI Foundry project endpoint configured",
+            ok=project_configured,
             detail=(
                 "Set. Endpoint value hidden."
-                if settings.endpoint
-                else "Not set. Populate AZURE_AI_FOUNDRY_ENDPOINT from Terraform outputs."
+                if project_configured
+                else "Not set. Populate AZURE_AI_FOUNDRY_PROJECT_ENDPOINT."
             ),
         ),
         HealthCheckItem(
-            name="foundry_project",
-            label="Azure AI Foundry project name",
-            ok=bool(settings.project_name),
+            name="agent_bindings",
+            label="Foundry agent bindings present",
+            ok=agents_bound,
             detail=(
-                "Set."
-                if settings.project_name
-                else "Not set. Populate AZURE_AI_FOUNDRY_PROJECT_NAME (observability)."
-            ),
-        ),
-        HealthCheckItem(
-            name="foundry_deployment",
-            label="Model deployment name",
-            ok=bool(settings.deployment),
-            detail=(
-                "Set."
-                if settings.deployment
-                else "Not set. Populate AZURE_AI_FOUNDRY_DEPLOYMENT with your model deployment."
-            ),
-        ),
-        HealthCheckItem(
-            name="foundry_api_version",
-            label="Azure AI Foundry API version",
-            ok=bool(settings.api_version),
-            detail=(
-                "Set. Value hidden."
-                if settings.api_version
-                else "Not set. Use the documented default API version."
+                "All required roles are bound to remote Foundry agents."
+                if agents_bound
+                else "One or more roles are not bound. Run "
+                "scripts/sync_foundry_agents.py --apply."
             ),
         ),
         HealthCheckItem(
@@ -99,16 +92,17 @@ def build_health_details(
     ]
 
     warnings: list[str] = []
-    if active_provider == "unconfigured":
+    if not project_configured:
         warnings.append(
-            "Azure AI Foundry environment variables are missing. "
-            "Recommendation requests will fail with a typed provider_missing error "
-            "until services/api/.env is populated from the Terraform outputs."
+            "Azure AI Foundry project endpoint is not configured. Recommendation "
+            "requests will fail with a typed provider_missing error until "
+            "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is set."
         )
-    if active_provider == "test_double":
+    elif not agents_bound:
         warnings.append(
-            "A test-double LLM provider is currently registered. This build path is "
-            "reserved for automated tests. Customer demos must use Azure AI Foundry."
+            "Foundry project is configured but agent bindings are missing. Run "
+            "scripts/sync_foundry_agents.py --apply to create/update remote "
+            "agents from the /agents definitions."
         )
 
     guidance = _guidance(active_provider)
@@ -118,10 +112,9 @@ def build_health_details(
         service=service,
         version=version,
         active_provider=active_provider,
-        foundry_configured=settings.configured,
-        foundry_project_config_present=bool(settings.project_name),
-        deployment_config_present=bool(settings.deployment),
-        application_insights_configured=bool(settings.application_insights_connection_string),
+        foundry_project_configured=project_configured,
+        foundry_agents_bound=agents_bound,
+        service_side_remote_workflow_active=service_side_remote_workflow_active,
         customer_demo_ready=customer_demo_ready,
         checks=checks,
         warnings=warnings,
@@ -130,18 +123,13 @@ def build_health_details(
 
 
 def _guidance(active_provider: str) -> str:
-    if active_provider == "azure_foundry":
+    if active_provider == "azure_foundry_agents":
         return (
             "Ready for a live demo. Sign in with 'az login' if you have not already. "
             "First-request RBAC propagation may take a few minutes; retry if you see 401/403."
         )
-    if active_provider == "test_double":
-        return (
-            "The backend is currently wired to a test-double provider. Not suitable for a "
-            "customer demo. Restart the backend with Azure AI Foundry environment variables "
-            "populated."
-        )
     return (
-        "Not demo-ready. To finish setup: run Terraform in /infra, then copy the outputs "
-        "into services/api/.env and restart the backend."
+        "Not demo-ready. To finish setup: run Terraform in /infra, populate "
+        "services/api/.env with AZURE_AI_FOUNDRY_PROJECT_ENDPOINT, run "
+        "scripts/sync_foundry_agents.py --apply, then restart the backend."
     )

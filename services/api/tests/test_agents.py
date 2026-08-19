@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from app.agents.data_analyst import DataAnalystAgent, DataAnalystContext
 from app.agents.shared.contracts import ResourceRef
 from app.agents.support_recommender import (
@@ -7,27 +10,44 @@ from app.agents.support_recommender import (
     SupportRecommenderContext,
 )
 from app.agents.validator import ValidatorAgent, ValidatorContext, ValidatorInput
-from app.llm import MockLlmProvider
 
 from .conftest import (
     canned_data_analyst_output,
     canned_recommendation_draft,
     canned_validator_critique,
 )
+from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
 
 
-def _mock() -> MockLlmProvider:
-    provider = MockLlmProvider()
-    provider.register("data_analyst_output", canned_data_analyst_output())
-    provider.register(
-        "support_recommendation_draft",
+def _seed_client(
+    *,
+    resource_ids: list[str] | None = None,
+    smart_goal_ids: list[str] | None = None,
+    strategy_ids: list[str] | None = None,
+    tier: str = "Targeted support (Tier 2)",
+    caveats: list[str] | None = None,
+) -> tuple[FakeFoundryClient, dict[str, Any]]:
+    client = FakeFoundryClient()
+    bindings = build_bindings()
+    client.register_response(
+        bindings["data-analyst-agent"].assistant_id,
+        canned_data_analyst_output(),
+    )
+    client.register_response(
+        bindings["support-recommendation-agent"].assistant_id,
         canned_recommendation_draft(
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
+            resource_ids=resource_ids,
+            smart_goal_ids=smart_goal_ids or ["SG-early-literacy-1"],
+            strategy_ids=strategy_ids or ["ST-early-literacy-1"],
+            tier=tier,
+            caveats=caveats,
         ),
     )
-    provider.register("validator_llm_critique", canned_validator_critique())
-    return provider
+    client.register_response(
+        bindings["validator-agent"].assistant_id,
+        canned_validator_critique(),
+    )
+    return client, bindings
 
 
 def _context() -> DataAnalystContext:
@@ -48,18 +68,18 @@ def _context() -> DataAnalystContext:
 
 
 def test_data_analyst_agent_returns_typed_output() -> None:
-    provider = _mock()
-    agent = DataAnalystAgent(provider)
-    result = agent.analyze(_context(), max_tokens=400, timeout_seconds=10)
+    client, _ = _seed_client()
+    adapter = make_fake_adapter(client)
+    result = DataAnalystAgent(adapter).analyze(_context())
     assert result.contract_version == "1.0.0"
     assert result.analysis.detected_need
     assert 0 <= result.analysis.analysis_confidence <= 1
 
 
 def test_support_recommender_agent_returns_typed_draft() -> None:
-    provider = _mock()
-    analysis = DataAnalystAgent(provider).analyze(_context(), max_tokens=400, timeout_seconds=10)
-    agent = SupportRecommendationAgent(provider)
+    client, _ = _seed_client()
+    adapter = make_fake_adapter(client)
+    analysis = DataAnalystAgent(adapter).analyze(_context())
     ctx = SupportRecommenderContext(
         category="early-literacy",
         sanitized_concern_text="synthetic concern",
@@ -67,16 +87,17 @@ def test_support_recommender_agent_returns_typed_draft() -> None:
         allowed_smart_goal_ids=("SG-early-literacy-1",),
         allowed_strategy_ids=("ST-early-literacy-1",),
     )
-    draft = agent.recommend(analysis, ctx, max_tokens=400, timeout_seconds=10)
+    draft = SupportRecommendationAgent(adapter).recommend(analysis, ctx)
     assert draft.contract_version == "1.0.0"
     assert draft.review_window_days > 0
     assert draft.rationale
 
 
 def test_validator_agent_pass() -> None:
-    provider = _mock()
-    analysis = DataAnalystAgent(provider).analyze(_context(), max_tokens=400, timeout_seconds=10)
-    draft = SupportRecommendationAgent(provider).recommend(
+    client, _ = _seed_client()
+    adapter = make_fake_adapter(client)
+    analysis = DataAnalystAgent(adapter).analyze(_context())
+    draft = SupportRecommendationAgent(adapter).recommend(
         analysis,
         SupportRecommenderContext(
             category="early-literacy",
@@ -85,10 +106,8 @@ def test_validator_agent_pass() -> None:
             allowed_smart_goal_ids=("SG-early-literacy-1",),
             allowed_strategy_ids=("ST-early-literacy-1",),
         ),
-        max_tokens=400,
-        timeout_seconds=10,
     )
-    report = ValidatorAgent(provider).validate(
+    report = ValidatorAgent(adapter).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -100,24 +119,17 @@ def test_validator_agent_pass() -> None:
             ),
         ),
         use_llm_critique=True,
-        max_tokens=200,
-        timeout_seconds=10,
     )
     assert report.passed, report.issue_codes
 
 
 def test_validator_agent_flags_unknown_resource() -> None:
-    provider = _mock()
-    provider.register(
-        "support_recommendation_draft",
-        canned_recommendation_draft(
-            resource_ids=["RES-000-INVENTED"],
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
-        ),
+    client, _ = _seed_client(
+        resource_ids=["RES-000-INVENTED"],
     )
-    analysis = DataAnalystAgent(provider).analyze(_context(), max_tokens=400, timeout_seconds=10)
-    draft = SupportRecommendationAgent(provider).recommend(
+    adapter = make_fake_adapter(client)
+    analysis = DataAnalystAgent(adapter).analyze(_context())
+    draft = SupportRecommendationAgent(adapter).recommend(
         analysis,
         SupportRecommenderContext(
             category="early-literacy",
@@ -126,10 +138,8 @@ def test_validator_agent_flags_unknown_resource() -> None:
             allowed_smart_goal_ids=("SG-early-literacy-1",),
             allowed_strategy_ids=("ST-early-literacy-1",),
         ),
-        max_tokens=400,
-        timeout_seconds=10,
     )
-    report = ValidatorAgent(provider).validate(
+    report = ValidatorAgent(adapter).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -141,25 +151,16 @@ def test_validator_agent_flags_unknown_resource() -> None:
             ),
         ),
         use_llm_critique=False,
-        max_tokens=200,
-        timeout_seconds=10,
     )
     assert not report.passed
     assert "UNKNOWN_RESOURCE_ID" in report.issue_codes
 
 
 def test_validator_agent_flags_missing_caveats() -> None:
-    provider = _mock()
-    provider.register(
-        "support_recommendation_draft",
-        canned_recommendation_draft(
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
-            caveats=[],
-        ),
-    )
-    analysis = DataAnalystAgent(provider).analyze(_context(), max_tokens=400, timeout_seconds=10)
-    draft = SupportRecommendationAgent(provider).recommend(
+    client, _ = _seed_client(caveats=[])
+    adapter = make_fake_adapter(client)
+    analysis = DataAnalystAgent(adapter).analyze(_context())
+    draft = SupportRecommendationAgent(adapter).recommend(
         analysis,
         SupportRecommenderContext(
             category="early-literacy",
@@ -168,10 +169,8 @@ def test_validator_agent_flags_missing_caveats() -> None:
             allowed_smart_goal_ids=("SG-early-literacy-1",),
             allowed_strategy_ids=("ST-early-literacy-1",),
         ),
-        max_tokens=400,
-        timeout_seconds=10,
     )
-    report = ValidatorAgent(provider).validate(
+    report = ValidatorAgent(adapter).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -183,25 +182,16 @@ def test_validator_agent_flags_missing_caveats() -> None:
             ),
         ),
         use_llm_critique=False,
-        max_tokens=200,
-        timeout_seconds=10,
     )
     assert not report.passed
     assert "MISSING_CAVEATS" in report.issue_codes
 
 
 def test_validator_agent_flags_invalid_tier() -> None:
-    provider = _mock()
-    provider.register(
-        "support_recommendation_draft",
-        canned_recommendation_draft(
-            tier="Mystery Tier",
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
-        ),
-    )
-    analysis = DataAnalystAgent(provider).analyze(_context(), max_tokens=400, timeout_seconds=10)
-    draft = SupportRecommendationAgent(provider).recommend(
+    client, _ = _seed_client(tier="Mystery Tier")
+    adapter = make_fake_adapter(client)
+    analysis = DataAnalystAgent(adapter).analyze(_context())
+    draft = SupportRecommendationAgent(adapter).recommend(
         analysis,
         SupportRecommenderContext(
             category="early-literacy",
@@ -210,10 +200,8 @@ def test_validator_agent_flags_invalid_tier() -> None:
             allowed_smart_goal_ids=("SG-early-literacy-1",),
             allowed_strategy_ids=("ST-early-literacy-1",),
         ),
-        max_tokens=400,
-        timeout_seconds=10,
     )
-    report = ValidatorAgent(provider).validate(
+    report = ValidatorAgent(adapter).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -225,7 +213,8 @@ def test_validator_agent_flags_invalid_tier() -> None:
             ),
         ),
         use_llm_critique=False,
-        max_tokens=200,
-        timeout_seconds=10,
     )
     assert "INVALID_SUPPORT_TIER" in report.issue_codes
+
+
+_ = json  # silence unused-import noise
