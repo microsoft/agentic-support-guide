@@ -1,0 +1,6 @@
+{"id":"eval-001","schema_version":"1.0.0","learner_id":"LRN-0001","category":"early-literacy","concern_text":"Letter-sound fluency is behind expected pace across two windows.","synthetic_only":true}
+{"id":"eval-002","schema_version":"1.0.0","learner_id":"LRN-0007","category":"attendance-support","concern_text":"Attendance dipped below 85% over the recent period.","synthetic_only":true}
+{"id":"eval-003","schema_version":"1.0.0","learner_id":"LRN-0014","category":"math-acceleration","concern_text":"Consistently exceeds grade-level checks; ready for enrichment planning.","synthetic_only":true}
+{"id":"eval-004","schema_version":"1.0.0","learner_id":"LRN-0022","category":"reading-below-grade","concern_text":"Reading comprehension trending below grade level across three windows.","synthetic_only":true}
+{"id":"eval-005","schema_version":"1.0.0","learner_id":"LRN-0031","category":"multi-domain","concern_text":"Concerns across early literacy, math foundations, and attendance over the recent period.","synthetic_only":true}
+{"id":"eval-006","schema_version":"1.0.0","learner_id":"LRN-0045","category":"reading-below-grade","concern_text":"Fluency growth stalled and comprehension checks remain uneven.","synthetic_only":true}

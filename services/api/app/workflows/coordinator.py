@@ -14,9 +14,11 @@ Guarantees:
 from __future__ import annotations
 
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypeVar
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from ..agents.data_analyst import DataAnalystAgent, DataAnalystContext
 from ..agents.data_analyst.agent import AGENT_NAME as DATA_ANALYST_NAME
@@ -41,6 +43,7 @@ from ..config import (
     CONCERN_TEXT_MAX_LEN,
     ORCHESTRATION_TOTAL_BUDGET_SECONDS,
 )
+from ..contracts_registry import ContractsRegistry, ContractValidationError
 from ..llm import LlmError, LlmProvider
 from ..models import AgentTraceStep, Recommendation, RecommendationResource
 from ..telemetry import TelemetryRecorder
@@ -96,15 +99,18 @@ class AgentCoordinator:
         *,
         provider: LlmProvider,
         telemetry: TelemetryRecorder,
+        contracts: ContractsRegistry,
     ) -> None:
         self._provider = provider
         self._telemetry = telemetry
+        self._contracts = contracts
         self._data_analyst = DataAnalystAgent(provider)
         self._recommender = SupportRecommendationAgent(provider)
         self._validator = ValidatorAgent(provider)
 
     def run(self, request: CoordinatorRequest) -> CoordinatorResult:
         trace: list[AgentTraceStep] = []
+        trace_id = str(uuid.uuid4())
         deadline = time.monotonic() + ORCHESTRATION_TOTAL_BUDGET_SECONDS
         provider_model = f"{self._provider.name} / {self._provider.model}"
 
@@ -139,6 +145,26 @@ class AgentCoordinator:
         if isinstance(analysis_result, CoordinatorResult):
             return analysis_result
 
+        # Protocol validation: analyst output must satisfy the wire contract.
+        env = self._envelope(
+            source_agent="data-analyst-agent",
+            target_agent="support-recommendation-agent",
+            payload={
+                **analysis_result.analysis.model_dump(),
+                "synthetic_only": True,
+            },
+            trace_id=trace_id,
+        )
+        maybe_fail = self._protocol_validate(
+            schema_name="data-analysis-result.schema.json",
+            envelope=env,
+            trace=trace,
+            provider_model=provider_model,
+            agent_name=DATA_ANALYST_NAME,
+        )
+        if maybe_fail is not None:
+            return maybe_fail
+
         rec_ctx = SupportRecommenderContext(
             category=request.category,
             sanitized_concern_text=sanitized_concern,
@@ -163,6 +189,23 @@ class AgentCoordinator:
         if isinstance(draft_result, CoordinatorResult):
             return draft_result
 
+        # Protocol validation: recommender output must satisfy the wire contract.
+        env = self._envelope(
+            source_agent="support-recommendation-agent",
+            target_agent="validator-agent",
+            payload=self._recommender_payload(draft_result),
+            trace_id=trace_id,
+        )
+        maybe_fail = self._protocol_validate(
+            schema_name="support-recommendation-result.schema.json",
+            envelope=env,
+            trace=trace,
+            provider_model=provider_model,
+            agent_name=RECOMMENDER_NAME,
+        )
+        if maybe_fail is not None:
+            return maybe_fail
+
         validator_ctx = ValidatorContext(
             allowed_resource_ids=tuple(r.id for r in request.allowed_resources),
             allowed_smart_goal_ids=request.allowed_smart_goal_ids,
@@ -180,6 +223,23 @@ class AgentCoordinator:
         )
         if isinstance(report, CoordinatorResult):
             return report
+
+        # Protocol validation: validator report must satisfy the wire contract.
+        env = self._envelope(
+            source_agent="validator-agent",
+            target_agent="coordinator",
+            payload=self._validator_payload(report),
+            trace_id=trace_id,
+        )
+        maybe_fail = self._protocol_validate(
+            schema_name="validation-result.schema.json",
+            envelope=env,
+            trace=trace,
+            provider_model=provider_model,
+            agent_name=VALIDATOR_NAME,
+        )
+        if maybe_fail is not None:
+            return maybe_fail
 
         if not report.passed:
             repair_guidance = _sanitize_repair(report.repair_guidance)
@@ -199,6 +259,24 @@ class AgentCoordinator:
             if isinstance(repair_result, CoordinatorResult):
                 return repair_result
             draft_result = repair_result
+
+            # Protocol validation on the repaired draft.
+            env = self._envelope(
+                source_agent="support-recommendation-agent",
+                target_agent="validator-agent",
+                payload=self._recommender_payload(draft_result),
+                trace_id=trace_id,
+            )
+            maybe_fail = self._protocol_validate(
+                schema_name="support-recommendation-result.schema.json",
+                envelope=env,
+                trace=trace,
+                provider_model=provider_model,
+                agent_name=RECOMMENDER_NAME + ":repair",
+            )
+            if maybe_fail is not None:
+                return maybe_fail
+
             report = self._validate(
                 analysis_result,
                 draft_result,
@@ -210,6 +288,24 @@ class AgentCoordinator:
             )
             if isinstance(report, CoordinatorResult):
                 return report
+
+            # Protocol validation on the second-pass validator report.
+            env = self._envelope(
+                source_agent="validator-agent",
+                target_agent="coordinator",
+                payload=self._validator_payload(report),
+                trace_id=trace_id,
+            )
+            maybe_fail = self._protocol_validate(
+                schema_name="validation-result.schema.json",
+                envelope=env,
+                trace=trace,
+                provider_model=provider_model,
+                agent_name=VALIDATOR_NAME,
+            )
+            if maybe_fail is not None:
+                return maybe_fail
+
             if not report.passed:
                 return CoordinatorResult(
                     status="validation_failed",
@@ -242,6 +338,90 @@ class AgentCoordinator:
     def _remaining(self, deadline: float) -> float:
         remaining = deadline - time.monotonic()
         return max(1.0, min(AGENT_REQUEST_TIMEOUT_SECONDS, remaining))
+
+    def _envelope(
+        self,
+        *,
+        source_agent: str,
+        target_agent: str | None,
+        payload: dict[str, Any],
+        trace_id: str,
+    ) -> dict[str, Any]:
+        env: dict[str, Any] = {
+            "schema_version": "1.0.0",
+            "message_id": str(uuid.uuid4()),
+            "trace_id": trace_id,
+            "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "source_agent": source_agent,
+            "payload": payload,
+        }
+        if target_agent is not None:
+            env["target_agent"] = target_agent
+        return env
+
+    def _protocol_validate(
+        self,
+        *,
+        schema_name: str,
+        envelope: dict[str, Any],
+        trace: list[AgentTraceStep],
+        provider_model: str,
+        agent_name: str,
+    ) -> CoordinatorResult | None:
+        try:
+            self._contracts.validate(schema_name, envelope)
+        except ContractValidationError as exc:
+            trace.append(
+                AgentTraceStep(
+                    agent=agent_name,
+                    status="failed",
+                    provider=self._provider.name,
+                    model=self._provider.model,
+                    latency_ms=0,
+                    token_estimate=None,
+                    issue_codes=["PROTOCOL_VALIDATION_FAILED"],
+                )
+            )
+            return CoordinatorResult(
+                status="invalid_model_json",
+                error_code="PROTOCOL_VALIDATION_FAILED",
+                error_message=(
+                    f"Message failed protocol validation " f"({schema_name}: {exc.safe_reason})."
+                ),
+                recommendation=None,
+                agent_trace=trace,
+                provider_model=provider_model,
+            )
+        return None
+
+    @staticmethod
+    def _recommender_payload(draft: SupportRecommendationDraft) -> dict[str, Any]:
+        return {
+            "detected_need": draft.detected_need,
+            "support_tier": draft.support_tier,
+            "recommended_frequency": draft.recommended_frequency,
+            "grouping_guidance": draft.grouping_guidance,
+            "resource_ids": list(draft.resource_ids),
+            "rationale": draft.rationale,
+            "smart_goal_suggestions": list(draft.smart_goal_suggestions),
+            "strategy_suggestions": list(draft.strategy_suggestions),
+            "educator_next_steps": list(draft.educator_next_steps),
+            "progress_monitoring": list(draft.progress_monitoring),
+            "review_window_days": draft.review_window_days,
+            "decision_rule": draft.decision_rule,
+            "caveats": list(draft.caveats),
+            "synthetic_only": True,
+        }
+
+    @staticmethod
+    def _validator_payload(report: ValidatorReport) -> dict[str, Any]:
+        return {
+            "passed": report.passed,
+            "issue_codes": list(report.issue_codes),
+            "warning_codes": list(report.warning_codes),
+            "repair_guidance": report.repair_guidance,
+            "synthetic_only": True,
+        }
 
     def _call(
         self,

@@ -65,6 +65,7 @@ ALLOWED_HOSTS = {
     "github.com",
     "raw.githubusercontent.com",
     "opentelemetry.io",
+    "json-schema.org",
 }
 
 # Lines matching these substrings are treated as legitimate Microsoft/Azure
@@ -199,8 +200,10 @@ def scan_text(name: str, text: str, denylist: list[str]) -> list[str]:
 
     for host in URL_REGEX.findall(text):
         host_lower = host.lower().rstrip(".")
-        if host_lower not in ALLOWED_HOSTS:
-            violations.append(f"{name}: disallowed URL host -> {host_lower}")
+        # Subdomains of example.invalid are also reserved fake hosts (RFC 2606).
+        if host_lower in ALLOWED_HOSTS or host_lower.endswith(".example.invalid"):
+            continue
+        violations.append(f"{name}: disallowed URL host -> {host_lower}")
 
     for match in PHONE_REGEX.findall(text):
         violations.append(f"{name}: US-style phone number -> {match}")

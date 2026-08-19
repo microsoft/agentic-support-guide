@@ -71,7 +71,7 @@ def build_health_details(
             label="Azure AI Foundry API version",
             ok=bool(settings.api_version),
             detail=(
-                f"Set (using {settings.api_version})."
+                "Set. Value hidden."
                 if settings.api_version
                 else "Not set. Use the documented default API version."
             ),
@@ -118,6 +118,10 @@ def build_health_details(
         service=service,
         version=version,
         active_provider=active_provider,
+        foundry_configured=settings.configured,
+        foundry_project_config_present=bool(settings.project_name),
+        deployment_config_present=bool(settings.deployment),
+        application_insights_configured=bool(settings.application_insights_connection_string),
         customer_demo_ready=customer_demo_ready,
         checks=checks,
         warnings=warnings,

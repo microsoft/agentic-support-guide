@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/agents/support-recommender/output.schema.json",
+  "title": "Support Recommendation Agent output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "detected_need",
+    "support_tier",
+    "recommended_frequency",
+    "grouping_guidance",
+    "resource_ids",
+    "rationale",
+    "smart_goal_suggestions",
+    "strategy_suggestions",
+    "educator_next_steps",
+    "progress_monitoring",
+    "review_window_days",
+    "decision_rule",
+    "caveats"
+  ],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "detected_need": { "type": "string", "maxLength": 500 },
+    "support_tier": { "type": "string", "maxLength": 500 },
+    "recommended_frequency": { "type": "string", "maxLength": 500 },
+    "grouping_guidance": { "type": "string", "maxLength": 500 },
+    "resource_ids": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "rationale": { "type": "string", "maxLength": 2000 },
+    "smart_goal_suggestions": {
+      "type": "array",
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "strategy_suggestions": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "educator_next_steps": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    },
+    "progress_monitoring": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    },
+    "review_window_days": { "type": "integer", "minimum": 7, "maximum": 180 },
+    "decision_rule": { "type": "string", "maxLength": 500 },
+    "caveats": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/v1/data-analysis-result.schema.json",
+  "title": "Data Analyst Agent -> downstream result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "trace_id",
+    "created_at",
+    "source_agent",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_agent": { "const": "data-analyst-agent" },
+    "target_agent": {
+      "type": "string",
+      "enum": ["support-recommendation-agent", "validator-agent", "coordinator"]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detected_need", "evidence_bullets", "missing_data_flags", "analysis_confidence"],
+      "properties": {
+        "detected_need": { "type": "string", "maxLength": 500 },
+        "evidence_bullets": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+        },
+        "missing_data_flags": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+        },
+        "analysis_confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "synthetic_only": { "const": true }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "spec_version": { "type": "string", "maxLength": 20 },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "token_estimate": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,121 +1,168 @@
 # Architecture
 
-`agentic-support-guide` is a local-first prototype demonstrating an
-Azure AI Foundry project-oriented development pattern for education-style
-analytics and learner support planning. All data is synthetic. Real LLM
-calls flow through Azure AI Foundry model deployments.
+`agentic-support-guide` is a customer-demo prototype demonstrating an
+Azure AI Foundry three-agent workflow. All data is synthetic. LLM calls
+go to a real Azure AI Foundry model deployment.
 
-## High-level shape
+## Repository layout
 
 ```
-apps/web (Vite + React + TS)
-   |
-   |  HTTP /api/*  (Vite dev proxy -> 127.0.0.1:8000)
-   v
-services/api (FastAPI, Python 3.12)
-   |
-   |  three collaborating agents via typed contracts
-   v
-Azure AI Foundry project + model deployment (Azure AI Services account)
+/agents/                       # Agent definitions (config-only)
+  data-analyst/
+    agent.md                   # Source of truth for instructions
+    manifest.yaml              # Source of truth for runtime metadata
+    schemas/                   # Agent-local input/output shapes
+  support-recommender/
+  validator/
+
+/contracts/v1/                 # Source of truth for inter-agent protocol
+  *.schema.json
+
+/services/api/                 # Generic runtime engine (FastAPI)
+  app/agents/adapter.py        # LocalManifestAgentAdapter
+  app/contracts_registry.py    # Central JSON Schema registry
+  app/workflows/coordinator.py # Orchestrator; validates every hop
+  app/agents/{data_analyst,support_recommender,validator}/agent.py
+      # Thin Python wrappers that delegate to LocalManifestAgentAdapter
+
+/apps/web/                     # React + TS UI
+/infra/                        # Terraform for Azure AI Foundry
+/docs/                         # Architecture, security, ADRs, GenAIOps
+/evals/                        # Synthetic evaluation cases
+/scripts/                      # PowerShell + Python demo helpers
 ```
 
-## Modules
+## Source-of-truth rules
 
-Backend capability modules under `services/api/app`:
+- **`/agents/<id>/agent.md`** — human-readable instructions for the LLM.
+  No role-specific prompt text lives in Python.
+- **`/agents/<id>/manifest.yaml`** — runtime metadata (which model
+  deployment, timeouts, contract references, safety policy).
+- **`/contracts/v1/*.schema.json`** — inter-agent protocol. Every
+  message that crosses an agent boundary validates against these.
+- **`/services/api/`** — the runtime engine. Owns orchestration but not
+  agent definitions.
 
-- `learners`, `assessments`, `behavior`, `dashboard`, `supports`, `audit` -
-  synthetic-data query and aggregation.
-- `mock_data`, `repositories` - deterministic seeded fixtures.
-- `plans_store`, `runtime_audit` - in-memory stores (reset on restart).
-- `llm` - `LlmProvider` interface plus `AzureFoundryLlmProvider` and
-  `MockLlmProvider`.
-- `agents/shared/contracts.py` - immutable Pydantic contracts exchanged
-  between agents. Imports nothing from agent implementations.
-- `agents/shared/sanitization.py` - prompt-injection defenses and
-  untrusted-data delimiters.
-- `agents/data_analyst`, `agents/support_recommender`, `agents/validator` -
-  three implemented agents. Each has a narrow typed interface and knows
-  nothing about the others.
-- `workflows/coordinator.py` - `AgentCoordinator`, the only place that
-  sequences agents and passes typed messages between them.
-- `telemetry.py` - metadata-only telemetry facade.
+## Independence rules
 
-## The three implemented agents
+- Agents (in `/agents`) are configuration-only. No Python
+  implementation lives under `/agents`.
+- The three Python wrappers (`app/agents/*/agent.py`) do not import each
+  other and do not import API internals (`workflows/`, `main`, `models`,
+  `plans_store`, `runtime_audit`).
+- The coordinator is the only place all three agents meet.
+- There is no shared runtime contracts package. `/contracts/v1` holds
+  JSON Schemas only. Python's Pydantic types under `services/api/` are
+  internal type stubs, not the source of truth.
 
-- **Data Analyst Agent** produces a `DataAnalystOutput` (evidence bullets,
-  detected need, missing-data flags, analysis confidence). No
-  intervention suggestions.
-- **Support Recommendation Agent** consumes the analyst output as
-  untrusted data and produces a `SupportRecommendationDraft` (support
-  tier, frequency, grouping, chosen resource ids, SMART goal ids,
-  strategy ids, next steps, progress monitoring, caveats). Only chooses
-  from the allowed catalog supplied in the request context.
-- **Validator Agent** runs deterministic pass/fail checks against the
-  allowed catalog, schema, and required-caveat rules. Optional LLM
-  critique adds advisory warnings; it never flips a deterministic pass
-  to a failure.
+## Runtime execution
 
-## Shared contracts as a bounded context
+### LocalManifestAgentAdapter
 
-`agents/shared/contracts.py` is intentionally a leaf module. It defines
-`AnalysisSummary`, `DataAnalystOutput`, `SupportRecommendationDraft`,
-`ValidatorReport`, `ResourceRef`, and `AgentEnvelope`. Every message
-carries `contract_version`. The file could later be extracted into a
-versioned shared library or schema registry with no runtime change to
-agents or the coordinator.
+Location: [`services/api/app/agents/adapter.py`](../services/api/app/agents/adapter.py).
 
-## The coordinator
+For any `agent_id`, the adapter:
 
-`AgentCoordinator.run`:
+1. Reads `/agents/<agent_id>/agent.md` and parses out the body.
+2. Reads `/agents/<agent_id>/manifest.yaml` and requires seven keys
+   (`id`, `name`, `version`, `runtime`, `contracts`, `handoff`,
+   `safety`).
+3. Composes a system prompt as `agent.md body + fixed generic envelope`.
+   The envelope contains only:
+   - "return JSON only",
+   - untrusted-data delimiter rule,
+   - determination boundaries,
+   - "must satisfy the referenced output schema".
+4. Calls `LlmProvider.complete_json(...)` with the composed prompt and
+   the manifest's `max_output_tokens` / `timeout_seconds` defaults.
+5. Parses the response body as JSON and returns the dict. Contract
+   validation happens in the coordinator, not here, so this adapter
+   stays generic across all agents.
 
-1. Sanitizes free-text concern input.
-2. Calls Data Analyst.
-3. Calls Support Recommender with the analyst output as delimited
-   untrusted data.
-4. Runs deterministic validation via the Validator Agent (optionally with
-   LLM critique).
-5. If validation fails, re-runs the recommender **once** with sanitized
-   repair guidance, then re-validates deterministically.
-6. Returns either a validated `Recommendation` and a three-step agent
-   trace, or a typed failure envelope with safe issue/warning codes.
+Because the system prompt is derived from `agent.md` at construction
+time, editing `agent.md` on disk changes the constructed prompt on next
+backend restart — no Python change required.
 
-There is no recursion and no additional repair loop. Data Analyst is
-never re-run during repair.
+### The three Python agent classes
 
-## Trust and message flow
+`DataAnalystAgent`, `SupportRecommendationAgent`, and `ValidatorAgent`
+are now thin wrappers. Each:
 
-- User concern text is sanitized and wrapped in `<<<UNTRUSTED_DATA>>>`
-  blocks. Prompts instruct the model to treat blocks as data only.
-- Prior-agent outputs are also carried as untrusted data blocks.
-- Trace metadata surfaced to the UI contains only agent name, status,
+- Constructs a `LocalManifestAgentAdapter(agent_id, provider)`.
+- Exposes `system_prompt` and `spec_version` properties.
+- Wraps the adapter call with a small helper method (`analyze()`,
+  `recommend()`, or `validate()`) that formats the user prompt from
+  typed context objects and parses the returned payload into internal
+  Pydantic types.
+
+The Validator additionally runs deterministic Python checks against the
+allowed catalog, required caveats, and required tier framing. The LLM
+critique is advisory only and cannot flip a deterministic pass to
+failure.
+
+### Coordinator + contracts registry
+
+Location: [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py)
+and [`services/api/app/contracts_registry.py`](../services/api/app/contracts_registry.py).
+
+`AgentCoordinator.run()`:
+
+1. Sanitizes the free-text concern.
+2. Calls Data Analyst; if a `provider_missing`/`timeout`/`content_filter`
+   error occurs, returns a typed failure envelope with a safe message
+   and no recommendation content.
+3. Validates the analyst output as a `data-analysis-result` envelope
+   against `/contracts/v1/`. If validation fails, returns
+   `PROTOCOL_VALIDATION_FAILED`.
+4. Calls Support Recommender.
+5. Validates the recommender output as `support-recommendation-result`.
+6. Runs the Validator Agent (deterministic + optional LLM critique).
+7. Validates the validator report as `validation-result`.
+8. If the validator failed, re-runs Support Recommender exactly once
+   with sanitized repair guidance and re-validates. Data Analyst is
+   never re-invoked.
+9. Returns a `RecommendationEnvelope` with the final validated
+   recommendation and safe trace metadata.
+
+There is no path where `status == "ok"` returns without a validated
+recommendation. `status == "ok"` implies contracts registry validation
+passed at each step and the Validator deterministic checks passed.
+
+## Trust boundaries
+
+- User concern text is sanitized (`sanitize_free_text`) before wrapping.
+- Every untrusted block reaches the LLM inside
+  `<<<UNTRUSTED_DATA>>> ... <<<END_UNTRUSTED_DATA>>>` delimiters.
+- Prior-agent outputs are treated as untrusted data.
+- Validator LLM critique text is filtered through `enforce_code()` —
+  only strings matching `^[A-Z][A-Z0-9_]{3,59}$` survive.
+- Trace metadata exposed to the UI contains only agent name, status,
   provider, model, latency, token estimate, and enumerated
-  issue/warning codes. Prompts, completions, and raw validator critique
-  never leave the backend.
+  issue/warning codes.
 
 ## Independent deployability
 
-`apps/web` and `services/api` are independently runnable and are wired
-only through HTTP. The three agent modules are also independently
-testable and independently deployable in the future. See
-[future-azure-architecture.md](./future-azure-architecture.md) for the
-migration path.
+Because `/agents/<id>/` folders are configuration-only and the Python
+wrappers do not depend on each other, each agent can move to its own
+runtime later:
 
-## Mapping to Microsoft Agent Framework / Azure AI Foundry concepts
+1. Deploy a small FastAPI (or Foundry-hosted-agent) service per agent.
+2. Each service reads its `/agents/<id>/` folder at startup and exposes
+   a single endpoint that takes the contract's request envelope and
+   returns the response envelope.
+3. Update the coordinator's HTTP client to call the remote endpoints
+   instead of instantiating the wrapper classes.
+4. Nothing about the prompt content or the schemas changes.
 
-- `LlmProvider` maps to a Microsoft Agent Framework chat/model client
-  bound to an Azure AI Foundry deployment.
-- Each agent maps to a Microsoft Agent Framework agent with a single
-  responsibility, structured JSON output, and a strict input contract.
-- `AgentCoordinator` maps to a Microsoft Agent Framework workflow or
-  orchestration graph. Because the graph is small and the prototype uses
-  keyless Azure OpenAI calls, the coordinator is implemented as an
-  explicit Python class today. See
-  [`adr/0001-agent-hosting.md`](./adr/0001-agent-hosting.md) and
-  [`adr/0001-foundry-project.md`](./adr/0001-foundry-project.md) for the
-  decision records.
-- The Foundry project scope (`azurerm_cognitive_account_project`) is the
-  organizational unit for the model deployment, RBAC, and future hosted
-  agents. `AZURE_AI_FOUNDRY_PROJECT_NAME` is exposed to the backend for
-  observability today; chat completion routing uses the AI Services
-  endpoint because that is what the current openai + azure-identity SDK
-  supports cleanly.
+## Mapping to Microsoft Agent Framework / Azure AI Foundry
+
+- Each `manifest.yaml` maps to a Microsoft Agent Framework agent
+  registration and to a Foundry hosted-agent definition.
+- Each `agent.md` maps to the hosted-agent system instructions.
+- Each `/contracts/v1/*.schema.json` maps to the hosted workflow's
+  strongly-typed message contracts.
+- The coordinator maps to a Foundry workflow when the SDK stabilizes.
+  Until then, the local Python coordinator is the runtime.
+
+See [`adr/0001-agent-hosting.md`](adr/0001-agent-hosting.md) and
+[`adr/0001-foundry-project.md`](adr/0001-foundry-project.md).

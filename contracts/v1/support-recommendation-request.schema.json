@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/v1/support-recommendation-request.schema.json",
+  "title": "Coordinator -> Support Recommendation Agent request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "trace_id",
+    "created_at",
+    "source_agent",
+    "target_agent",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_agent": { "const": "coordinator" },
+    "target_agent": { "const": "support-recommendation-agent" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "sanitized_concern_text",
+        "analyst_output",
+        "allowed_resource_ids",
+        "allowed_smart_goal_ids",
+        "allowed_strategy_ids",
+        "synthetic_only"
+      ],
+      "properties": {
+        "category": { "type": "string", "maxLength": 40 },
+        "sanitized_concern_text": { "type": "string", "maxLength": 1000 },
+        "analyst_output": {
+          "type": "object",
+          "description": "Payload block from data-analysis-result.schema.json.",
+          "additionalProperties": true
+        },
+        "allowed_resource_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "allowed_smart_goal_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "allowed_strategy_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "repair_guidance": { "type": "string", "maxLength": 1000 },
+        "synthetic_only": { "const": true }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

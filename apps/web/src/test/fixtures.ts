@@ -24,6 +24,10 @@ export const healthDetailsNotReadyFixture: HealthDetailsResponse = {
   service: "agentic-support-guide-api",
   version: "0.2.0",
   active_provider: "unconfigured",
+  foundry_configured: false,
+  foundry_project_config_present: false,
+  deployment_config_present: false,
+  application_insights_configured: false,
   customer_demo_ready: false,
   checks: [
     { name: "backend", label: "Backend service running", ok: true, detail: "ok" },
@@ -51,6 +55,10 @@ export const healthDetailsReadyFixture: HealthDetailsResponse = {
   service: "agentic-support-guide-api",
   version: "0.2.0",
   active_provider: "azure_foundry",
+  foundry_configured: true,
+  foundry_project_config_present: true,
+  deployment_config_present: true,
+  application_insights_configured: true,
   customer_demo_ready: true,
   checks: [
     { name: "backend", label: "Backend service running", ok: true, detail: "ok" },

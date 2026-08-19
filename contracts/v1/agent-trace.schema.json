@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/v1/agent-trace.schema.json",
+  "title": "Per-step trace record surfaced to UI and audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trace_id",
+    "step_index",
+    "agent",
+    "status",
+    "provider",
+    "model",
+    "latency_ms"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "step_index": { "type": "integer", "minimum": 0 },
+    "agent": {
+      "type": "string",
+      "enum": [
+        "data-analyst-agent",
+        "support-recommendation-agent",
+        "support-recommendation-agent:repair",
+        "validator-agent"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "passed",
+        "failed",
+        "budget_exhausted",
+        "provider_timeout",
+        "provider_throttling",
+        "provider_content_filter",
+        "provider_error",
+        "provider_missing",
+        "invalid_model_json",
+        "orchestration_budget_exhausted"
+      ]
+    },
+    "provider": { "type": "string", "maxLength": 60 },
+    "model": { "type": "string", "maxLength": 120 },
+    "latency_ms": { "type": "integer", "minimum": 0 },
+    "token_estimate": { "type": ["integer", "null"], "minimum": 0 },
+    "issue_codes": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{3,59}$"
+      }
+    },
+    "warning_codes": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{3,59}$"
+      }
+    }
+  }
+}

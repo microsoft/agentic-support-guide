@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/agents/support-recommender/input.schema.json",
+  "title": "Support Recommendation Agent input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "category",
+    "sanitized_concern_text",
+    "analyst_output",
+    "allowed_resource_ids",
+    "allowed_smart_goal_ids",
+    "allowed_strategy_ids"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "category": { "type": "string", "maxLength": 40 },
+    "sanitized_concern_text": { "type": "string", "maxLength": 1000 },
+    "analyst_output": {
+      "$ref": "../../data-analyst/schemas/output.schema.json"
+    },
+    "allowed_resource_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "allowed_smart_goal_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "allowed_strategy_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "repair_guidance": { "type": "string", "maxLength": 1000 }
+  }
+}

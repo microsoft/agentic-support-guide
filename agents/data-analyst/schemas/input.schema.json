@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/agents/data-analyst/input.schema.json",
+  "title": "Data Analyst Agent input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "category", "learner_context", "sanitized_concern_text"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "category": {
+      "type": "string",
+      "enum": [
+        "early-literacy",
+        "attendance-support",
+        "math-acceleration",
+        "reading-below-grade",
+        "multi-domain"
+      ]
+    },
+    "learner_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["learner_label", "grade", "school_id", "group"],
+      "properties": {
+        "learner_label": { "type": "string", "maxLength": 40 },
+        "grade": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "school_id": { "type": "string", "maxLength": 20 },
+        "group": { "type": "string", "maxLength": 20 },
+        "proficiency_index": { "type": "number", "minimum": 0, "maximum": 100 },
+        "attendance_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "behavior_index": { "type": "number", "minimum": 0, "maximum": 100 },
+        "engagement_index": { "type": "number", "minimum": 0, "maximum": 100 },
+        "assessment_count": { "type": "integer", "minimum": 0 },
+        "behavior_record_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sanitized_concern_text": { "type": "string", "maxLength": 1000 }
+  }
+}

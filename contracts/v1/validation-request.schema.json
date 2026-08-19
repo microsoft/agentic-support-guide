@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/v1/validation-request.schema.json",
+  "title": "Coordinator -> Validator Agent request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "trace_id",
+    "created_at",
+    "source_agent",
+    "target_agent",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_agent": { "const": "coordinator" },
+    "target_agent": { "const": "validator-agent" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analyst_output",
+        "recommendation_draft",
+        "allowed_resource_ids",
+        "allowed_smart_goal_ids",
+        "allowed_strategy_ids",
+        "required_contract_version",
+        "synthetic_only"
+      ],
+      "properties": {
+        "analyst_output": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "recommendation_draft": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "allowed_resource_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "allowed_smart_goal_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "allowed_strategy_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+        },
+        "required_contract_version": { "type": "string", "maxLength": 20 },
+        "use_llm_critique": { "type": "boolean" },
+        "synthetic_only": { "const": true }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

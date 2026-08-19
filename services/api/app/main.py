@@ -27,6 +27,7 @@ from .config import (
     AzureFoundrySettings,
     load_foundry_settings,
 )
+from .contracts_registry import ContractsRegistry, load_registry
 from .diagnostics import build_health_details
 from .llm import AzureFoundryLlmProvider, LlmCallResult, LlmError, LlmProvider
 from .models import (
@@ -124,6 +125,7 @@ def create_app(
     telemetry = TelemetryRecorder(settings.application_insights_connection_string)
     runtime_audit = RuntimeAuditLog()
     provider = (provider_factory or _select_provider)(settings)
+    contracts = load_registry()
 
     app.state.settings = settings
     app.state.repos = repos
@@ -131,6 +133,7 @@ def create_app(
     app.state.telemetry = telemetry
     app.state.runtime_audit = runtime_audit
     app.state.provider = provider
+    app.state.contracts = contracts
 
     def get_provider(request: Request) -> LlmProvider:
         return request.app.state.provider  # type: ignore[no-any-return]
@@ -149,6 +152,9 @@ def create_app(
 
     def get_audit(request: Request) -> RuntimeAuditLog:
         return request.app.state.runtime_audit  # type: ignore[no-any-return]
+
+    def get_contracts(request: Request) -> ContractsRegistry:
+        return request.app.state.contracts  # type: ignore[no-any-return]
 
     router = APIRouter(prefix="/api")
 
@@ -254,6 +260,7 @@ def create_app(
         provider: LlmProvider = Depends(get_provider),
         telemetry: TelemetryRecorder = Depends(get_telemetry),
         audit: RuntimeAuditLog = Depends(get_audit),
+        contracts: ContractsRegistry = Depends(get_contracts),
     ) -> RecommendationEnvelope:
         learner = next(
             (learner for learner in repos.learners if learner.learner_id == payload.learner_id),
@@ -278,6 +285,7 @@ def create_app(
         coordinator = AgentCoordinator(
             provider=provider,
             telemetry=telemetry,
+            contracts=contracts,
         )
         crequest = CoordinatorRequest(
             learner_label=learner.display_label,

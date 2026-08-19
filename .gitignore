@@ -465,3 +465,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 !*.tfvars.example
+
+# --- Eval results (never commit) ---
+evals/results/
+

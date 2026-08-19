@@ -1,0 +1,40 @@
+id: support-recommendation-agent
+name: Support Recommendation Agent
+version: 1.0.0
+
+runtime:
+  provider: azure_foundry
+  deployment_env: AZURE_AI_FOUNDRY_DEPLOYMENT
+  api_version_env: AZURE_AI_FOUNDRY_API_VERSION
+  response_format: json_object
+  max_output_tokens: 800
+  timeout_seconds: 30
+
+contracts:
+  input:
+    schema_ref: support-recommendation-request.schema.json
+    schema_version: 1.0.0
+  output:
+    schema_ref: support-recommendation-result.schema.json
+    schema_version: 1.0.0
+
+handoff:
+  - agent: validator-agent
+    contract: support-recommendation-result.schema.json
+    version: 1.0.0
+
+safety:
+  human_review_required: true
+  determinations_forbidden:
+    - educational
+    - clinical
+    - legal
+    - disability
+    - compliance
+    - placement
+  untrusted_data_delimiter: "<<<UNTRUSTED_DATA>>>"
+  catalog_only: true
+
+tags:
+  - synthetic-data-only
+  - metadata-only-telemetry

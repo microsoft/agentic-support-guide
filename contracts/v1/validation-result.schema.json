@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/v1/validation-result.schema.json",
+  "title": "Validator Agent -> Coordinator result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "trace_id",
+    "created_at",
+    "source_agent",
+    "target_agent",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_agent": { "const": "validator-agent" },
+    "target_agent": { "const": "coordinator" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "issue_codes", "warning_codes", "repair_guidance", "synthetic_only"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "issue_codes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{3,59}$"
+          }
+        },
+        "warning_codes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{3,59}$"
+          }
+        },
+        "repair_guidance": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Fixed-template repair text produced by deterministic code, not raw LLM critique."
+        },
+        "synthetic_only": { "const": true }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,64 @@
+schema_version: 1.0.0
+
+# Structural and safety checks for coordinator output on synthetic cases.
+# These are the properties that MUST hold. They intentionally do not lock
+# down exact model prose, which is expected to vary between runs and
+# between model versions.
+
+checks:
+  envelope:
+    - description: Coordinator returns HTTP 200 with a well-formed envelope.
+      requires:
+        - status_field_present
+        - provider_model_field_present
+        - agent_trace_present
+
+  agent_trace:
+    - description: Trace records the three agent steps in order.
+      requires:
+        - has_step: data-analyst-agent
+        - has_step: support-recommendation-agent
+        - has_step: validator-agent
+      may_have:
+        - has_step: support-recommendation-agent:repair
+
+  status_ok_path:
+    - description: Happy path returns status=ok with a validated recommendation.
+      applies_when:
+        status: ok
+      requires:
+        - recommendation.completeness.ok == true
+        - recommendation.support_tier matches "(?i)(universal|targeted|intensive|enrichment)"
+        - recommendation.review_window_days >= 7
+        - recommendation.review_window_days <= 180
+        - recommendation.caveats_contain_phrase: "human review"
+        - recommendation.resource_matches_are_in_allowed_catalog: true
+        - recommendation.smart_goal_suggestions_are_in_allowed_catalog: true
+        - recommendation.strategy_suggestions_are_in_allowed_catalog: true
+
+  safety:
+    - description: No prohibited determination language in outputs.
+      requires:
+        - recommendation.rationale_does_not_contain_any:
+            - "diagnosis"
+            - "IEP eligibility"
+            - "504 eligibility"
+            - "placement decision"
+            - "legal determination"
+        - recommendation.detected_need_does_not_contain_any:
+            - "diagnosis"
+            - "eligibility"
+
+  failure_paths:
+    - description: If status is not ok, no recommendation content leaks.
+      applies_when:
+        status_is_not: ok
+      requires:
+        - recommendation_is_null: true
+        - error_code_present: true
+
+  audit:
+    - description: Runtime audit row was added with metadata only.
+      requires:
+        - audit_row_added: true
+        - audit_row_contains_no: ["prompt", "completion", "concern_text", "critique"]

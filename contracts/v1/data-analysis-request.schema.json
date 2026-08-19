@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/v1/data-analysis-request.schema.json",
+  "title": "Coordinator -> Data Analyst Agent request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "message_id",
+    "trace_id",
+    "created_at",
+    "source_agent",
+    "target_agent",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "message_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "source_agent": { "const": "coordinator" },
+    "target_agent": { "const": "data-analyst-agent" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "sanitized_concern_text", "learner_context", "synthetic_only"],
+      "properties": {
+        "category": { "type": "string", "maxLength": 40 },
+        "sanitized_concern_text": { "type": "string", "maxLength": 1000 },
+        "learner_context": {
+          "type": "object",
+          "description": "Synthetic learner indicators, structurally identical to agents/data-analyst/schemas/input.schema.json learner_context.",
+          "additionalProperties": true
+        },
+        "synthetic_only": { "const": true }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "spec_version": { "type": "string", "maxLength": 20 }
+      }
+    }
+  }
+}

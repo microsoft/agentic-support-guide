@@ -1,0 +1,43 @@
+id: validator-agent
+name: Validator Agent
+version: 1.0.0
+
+runtime:
+  provider: azure_foundry
+  deployment_env: AZURE_AI_FOUNDRY_DEPLOYMENT
+  api_version_env: AZURE_AI_FOUNDRY_API_VERSION
+  response_format: json_object
+  max_output_tokens: 800
+  timeout_seconds: 30
+
+contracts:
+  input:
+    schema_ref: validation-request.schema.json
+    schema_version: 1.0.0
+  output:
+    schema_ref: validation-result.schema.json
+    schema_version: 1.0.0
+
+# Validator output goes back to the coordinator, not another agent.
+handoff:
+  - agent: coordinator
+    contract: validation-result.schema.json
+    version: 1.0.0
+
+safety:
+  human_review_required: true
+  determinism_authoritative: true
+  llm_critique_advisory_only: true
+  advisory_code_regex: "^[A-Z][A-Z0-9_]{3,59}$"
+  determinations_forbidden:
+    - educational
+    - clinical
+    - legal
+    - disability
+    - compliance
+    - placement
+
+tags:
+  - synthetic-data-only
+  - metadata-only-telemetry
+  - no-raw-critique-in-output
