@@ -1,4 +1,4 @@
-workspace "Agentic Support Guide" "High-level C4 container view for the demo." {
+workspace "Agentic Support Guide" "High-level C4 container and component views for the demo." {
 
     model {
         demoUser = person "Demo User"
@@ -7,8 +7,9 @@ workspace "Agentic Support Guide" "High-level C4 container view for the demo." {
             webApp = container "Web App" "React and TypeScript user interface" {
                 tags "LocalApp"
             }
-            apiService = container "API Service" "Hosts deterministic orchestration logic that calls remote agents" {
+            apiService = container "API Service" "FastAPI backend that owns request handling and error taxonomy" {
                 tags "LocalApp"
+                coordinator = component "Workflow Coordinator" "Deterministic Python that sequences the three remote agents, validates protocol messages, and runs a one-shot repair loop"
             }
             syntheticData = container "Synthetic Data" "In-memory synthetic learner signals" {
                 tags "Data"
@@ -22,11 +23,14 @@ workspace "Agentic Support Guide" "High-level C4 container view for the demo." {
         }
 
         foundry = softwareSystem "Azure AI Foundry" {
-            foundryProject = container "Foundry Project" "Azure AI Foundry project boundary" {
+            foundryProject = container "Foundry Project" "Project boundary for agents, model, and observability" {
                 tags "Azure"
             }
-            remoteAgents = container "Remote Foundry Agents" "Data Analyst Agent, Support Recommendation Agent, Validator Agent" {
+            remoteAgents = container "Remote Foundry Agents" "Hosts the three role agents in Azure AI Foundry Agent Service" {
                 tags "Azure"
+                dataAnalystAgent = component "Data Analyst Agent" "Reviews synthetic signals and writes an evidence summary"
+                supportRecommendationAgent = component "Support Recommendation Agent" "Proposes a plan drawn from an allowed catalog"
+                validatorAgent = component "Validator Agent" "Checks structure, required caveats, and grounding"
             }
             modelDeployment = container "Model Deployment" "Azure-hosted model used by remote agents" {
                 tags "Azure"
@@ -36,24 +40,30 @@ workspace "Agentic Support Guide" "High-level C4 container view for the demo." {
             }
         }
 
-        operations = softwareSystem "Operations" {
-            terraformAndScripts = container "Terraform and Scripts" "Provision resources, sync agents, and verify demo readiness" {
+        operations = softwareSystem "Deployment & Operations" {
+            terraformAndScripts = container "Terraform & Sync Scripts" "Provision Azure resources, sync agents, and verify demo readiness" {
                 tags "Ops"
             }
         }
 
+        # Relationships
         demoUser -> webApp "uses"
         webApp -> apiService "HTTP /api"
-        apiService -> syntheticData "reads synthetic data"
-        apiService -> protocolContracts "validates messages"
-        apiService -> agentDefinitions "loads sync metadata"
-        terraformAndScripts -> agentDefinitions "syncs definitions"
-        terraformAndScripts -> foundry "provisions and verifies"
-        apiService -> remoteAgents "invokes via Foundry Agents SDK"
-        apiService -> foundry "keyless Entra ID"
-        remoteAgents -> modelDeployment "uses model"
-        remoteAgents -> foundryProject "hosted in project"
+
+        coordinator -> syntheticData "reads"
+        coordinator -> protocolContracts "validates"
+        coordinator -> agentDefinitions "loads"
+        coordinator -> dataAnalystAgent "invokes via Foundry Agents SDK"
+
+        dataAnalystAgent -> supportRecommendationAgent "passes evidence"
+        supportRecommendationAgent -> validatorAgent "passes draft"
+
+        remoteAgents -> modelDeployment "uses shared model deployment"
+
         apiService -> observability "emits metadata only"
+
+        terraformAndScripts -> foundry "provisions and verifies"
+        terraformAndScripts -> agentDefinitions "syncs definitions"
     }
 
     views {
@@ -62,6 +72,19 @@ workspace "Agentic Support Guide" "High-level C4 container view for the demo." {
             autoLayout lr
         }
 
+        component apiService "APIServiceComponents" "Components inside the API Service container." {
+            include *
+            autoLayout lr
+        }
+
+        component remoteAgents "RemoteFoundryAgentsComponents" "Components inside the Remote Foundry Agents container." {
+            include *
+            autoLayout lr
+        }
+
+        # C4 element-type labels (e.g. "[Container: ...]", "[Person]") are
+        # emitted by Structurizr renderers by default. Suppression varies by
+        # export tool and is documented in docs/architecture-diagram.md.
         styles {
             element "Person" {
                 shape person
@@ -74,6 +97,10 @@ workspace "Agentic Support Guide" "High-level C4 container view for the demo." {
             }
             element "Container" {
                 background "#bdc3c7"
+                color "#2c3e50"
+            }
+            element "Component" {
+                background "#dfe4e8"
                 color "#2c3e50"
             }
             element "LocalApp" {

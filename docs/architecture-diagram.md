@@ -1,9 +1,8 @@
 # Architecture diagram
 
-A high-level C4 container view of **Agentic Support Guide** that is
-safe to show in a customer demo. The diagram intentionally omits
-sequence detail; see [`architecture.md`](architecture.md) for runtime
-and protocol notes.
+A customer-safe, high-level view of **Agentic Support Guide**. It shows
+the three remote Foundry agents as separate visible components and keeps
+the diagram uncluttered by C4 metadata jargon.
 
 ## Rendered diagram
 
@@ -11,32 +10,62 @@ and protocol notes.
   <img src="architecture.svg" alt="High-level architecture diagram" width="900" />
 </p>
 
+## About the Workflow Coordinator
+
+The **Workflow Coordinator** shown nested inside the API Service is
+**deterministic service-side code**, not a fourth agent. It is regular
+Python inside the FastAPI service that:
+
+- sequences the three remote agents in a fixed order,
+- validates every inter-agent message against a JSON Schema in
+  [`/contracts/v1`](../contracts/v1),
+- enforces per-run and total budgets,
+- runs a single, bounded repair pass if the Validator Agent rejects
+  the draft.
+
+All reasoning happens inside the three remote agents in Azure AI
+Foundry. The coordinator does not talk to a language model and does not
+appear as an assistant in Foundry.
+
 ## Files that make up the diagram
 
-- [`architecture.dsl`](architecture.dsl) — the **editable source** in
-  Structurizr DSL.
-- [`architecture.svg`](architecture.svg) — the **rendered GitHub image**
-  embedded above and in the root [README](../README.md).
+- [`architecture.dsl`](architecture.dsl) — the **semantic source model**
+  in Structurizr DSL. This is where the containers, components, and
+  relationships are declared.
+- [`architecture.svg`](architecture.svg) — the **GitHub-rendered
+  companion image**. It is currently a hand-maintained SVG that mirrors
+  the DSL model.
 - [`../scripts/render-architecture-diagram.ps1`](../scripts/render-architecture-diagram.ps1)
-  — the regeneration helper. Run it after changing the DSL so the
-  committed SVG stays in sync.
+  — regeneration helper. It shells out to `structurizr-cli` and
+  `plantuml` if both are on `PATH`, or exits with a clear installation
+  hint if they are not.
 
-## Regenerating the SVG
+## Regeneration status
 
-When `architecture.dsl` changes, regenerate the SVG:
+The current `architecture.svg` was **not** produced by running the
+render script. No repo-local Structurizr export chain is installed, so
+the SVG is a hand-maintained companion diagram that matches the DSL by
+convention.
 
-```powershell
-.\scripts\render-architecture-diagram.ps1
-```
+When the DSL changes, the operator should either:
 
-The script prefers `structurizr-cli` on the operator's PATH and uses
-PlantUML to convert the intermediate `.puml` file to SVG. If either
-tool is missing, the script exits with a clear installation hint and
-leaves the committed `architecture.svg` untouched, so GitHub still
-renders the current version.
+1. install `structurizr-cli` and `plantuml`, then run
+   `./scripts/render-architecture-diagram.ps1`, or
+2. hand-edit `architecture.svg` to match the new DSL and commit both
+   files together.
 
-Commit both `architecture.dsl` and `architecture.svg` in the same PR
-so reviewers can diff the DSL and see the rendered result together.
+The SVG is valid XML/SVG, uses a white background, contains no scripts,
+no external images, no external fonts, no `foreignObject`, and no
+endpoints, IDs, secrets, or local paths.
+
+## C4 element-type labels
+
+Standard Structurizr exports include labels like `[Container: FastAPI]`
+or `[Person]` next to each element. Those are helpful for architects but
+distracting in a customer demo. The current hand-maintained SVG omits
+them intentionally. If the operator switches to a real Structurizr
+export later, they may reappear; suppression depends on the export tool
+in use and is not currently applied in the DSL styles.
 
 ## Editing the DSL directly
 
@@ -44,19 +73,25 @@ so reviewers can diff the DSL and see the rendered result together.
   compatible editor (for example, a Structurizr DSL VS Code extension)
   to preview the model interactively while editing.
 - Or load the file into a Structurizr Lite instance to render the
-  Container view named `AgenticSupportGuideContainers`.
+  Container view named `AgenticSupportGuideContainers` or the two
+  Component views (`APIServiceComponents`,
+  `RemoteFoundryAgentsComponents`).
 
 ## What the diagram shows
 
 - One person: `Demo User`.
-- One internal system, `Agentic Support Guide`, with five containers:
-  `Web App`, `API Service`, `Synthetic Data`, `Agent Definitions`,
-  `Protocol Contracts`.
-- One external system, `Azure AI Foundry`, with `Foundry Project`,
-  `Remote Foundry Agents`, `Model Deployment`, and `Observability`.
-- One external system, `Operations`, with `Terraform and Scripts`.
+- One internal software system, `Agentic Support Guide`, with five
+  containers (`Web App`, `API Service`, `Synthetic Data`,
+  `Protocol Contracts`, `Agent Definitions`) plus one C4 component
+  nested inside `API Service`: `Workflow Coordinator`.
+- One external software system, `Azure AI Foundry`, with four
+  containers (`Foundry Project`, `Remote Foundry Agents`,
+  `Model Deployment`, `Observability`) plus three C4 components nested
+  inside `Remote Foundry Agents`: `Data Analyst Agent`,
+  `Support Recommendation Agent`, and `Validator Agent`.
+- One external software system, `Deployment & Operations`, with one
+  container: `Terraform & Sync Scripts`.
 
-The three role agents are represented as a single
-`Remote Foundry Agents` container. The API Service performs
-deterministic orchestration; the coordinator is not a fourth agent
-and does not appear as a separate container.
+The three remote agents share a single `Model Deployment`, shown by one
+grouped arrow labeled *uses shared model deployment* rather than three
+separate connections.
