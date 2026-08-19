@@ -7,6 +7,36 @@ Azure AI Foundry three-agent workflow. All data is synthetic. Every LLM
 call is a run against a remote **Azure AI Foundry Agent Service**
 assistant. There is no local model call in the recommendation path.
 
+## The pattern this repo follows
+
+Before diving into files, the target architecture for an agentic
+application built this way has seven pieces:
+
+1. **Browser frontend.** A thin UI that collects inputs and renders
+   structured outputs. It never talks to a language model directly.
+2. **API service.** A backend that owns request handling,
+   authentication, input sanitization, protocol enforcement, error
+   handling, and safe response shaping.
+3. **Deterministic orchestration.** Plain application code that
+   sequences the agents, enforces timeouts and budgets, runs at most
+   one repair pass, and produces a predictable failure taxonomy. This
+   is not a language-model agent — it is regular code the tests can
+   drive with a fake client.
+4. **Remote agents.** Each specialized reasoning role runs as a
+   separate assistant on Azure AI Foundry Agent Service, configured by
+   instructions and a bound model deployment.
+5. **Protocol validation.** Every inter-agent message validates
+   against a versioned JSON Schema before it is used. Invalid
+   messages become typed failures, never surfaced content.
+6. **Synthetic data boundary.** The application reads only in-memory
+   synthetic data. There is no external data source in the demo.
+7. **Observability boundary.** Only metadata (agent name, status,
+   latency, coarse error code) leaves the process. Prompts,
+   completions, and raw user text are never emitted.
+
+This is the pattern to keep in mind while reading the rest of this
+document.
+
 ## Repository layout
 
 ```
@@ -186,5 +216,5 @@ Editing `/agents/<id>/agent.md` or `manifest.yaml` and re-running
 `--apply` updates the remote agent in place. The instructions hash
 guards against silent drift.
 
-See [`adr/0001-agent-hosting.md`](adr/0001-agent-hosting.md) and
+See [`adr/0002-agent-hosting-remote-foundry.md`](adr/0002-agent-hosting-remote-foundry.md) and
 [`adr/0001-foundry-project.md`](adr/0001-foundry-project.md).
