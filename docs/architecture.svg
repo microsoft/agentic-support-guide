@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" role="img" aria-labelledby="asg-title asg-desc">
+  <title id="asg-title">Agentic Support Guide - C4 Container view</title>
+  <desc id="asg-desc">A person "Demo User" interacts with the Agentic Support Guide software system. Inside that system, a Web App container calls an API Service container over HTTP. The API Service reads Synthetic Data, validates messages against Protocol Contracts, and loads sync metadata from Agent Definitions. The API Service invokes three remote agents hosted in Azure AI Foundry via keyless Entra ID; those agents use a Model Deployment. The API Service also emits metadata-only telemetry to Observability. A Terraform and Scripts container in an Operations software system provisions Azure AI Foundry and syncs Agent Definitions.</desc>
+  <rect x="0" y="0" width="1600" height="1000" fill="#ffffff" />
+  <style type="text/css">
+    .title { font: bold 22px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; text-anchor: middle; }
+    .boundary { fill: none; stroke: #7f8c8d; stroke-width: 2; stroke-dasharray: 8 5; }
+    .boundary-label { font: bold 15px 'Segoe UI', Arial, sans-serif; fill: #34495e; }
+    .container-label { font: bold 14px 'Segoe UI', Arial, sans-serif; fill: #ffffff; text-anchor: middle; }
+    .container-desc { font: 12px 'Segoe UI', Arial, sans-serif; fill: #ecf0f1; text-anchor: middle; }
+    .container-stroke { stroke: #2c3e50; stroke-width: 1; }
+    .arrow { fill: none; stroke: #34495e; stroke-width: 1.6; }
+    .arrow-label { font: 11px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; text-anchor: middle; }
+    .arrow-label-bg { fill: #ffffff; stroke: none; }
+    .person-fill { fill: #7f8c8d; stroke: #2c3e50; stroke-width: 1; }
+    .person-label { font: bold 13px 'Segoe UI', Arial, sans-serif; fill: #ffffff; text-anchor: middle; }
+    .type-note { font: italic 11px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; text-anchor: middle; }
+    .LocalApp { fill: #5b8def; }
+    .AgentAssets { fill: #9b8ac4; }
+    .Azure { fill: #3178c6; }
+    .Ops { fill: #6c8ea4; }
+    .Data { fill: #8aa27a; }
+  </style>
+  <defs>
+    <marker id="arrow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#34495e" />
+    </marker>
+  </defs>
+
+  <text x="800" y="42" class="title">Agentic Support Guide - C4 Container view</text>
+
+  <!-- Demo User -->
+  <circle cx="90" cy="145" r="22" class="person-fill" />
+  <rect x="50" y="170" width="80" height="60" rx="6" class="person-fill container-stroke" />
+  <text x="90" y="205" class="person-label">Demo User</text>
+  <text x="90" y="253" class="type-note">[Person]</text>
+
+  <!-- Boundary: Agentic Support Guide -->
+  <rect x="200" y="90" width="700" height="880" rx="14" class="boundary" />
+  <text x="215" y="960" class="boundary-label">Software System: Agentic Support Guide</text>
+
+  <!-- Web App -->
+  <rect x="220" y="140" width="320" height="120" rx="10" class="LocalApp container-stroke" />
+  <text x="380" y="178" class="container-label">Web App</text>
+  <text x="380" y="200" class="container-desc">[Container: React + TypeScript]</text>
+  <text x="380" y="224" class="container-desc">React and TypeScript</text>
+  <text x="380" y="242" class="container-desc">user interface</text>
+
+  <!-- API Service -->
+  <rect x="560" y="140" width="320" height="120" rx="10" class="LocalApp container-stroke" />
+  <text x="720" y="178" class="container-label">API Service</text>
+  <text x="720" y="200" class="container-desc">[Container: FastAPI]</text>
+  <text x="720" y="224" class="container-desc">Hosts deterministic orchestration</text>
+  <text x="720" y="242" class="container-desc">logic that calls remote agents</text>
+
+  <!-- Synthetic Data -->
+  <rect x="220" y="310" width="205" height="140" rx="10" class="Data container-stroke" />
+  <text x="322" y="352" class="container-label">Synthetic Data</text>
+  <text x="322" y="374" class="container-desc">[In-memory]</text>
+  <text x="322" y="400" class="container-desc">In-memory synthetic</text>
+  <text x="322" y="418" class="container-desc">learner signals</text>
+
+  <!-- Protocol Contracts -->
+  <rect x="445" y="310" width="210" height="140" rx="10" class="AgentAssets container-stroke" />
+  <text x="550" y="352" class="container-label">Protocol Contracts</text>
+  <text x="550" y="374" class="container-desc">[JSON Schema]</text>
+  <text x="550" y="400" class="container-desc">Versioned JSON Schema</text>
+  <text x="550" y="418" class="container-desc">message contracts</text>
+
+  <!-- Agent Definitions -->
+  <rect x="675" y="310" width="205" height="140" rx="10" class="AgentAssets container-stroke" />
+  <text x="777" y="352" class="container-label">Agent Definitions</text>
+  <text x="777" y="374" class="container-desc">[Config files]</text>
+  <text x="777" y="400" class="container-desc">Source-controlled agent.md</text>
+  <text x="777" y="418" class="container-desc">and manifest.yaml files</text>
+
+  <!-- Boundary: Azure AI Foundry -->
+  <rect x="940" y="90" width="620" height="560" rx="14" class="boundary" />
+  <text x="955" y="640" class="boundary-label">Software System: Azure AI Foundry</text>
+
+  <!-- Foundry Project -->
+  <rect x="960" y="140" width="280" height="140" rx="10" class="Azure container-stroke" />
+  <text x="1100" y="180" class="container-label">Foundry Project</text>
+  <text x="1100" y="203" class="container-desc">[Container: Azure AI Foundry]</text>
+  <text x="1100" y="228" class="container-desc">Azure AI Foundry project</text>
+  <text x="1100" y="246" class="container-desc">boundary</text>
+
+  <!-- Remote Foundry Agents (taller for 3-line description) -->
+  <rect x="1280" y="140" width="260" height="180" rx="10" class="Azure container-stroke" />
+  <text x="1410" y="180" class="container-label">Remote Foundry Agents</text>
+  <text x="1410" y="203" class="container-desc">[Container: Agent Service]</text>
+  <text x="1410" y="228" class="container-desc">Data Analyst Agent,</text>
+  <text x="1410" y="248" class="container-desc">Support Recommendation Agent,</text>
+  <text x="1410" y="268" class="container-desc">Validator Agent</text>
+
+  <!-- Model Deployment -->
+  <rect x="960" y="340" width="280" height="140" rx="10" class="Azure container-stroke" />
+  <text x="1100" y="380" class="container-label">Model Deployment</text>
+  <text x="1100" y="403" class="container-desc">[Serverless model]</text>
+  <text x="1100" y="428" class="container-desc">Azure-hosted model</text>
+  <text x="1100" y="446" class="container-desc">used by remote agents</text>
+
+  <!-- Observability -->
+  <rect x="1280" y="340" width="260" height="140" rx="10" class="Azure container-stroke" />
+  <text x="1410" y="380" class="container-label">Observability</text>
+  <text x="1410" y="403" class="container-desc">[Azure Monitor]</text>
+  <text x="1410" y="428" class="container-desc">Metadata-only telemetry</text>
+  <text x="1410" y="446" class="container-desc">and audit events</text>
+
+  <!-- Boundary: Operations -->
+  <rect x="940" y="690" width="620" height="200" rx="14" class="boundary" />
+  <text x="955" y="880" class="boundary-label">Software System: Operations</text>
+
+  <!-- Terraform and Scripts -->
+  <rect x="1000" y="740" width="500" height="120" rx="10" class="Ops container-stroke" />
+  <text x="1250" y="782" class="container-label">Terraform and Scripts</text>
+  <text x="1250" y="805" class="container-desc">[Container: CLI tooling]</text>
+  <text x="1250" y="830" class="container-desc">Provision resources, sync agents,</text>
+  <text x="1250" y="848" class="container-desc">and verify demo readiness</text>
+
+  <!-- Relationships -->
+
+  <!-- Demo User -> Web App -->
+  <line x1="135" y1="200" x2="216" y2="200" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="150" y="180" width="42" height="16" class="arrow-label-bg" />
+  <text x="171" y="192" class="arrow-label">uses</text>
+
+  <!-- Web App -> API Service -->
+  <line x1="544" y1="200" x2="556" y2="200" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="472" y="180" width="112" height="16" class="arrow-label-bg" />
+  <text x="528" y="192" class="arrow-label">HTTP /api</text>
+
+  <!-- API Service -> Synthetic Data -->
+  <line x1="640" y1="262" x2="360" y2="308" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="410" y="272" width="150" height="16" class="arrow-label-bg" />
+  <text x="485" y="284" class="arrow-label">reads synthetic data</text>
+
+  <!-- API Service -> Protocol Contracts -->
+  <line x1="720" y1="262" x2="600" y2="308" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="580" y="275" width="140" height="16" class="arrow-label-bg" />
+  <text x="650" y="287" class="arrow-label">validates messages</text>
+
+  <!-- API Service -> Agent Definitions -->
+  <line x1="800" y1="262" x2="777" y2="308" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="800" y="278" width="150" height="16" class="arrow-label-bg" />
+  <text x="875" y="290" class="arrow-label">loads sync metadata</text>
+
+  <!-- API Service -> Remote Foundry Agents -->
+  <line x1="880" y1="180" x2="1276" y2="200" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="920" y="160" width="240" height="16" class="arrow-label-bg" />
+  <text x="1040" y="172" class="arrow-label">invokes via Foundry Agents SDK</text>
+
+  <!-- API Service -> Foundry Project (keyless Entra ID) -->
+  <line x1="880" y1="220" x2="956" y2="220" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="884" y="228" width="112" height="16" class="arrow-label-bg" />
+  <text x="940" y="240" class="arrow-label">keyless Entra ID</text>
+
+  <!-- API Service -> Observability -->
+  <line x1="880" y1="250" x2="1276" y2="400" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="990" y="320" width="140" height="16" class="arrow-label-bg" />
+  <text x="1060" y="332" class="arrow-label">emits metadata only</text>
+
+  <!-- Remote Foundry Agents -> Model Deployment (uses model) -->
+  <line x1="1350" y1="322" x2="1180" y2="340" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="1200" y="308" width="90" height="16" class="arrow-label-bg" />
+  <text x="1245" y="320" class="arrow-label">uses model</text>
+
+  <!-- Remote Foundry Agents -> Foundry Project (hosted in project) -->
+  <!-- Routed up-and-over above both boxes to keep the label readable -->
+  <path d="M 1280 160 L 1280 118 L 1240 118 L 1240 156" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="1198" y="98" width="124" height="16" class="arrow-label-bg" />
+  <text x="1260" y="110" class="arrow-label">hosted in project</text>
+
+  <!-- Terraform and Scripts -> Azure AI Foundry (provisions and verifies) -->
+  <line x1="1250" y1="740" x2="1250" y2="654" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="1200" y="678" width="170" height="16" class="arrow-label-bg" />
+  <text x="1285" y="690" class="arrow-label">provisions and verifies</text>
+
+  <!-- Terraform and Scripts -> Agent Definitions (syncs definitions) -->
+  <line x1="1000" y1="780" x2="800" y2="452" class="arrow" marker-end="url(#arrow-head)" />
+  <rect x="828" y="590" width="130" height="16" class="arrow-label-bg" />
+  <text x="893" y="602" class="arrow-label">syncs definitions</text>
+</svg>

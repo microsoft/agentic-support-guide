@@ -28,18 +28,13 @@ or GenAIOps, read these first — in order — before touching code:
 
 ## Architecture diagram
 
-The high-level architecture lives in [`docs/architecture.dsl`](docs/architecture.dsl)
-as a Structurizr DSL model. GitHub does not render Structurizr DSL
-directly.
+<p align="center">
+  <img src="docs/architecture.svg" alt="High-level architecture diagram" width="900" />
+</p>
 
-> **The architecture diagram source is `docs/architecture.dsl`. Export
-> it to `docs/architecture.svg` with Structurizr-compatible tooling to
-> render it inline on GitHub.**
+Editable source: [docs/architecture.dsl](docs/architecture.dsl). Regenerate the SVG with `.\scripts\render-architecture-diagram.ps1` after changing the DSL.
 
-Once `docs/architecture.svg` is committed, this README will embed it via
-`<img src="docs/architecture.svg" alt="High-level architecture diagram" />`.
-See [`docs/architecture-diagram.md`](docs/architecture-diagram.md) for
-viewing and export instructions.
+More details: [docs/architecture-diagram.md](docs/architecture-diagram.md).
 
 ---
 

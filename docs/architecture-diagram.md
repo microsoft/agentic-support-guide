@@ -5,42 +5,46 @@ safe to show in a customer demo. The diagram intentionally omits
 sequence detail; see [`architecture.md`](architecture.md) for runtime
 and protocol notes.
 
-## Diagram workflow
-
-- The **editable source** is [`architecture.dsl`](architecture.dsl), a
-  Structurizr DSL model of the container view.
-- The **GitHub-rendered artifact** is `architecture.svg`, produced by
-  exporting `architecture.dsl` with Structurizr-compatible tooling and
-  committing the result. GitHub renders SVG inline in Markdown; it
-  does not render Structurizr DSL directly.
-
 ## Rendered diagram
 
-> `docs/architecture.svg` is not committed yet. Export it from
-> `docs/architecture.dsl` with Structurizr-compatible tooling and
-> commit the result. Once the file exists at `docs/architecture.svg`,
-> GitHub will render it inline anywhere it is embedded with an
-> `<img>` tag.
+<p align="center">
+  <img src="architecture.svg" alt="High-level architecture diagram" width="900" />
+</p>
 
-## Viewing and editing the DSL
+## Files that make up the diagram
 
-- Open [`architecture.dsl`](architecture.dsl) with a
-  Structurizr-compatible editor (for example, a Structurizr DSL VS
-  Code extension) to preview and edit the model inline.
+- [`architecture.dsl`](architecture.dsl) — the **editable source** in
+  Structurizr DSL.
+- [`architecture.svg`](architecture.svg) — the **rendered GitHub image**
+  embedded above and in the root [README](../README.md).
+- [`../scripts/render-architecture-diagram.ps1`](../scripts/render-architecture-diagram.ps1)
+  — the regeneration helper. Run it after changing the DSL so the
+  committed SVG stays in sync.
+
+## Regenerating the SVG
+
+When `architecture.dsl` changes, regenerate the SVG:
+
+```powershell
+.\scripts\render-architecture-diagram.ps1
+```
+
+The script prefers `structurizr-cli` on the operator's PATH and uses
+PlantUML to convert the intermediate `.puml` file to SVG. If either
+tool is missing, the script exits with a clear installation hint and
+leaves the committed `architecture.svg` untouched, so GitHub still
+renders the current version.
+
+Commit both `architecture.dsl` and `architecture.svg` in the same PR
+so reviewers can diff the DSL and see the rendered result together.
+
+## Editing the DSL directly
+
+- Open [`architecture.dsl`](architecture.dsl) with a Structurizr-
+  compatible editor (for example, a Structurizr DSL VS Code extension)
+  to preview the model interactively while editing.
 - Or load the file into a Structurizr Lite instance to render the
   Container view named `AgenticSupportGuideContainers`.
-
-## Exporting to SVG
-
-No SVG export command is documented in this repository. Use any
-Structurizr-compatible tool to export `docs/architecture.dsl` to
-`docs/architecture.svg`, then commit the SVG so GitHub can render it.
-
-## Regenerate when the DSL changes
-
-Whenever `architecture.dsl` changes, regenerate `architecture.svg`
-and commit both files together. Reviewers can then diff the DSL and
-see the rendered result in the same PR.
 
 ## What the diagram shows
 
