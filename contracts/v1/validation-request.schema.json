@@ -24,6 +24,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "district_id",
         "analyst_output",
         "recommendation_draft",
         "allowed_resource_ids",
@@ -33,6 +34,12 @@
         "synthetic_only"
       ],
       "properties": {
+        "district_id": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "pattern": "^[A-Z0-9][A-Z0-9\\-]{1,31}$"
+        },
         "analyst_output": {
           "type": "object",
           "additionalProperties": true

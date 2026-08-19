@@ -74,3 +74,45 @@ def test_scanner_flags_denylist_token_hit() -> None:
     text = "This mentions FORBIDDEN_CUSTOMER_NAME in error."
     violations = scan_text("planted.md", text, ["FORBIDDEN_CUSTOMER_NAME"])
     assert any("denylist token" in v for v in violations), violations
+
+
+def test_scanner_flags_guid_next_to_subscription_keyword() -> None:
+    text = "subscription_id = 12345678-1234-1234-1234-1234567890ab"
+    violations = scan_text("planted.tf", text, [])
+    assert any("GUID next to sensitive ID keyword" in v for v in violations), violations
+
+
+def test_scanner_flags_guid_next_to_tenant_keyword() -> None:
+    text = "tenant_id: abcdef01-2345-6789-abcd-ef0123456789"
+    violations = scan_text("planted.yaml", text, [])
+    assert any("GUID next to sensitive ID keyword" in v for v in violations), violations
+
+
+def test_scanner_allows_all_zero_placeholder_guid_near_keyword() -> None:
+    text = "tenant_id: 00000000-0000-0000-0000-000000000000"
+    violations = scan_text("okay.yaml", text, [])
+    assert violations == []
+
+
+def test_scanner_flags_arm_resource_id() -> None:
+    text = "/subscriptions/12345678-1234-1234-1234-1234567890ab/resourceGroups/rg1"
+    violations = scan_text("planted.tf", text, [])
+    assert any("Azure Resource Manager ID pattern" in v for v in violations), violations
+
+
+def test_scanner_flags_local_windows_home_path() -> None:
+    text = r"path: C:\Users\johndoe\project\file.txt"
+    violations = scan_text("planted.md", text, [])
+    assert any("local user home path" in v for v in violations), violations
+
+
+def test_scanner_flags_local_posix_home_path() -> None:
+    text = "path: /home/johndoe/project/file.txt"
+    violations = scan_text("planted.md", text, [])
+    assert any("local user home path" in v for v in violations), violations
+
+
+def test_scanner_flags_macos_users_path() -> None:
+    text = "path: /Users/janedoe/project/file.txt"
+    violations = scan_text("planted.md", text, [])
+    assert any("local user home path" in v for v in violations), violations

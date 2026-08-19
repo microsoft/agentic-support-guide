@@ -35,11 +35,18 @@ from .config import (
 )
 from .contracts_registry import ContractsRegistry, load_registry
 from .diagnostics import build_health_details
+from .evidence import EvidenceRetriever, FixtureEvidenceRetriever
 from .foundry_agents import (
     FoundryAgentClient,
     FoundryAgentClientProtocol,
     FoundryRemoteAgentAdapter,
     load_bindings,
+)
+from .human_review import (
+    HumanReviewState,
+    InvalidReviewTransitionError,
+    ReviewTransitionAuditEntry,
+    transition,
 )
 from .models import (
     AssessmentsSummary,
@@ -52,6 +59,7 @@ from .models import (
     HealthResponse,
     LearnersResponse,
     RecommendationEnvelope,
+    ReviewTransitionRequest,
     SavedPlan,
     SavedPlansResponse,
     SavePlanRequest,
@@ -76,12 +84,6 @@ def _next_iso(offset_seconds: int) -> str:
 
 
 def _default_client_factory(endpoint: str) -> FoundryAgentClientProtocol:
-    """Build the real Foundry Agent Service client.
-
-    Import DefaultAzureCredential lazily so tests that never hit this
-    path do not need azure-identity fully wired.
-    """
-
     from azure.identity import DefaultAzureCredential
 
     return FoundryAgentClient(endpoint=endpoint, credential=DefaultAzureCredential())
@@ -112,6 +114,7 @@ def create_app(
     *,
     adapter: FoundryRemoteAgentAdapter | None = None,
     client_factory: Callable[[str], FoundryAgentClientProtocol] | None = None,
+    evidence_retriever: EvidenceRetriever | None = None,
 ) -> FastAPI:
     settings = load_foundry_settings()
     app = FastAPI(
@@ -139,6 +142,8 @@ def create_app(
     runtime_audit = RuntimeAuditLog()
     if adapter is None:
         adapter = _build_adapter(settings, client_factory or _default_client_factory)
+    if evidence_retriever is None:
+        evidence_retriever = FixtureEvidenceRetriever()
     contracts = load_registry()
 
     app.state.settings = settings
@@ -147,6 +152,7 @@ def create_app(
     app.state.telemetry = telemetry
     app.state.runtime_audit = runtime_audit
     app.state.adapter = adapter
+    app.state.evidence_retriever = evidence_retriever
     app.state.contracts = contracts
 
     def get_adapter(request: Request) -> FoundryRemoteAgentAdapter | None:
@@ -170,6 +176,9 @@ def create_app(
     def get_contracts(request: Request) -> ContractsRegistry:
         return request.app.state.contracts  # type: ignore[no-any-return]
 
+    def get_evidence(request: Request) -> EvidenceRetriever:
+        return request.app.state.evidence_retriever  # type: ignore[no-any-return]
+
     router = APIRouter(prefix="/api")
 
     @router.get("/health", response_model=HealthResponse)
@@ -189,10 +198,12 @@ def create_app(
     def get_health_details(
         settings: AzureFoundrySettings = Depends(get_settings_dep),
         adapter: FoundryRemoteAgentAdapter | None = Depends(get_adapter),
+        evidence: EvidenceRetriever = Depends(get_evidence),
     ) -> HealthDetailsResponse:
         return build_health_details(
             settings=settings,
             adapter=adapter,
+            evidence_retriever=evidence,
             service=SERVICE_NAME,
             version=SERVICE_VERSION,
         )
@@ -275,6 +286,7 @@ def create_app(
         telemetry: TelemetryRecorder = Depends(get_telemetry),
         audit: RuntimeAuditLog = Depends(get_audit),
         contracts: ContractsRegistry = Depends(get_contracts),
+        evidence: EvidenceRetriever = Depends(get_evidence),
     ) -> RecommendationEnvelope:
         learner = next(
             (learner for learner in repos.learners if learner.learner_id == payload.learner_id),
@@ -294,6 +306,8 @@ def create_app(
                 recommendation=None,
                 agent_trace=[],
                 provider_model=PROVIDER_DISPLAY_UNCONFIGURED,
+                correlation_id="",
+                district_id=payload.district_id,
             )
 
         options = build_support_options(
@@ -313,9 +327,11 @@ def create_app(
             adapter=adapter,
             telemetry=telemetry,
             contracts=contracts,
+            evidence_retriever=evidence,
             provider_display=PROVIDER_DISPLAY_CONFIGURED,
         )
         crequest = CoordinatorRequest(
+            district_id=payload.district_id,
             learner_label=learner.display_label,
             grade=learner.grade,
             school_id=learner.school_id,
@@ -346,6 +362,11 @@ def create_app(
             duration_ms=duration_ms,
             token_estimate=sum((step.token_estimate or 0) for step in result.agent_trace),
             status=result.status,
+            correlation_id=result.correlation_id,
+            district_id=result.district_id,
+            evidence_count=result.evidence_count,
+            citation_count=result.citation_count,
+            validator_status=result.validator_status,
         )
         return RecommendationEnvelope(
             status=result.status,
@@ -354,6 +375,8 @@ def create_app(
             recommendation=result.recommendation,
             agent_trace=result.agent_trace,
             provider_model=result.provider_model,
+            correlation_id=result.correlation_id,
+            district_id=result.district_id,
         )
 
     @router.get("/supports/plans", response_model=SavedPlansResponse)
@@ -369,14 +392,50 @@ def create_app(
         plan = SavedPlan(
             plan_id=plans.next_plan_id(),
             learner_id=payload.learner_id,
+            district_id=payload.district_id,
             category=payload.category,
             concern_text=payload.concern_text,
             selected_smart_goal=payload.selected_smart_goal,
             selected_strategies=payload.selected_strategies,
             created_at=_next_iso(offset_seconds=len(plans.list()) * 47),
             recommendation=payload.recommendation,
+            human_review_state=HumanReviewState.PENDING_REVIEW.value,
         )
         return plans.add(plan)
+
+    @router.post("/supports/plans/{plan_id}/review", response_model=SavedPlan)
+    def post_plan_review(
+        plan_id: str,
+        payload: ReviewTransitionRequest,
+        plans: SavedPlansStore = Depends(get_plans),
+        audit: RuntimeAuditLog = Depends(get_audit),
+    ) -> SavedPlan:
+        plan = plans.get(plan_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="Unknown plan_id")
+        try:
+            new_state = transition(
+                HumanReviewState(plan.human_review_state),
+                HumanReviewState(payload.to_state),
+            )
+        except InvalidReviewTransitionError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        updated = plan.model_copy(update={"human_review_state": new_state.value})
+        plans.replace(updated)
+        audit.append_review_transition(
+            ReviewTransitionAuditEntry(
+                correlation_id=plan_id,
+                district_id=plan.district_id,
+                user_label=payload.user_label,
+                timestamp=_next_iso(offset_seconds=len(plans.list()) * 47),
+                previous_state=plan.human_review_state,
+                new_state=new_state.value,
+                validator_verdict="post-hoc",
+                evidence_count=len(plan.recommendation.citations),
+            )
+        )
+        return updated
 
     @router.get("/audit/events", response_model=AuditResponse)
     def get_audit_events(

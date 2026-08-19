@@ -10,6 +10,7 @@ from .agents.data_analyst.agent import AGENT_NAME as DATA_ANALYST_NAME
 from .agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
 from .agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
 from .config import AzureFoundrySettings
+from .evidence import EvidenceRetriever
 from .foundry_agents import FoundryRemoteAgentAdapter
 from .models import HealthCheckItem, HealthDetailsResponse
 
@@ -25,15 +26,22 @@ def build_health_details(
     *,
     settings: AzureFoundrySettings,
     adapter: FoundryRemoteAgentAdapter | None,
+    evidence_retriever: EvidenceRetriever | None,
     service: str,
     version: str,
 ) -> HealthDetailsResponse:
     project_configured = settings.configured
     agents_bound = adapter is not None and adapter.all_roles_bound(REQUIRED_ROLES)
+    # `evidence_fixture_available` reports whether any district-scoped
+    # fixture is present. The runtime always requires `district_id`, so
+    # `district_isolation_enabled` is a constant True; the flag exists so
+    # operators can see it explicitly.
+    evidence_available = evidence_retriever is not None and any(
+        evidence_retriever.has_district(d) for d in ("DIST-A", "DIST-B", "DIST-DEMO")
+    )
+    district_isolation_enabled = True
 
-    # Runtime is "azure_foundry_agents" only when both the project is
-    # configured AND all three roles are bound to remote assistants.
-    if project_configured and agents_bound:
+    if project_configured and agents_bound and evidence_available:
         active_provider = "azure_foundry_agents"
     else:
         active_provider = "unconfigured"
@@ -67,6 +75,25 @@ def build_health_details(
                 if agents_bound
                 else "One or more roles are not bound. Run "
                 "scripts/sync_foundry_agents.py --apply."
+            ),
+        ),
+        HealthCheckItem(
+            name="evidence_fixture",
+            label="Synthetic evidence fixture available",
+            ok=evidence_available,
+            detail=(
+                "At least one district-scoped fixture is present."
+                if evidence_available
+                else "No district-scoped fixtures loaded."
+            ),
+        ),
+        HealthCheckItem(
+            name="district_isolation",
+            label="District isolation enforced by contracts",
+            ok=district_isolation_enabled,
+            detail=(
+                "district_id is required on every request, envelope, "
+                "citation, audit row, and trace."
             ),
         ),
         HealthCheckItem(
@@ -104,6 +131,11 @@ def build_health_details(
             "scripts/sync_foundry_agents.py --apply to create/update remote "
             "agents from the /agents definitions."
         )
+    if not evidence_available:
+        warnings.append(
+            "No district-scoped evidence fixture is loaded. Recommendation requests "
+            "will return evidence_missing until a fixture is registered."
+        )
 
     guidance = _guidance(active_provider)
 
@@ -115,6 +147,8 @@ def build_health_details(
         foundry_project_configured=project_configured,
         foundry_agents_bound=agents_bound,
         service_side_remote_workflow_active=service_side_remote_workflow_active,
+        evidence_fixture_available=evidence_available,
+        district_isolation_enabled=district_isolation_enabled,
         customer_demo_ready=customer_demo_ready,
         checks=checks,
         warnings=warnings,

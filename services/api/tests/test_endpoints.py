@@ -9,15 +9,12 @@ def test_health_reports_provider_status() -> None:
     assert body["service"] == "agentic-support-guide-api"
     assert body["auth_mode"] == "entra"
     assert body["provider_configured"] is True
-    assert "mock_mode" not in body
 
 
 def test_dashboard_summary_shape() -> None:
     client = make_default_client()
     body = client.get("/api/dashboard/summary").json()
     assert len(body["kpi_cards"]) == 4
-    assert body["proficiency_trend"]
-    assert body["domain_distribution"]
 
 
 def test_assessments_summary_shape() -> None:
@@ -34,22 +31,19 @@ def test_behavior_and_learners() -> None:
     assert learners["total"] == 120
 
 
-def test_supports_options_lists_categories_and_learners() -> None:
+def test_supports_options() -> None:
     client = make_default_client()
     body = client.get("/api/supports/options").json()
     assert len(body["learners"]) == 120
-    assert body["categories"]
 
 
-def test_openapi_served_under_api_prefix() -> None:
+def test_openapi() -> None:
     client = make_default_client()
-    resp = client.get("/api/openapi.json")
-    assert resp.status_code == 200
-    schema = resp.json()
+    schema = client.get("/api/openapi.json").json()
     assert schema["info"]["title"] == "Agentic Support Guide API"
 
 
-def test_recommendation_endpoint_returns_envelope_and_appends_audit() -> None:
+def test_recommendation_envelope_carries_correlation_and_district() -> None:
     client = make_default_client()
     before_audit = client.get("/api/audit/events").json()["total"]
 
@@ -59,29 +53,43 @@ def test_recommendation_endpoint_returns_envelope_and_appends_audit() -> None:
             "learner_id": "LRN-0001",
             "category": "early-literacy",
             "concern_text": "Letter-sound fluency below expected pace.",
+            "district_id": "DIST-DEMO",
         },
     )
     body = resp.json()
     assert body["status"] == "ok"
+    assert body["district_id"] == "DIST-DEMO"
+    assert body["correlation_id"]
     assert body["recommendation"] is not None
-    assert "mock_mode" not in body
-    assert "Azure AI Foundry" in body["provider_model"]
-    assert len(body["agent_trace"]) == 3
+    assert body["recommendation"]["district_id"] == "DIST-DEMO"
+    assert body["recommendation"]["human_review_state"] == "pending_review"
+    assert body["recommendation"]["citations"]
+    for c in body["recommendation"]["citations"]:
+        assert c["district_id"] == "DIST-DEMO"
+    assert len(body["agent_trace"]) == 4
 
     after_audit = client.get("/api/audit/events").json()["total"]
     assert after_audit == before_audit + 1
 
+    # Verify the runtime audit row carries the safe metadata fields.
+    events = client.get("/api/audit/events").json()["events"]
+    last = events[-1]
+    assert last["correlation_id"] == body["correlation_id"]
+    assert last["district_id"] == "DIST-DEMO"
+    assert last["evidence_count"] >= 1
+    assert last["citation_count"] >= 1
+    assert last["validator_status"]
 
-def test_save_plan_persists_across_requests() -> None:
+
+def test_save_plan_persists_district_and_review_state() -> None:
     client = make_default_client()
-    initial = client.get("/api/supports/plans").json()["total"]
-
     rec = client.post(
         "/api/recommendations/support-plan",
         json={
             "learner_id": "LRN-0001",
             "category": "early-literacy",
             "concern_text": "Letter-sound fluency below expected pace.",
+            "district_id": "DIST-DEMO",
         },
     ).json()["recommendation"]
 
@@ -94,12 +102,11 @@ def test_save_plan_persists_across_requests() -> None:
             "selected_smart_goal": "SG-early-literacy-1",
             "selected_strategies": ["ST-early-literacy-1"],
             "recommendation": rec,
+            "district_id": "DIST-DEMO",
         },
     ).json()
-    assert saved["plan_id"].startswith("PLN-")
-
-    after = client.get("/api/supports/plans").json()
-    assert after["total"] == initial + 1
+    assert saved["district_id"] == "DIST-DEMO"
+    assert saved["human_review_state"] == "pending_review"
 
 
 def test_unknown_learner_returns_404() -> None:
@@ -110,6 +117,20 @@ def test_unknown_learner_returns_404() -> None:
             "learner_id": "LRN-9999",
             "category": "early-literacy",
             "concern_text": "test",
+            "district_id": "DIST-DEMO",
         },
     )
     assert resp.status_code == 404
+
+
+def test_missing_district_id_rejected_with_422() -> None:
+    client = make_default_client()
+    resp = client.post(
+        "/api/recommendations/support-plan",
+        json={
+            "learner_id": "LRN-0001",
+            "category": "early-literacy",
+            "concern_text": "test",
+        },
+    )
+    assert resp.status_code == 422

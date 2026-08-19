@@ -112,7 +112,12 @@ export function SupportsPage() {
     setEnvelope(null);
     setRecLoading(true);
     api
-      .recommendation({ learner_id: learnerId, category, concern_text: concern })
+      .recommendation({
+        learner_id: learnerId,
+        category,
+        concern_text: concern,
+        district_id: "DIST-DEMO",
+      })
       .then((env) => {
         setEnvelope(env);
         if (env.status === "ok") setStep(5);
@@ -125,6 +130,8 @@ export function SupportsPage() {
           recommendation: null,
           agent_trace: [],
           provider_model: "unknown",
+          correlation_id: "",
+          district_id: "DIST-DEMO",
         }),
       )
       .finally(() => setRecLoading(false));
@@ -141,6 +148,7 @@ export function SupportsPage() {
         selected_smart_goal: smartGoal,
         selected_strategies: strategies,
         recommendation: rec,
+        district_id: "DIST-DEMO",
       })
       .then((plan) => {
         setSavedPlans((prev) => [...prev, plan]);

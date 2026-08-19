@@ -240,3 +240,12 @@ existing:
 
 These are the concrete places where this prototype would grow toward
 a production GenAIOps posture.
+
+## See also
+
+- [`agents-vs-prompts.md`](agents-vs-prompts.md) — why this workload
+  is a multi-agent workflow rather than one bigger prompt.
+- [`foundry-fabric-deep-dive.md`](foundry-fabric-deep-dive.md) — how
+  Foundry and Fabric fit together in the target topology.
+- [`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md)
+- [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md)

@@ -37,6 +37,33 @@ ORG_SUFFIX_REGEX = re.compile(
 )
 LONG_SECRET_REGEX = re.compile(r"[A-Za-z0-9+/=]{40,}")
 
+# UUID/GUID pattern used to detect real subscription/tenant/resource IDs
+# when they appear next to identifying keywords on the same line.
+GUID_REGEX = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+# Azure Resource Manager IDs start with `/subscriptions/<guid>/`.
+ARM_ID_REGEX = re.compile(r"/subscriptions/[0-9a-fA-F-]{16,}", re.IGNORECASE)
+# Local absolute paths that point to real user home directories.
+LOCAL_HOME_PATH_REGEX = re.compile(r"(?:[A-Z]:\\Users\\[^\\/\s]+|/Users/[^/\s]+|/home/[^/\s]+)")
+
+# Keyword markers that make a same-line GUID suspicious.
+_SENSITIVE_ID_KEYWORDS = (
+    "subscription_id",
+    "subscription id",
+    "tenant_id",
+    "tenant id",
+    "resource_id",
+    "resource id",
+    "arm_id",
+    "principal_id",
+    "principal id",
+    "object_id",
+    "object id",
+    "client_id",
+    "client id",
+)
+
 ALLOWED_EMAIL_DOMAIN = "example.invalid"
 
 ALLOWED_HOSTS = {
@@ -219,6 +246,27 @@ def scan_text(name: str, text: str, denylist: list[str]) -> list[str]:
             rhs_clean = rhs.strip().strip("\"'")
             if rhs_clean and LONG_SECRET_REGEX.fullmatch(rhs_clean):
                 violations.append(f"{name}:{line_no}: AZURE_* value looks like a real secret")
+
+        # A GUID sitting next to sensitive-ID keywords on the same line is
+        # very likely a real subscription/tenant/resource ID.
+        lower = line.lower()
+        if any(k in lower for k in _SENSITIVE_ID_KEYWORDS) and GUID_REGEX.search(line):
+            # Allow all-zero placeholder GUIDs commonly used in examples.
+            for hit in GUID_REGEX.findall(line):
+                if hit.replace("-", "").strip("0") != "":
+                    violations.append(
+                        f"{name}:{line_no}: GUID next to sensitive ID keyword -> {hit}"
+                    )
+
+        # Azure Resource Manager IDs.
+        for match in ARM_ID_REGEX.findall(line):
+            violations.append(
+                f"{name}:{line_no}: Azure Resource Manager ID pattern -> {match[:32]}..."
+            )
+
+        # Local absolute paths pointing to real user home directories.
+        for match in LOCAL_HOME_PATH_REGEX.findall(line):
+            violations.append(f"{name}:{line_no}: local user home path -> {match}")
 
     for token in denylist:
         if token and token in text:

@@ -61,7 +61,12 @@ export const api = {
   },
   behaviorSummary: () => request<BehaviorSummary>("/behavior/summary"),
   supportOptions: () => request<SupportOptions>("/supports/options"),
-  recommendation: (body: { learner_id: string; category: string; concern_text: string }) =>
+  recommendation: (body: {
+    learner_id: string;
+    category: string;
+    concern_text: string;
+    district_id: string;
+  }) =>
     request<RecommendationEnvelope>("/recommendations/support-plan", {
       method: "POST",
       body: JSON.stringify(body),
@@ -74,6 +79,7 @@ export const api = {
     selected_smart_goal: string | null;
     selected_strategies: string[];
     recommendation: import("./types").Recommendation;
+    district_id: string;
   }) =>
     request<SavedPlan>("/supports/plans", {
       method: "POST",

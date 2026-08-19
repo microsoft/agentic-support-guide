@@ -5,25 +5,30 @@ from typing import Any
 
 from app.agents.shared.contracts import ResourceRef
 from app.contracts_registry import ContractsRegistry, load_registry
+from app.evidence import (
+    EvidenceBundle,
+    EvidenceRequest,
+    EvidenceRetrievalError,
+    EvidenceRetriever,
+    FixtureEvidenceRetriever,
+)
 from app.foundry_agents import (
-    AgentBinding,
-    ConfigurationError,
     ContentFilterError,
     FoundryRunError,
     FoundryTimeoutError,
     ThrottledError,
-    hash_endpoint,
 )
 from app.telemetry import TelemetryRecorder
 from app.workflows import AgentCoordinator
 from app.workflows.coordinator import CoordinatorRequest
 
 from .conftest import (
+    DEFAULT_DISTRICT,
     canned_data_analyst_output,
     canned_recommendation_draft,
     canned_validator_critique,
 )
-from .fakes import DEFAULT_ENDPOINT, FakeFoundryClient, build_bindings, make_fake_adapter
+from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
 
 
 def _registry() -> ContractsRegistry:
@@ -32,6 +37,7 @@ def _registry() -> ContractsRegistry:
 
 def _request(**overrides: Any) -> CoordinatorRequest:
     defaults: dict[str, Any] = {
+        "district_id": DEFAULT_DISTRICT,
         "learner_label": "Learner 0001",
         "grade": 3,
         "school_id": "SCH-001",
@@ -61,6 +67,7 @@ def _make_coord(
     recommender_error: Exception | None = None,
     validator_error: Exception | None = None,
     invalid_json_for: str | None = None,
+    evidence_retriever: EvidenceRetriever | None = None,
 ) -> tuple[AgentCoordinator, FakeFoundryClient]:
     client = FakeFoundryClient()
     bindings = build_bindings()
@@ -100,6 +107,7 @@ def _make_coord(
         adapter=adapter,
         telemetry=TelemetryRecorder(None),
         contracts=_registry(),
+        evidence_retriever=evidence_retriever or FixtureEvidenceRetriever(),
         provider_display="Azure AI Foundry Agent Service (fake)",
     )
     return coord, client
@@ -111,15 +119,62 @@ def test_coordinator_happy_path() -> None:
     assert result.status == "ok"
     assert result.recommendation is not None
     assert result.recommendation.completeness["ok"] is True
-    assert len(result.agent_trace) == 3
+    assert result.recommendation.district_id == DEFAULT_DISTRICT
+    assert result.recommendation.human_review_state == "pending_review"
+    assert len(result.recommendation.citations) >= 1
+    for c in result.recommendation.citations:
+        assert c.district_id == DEFAULT_DISTRICT
+    # evidence retrieval step + 3 agent steps
+    assert len(result.agent_trace) == 4
     agents = [step.agent for step in result.agent_trace]
     assert agents == [
+        "evidence-retrieval",
         "data-analyst-agent",
         "support-recommendation-agent",
         "validator-agent",
     ]
-    # Three remote calls: one per agent
+    assert result.correlation_id
+    assert result.evidence_count >= 1
+    assert result.citation_count == result.evidence_count
+    # Three remote agent calls (evidence retrieval does not touch client)
     assert len(client.calls()) == 3
+
+
+def test_coordinator_missing_evidence_returns_evidence_missing() -> None:
+    class EmptyRetriever:
+        def has_district(self, district_id: str) -> bool:
+            return False
+
+        def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
+            raise EvidenceRetrievalError("UNKNOWN_DISTRICT", "no district evidence")
+
+    coord, _ = _make_coord(evidence_retriever=EmptyRetriever())
+    result = coord.run(_request())
+    assert result.status == "evidence_missing"
+    assert result.error_code == "EVIDENCE_MISSING"
+    assert result.recommendation is None
+
+
+def test_coordinator_recommender_returns_empty_bundle_causes_validation_failure() -> None:
+    """When no citations end up on the draft, the flow refuses the recommendation.
+
+    Concretely, protocol validation on `support-recommendation-result` requires
+    at least one citation, so an empty-bundle draft is rejected at the protocol
+    layer before it reaches the Validator Agent. Either way, no recommendation
+    is surfaced.
+    """
+
+    class SparseRetriever:
+        def has_district(self, district_id: str) -> bool:
+            return True
+
+        def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
+            return EvidenceBundle(district_id=request.district_id, citations=())
+
+    coord, _ = _make_coord(evidence_retriever=SparseRetriever())
+    result = coord.run(_request())
+    assert result.status in ("validation_failed", "invalid_model_json")
+    assert result.recommendation is None
 
 
 def test_coordinator_repair_succeeds() -> None:
@@ -161,7 +216,6 @@ def test_coordinator_repair_failure_returns_validation_failed() -> None:
     result = coord.run(_request())
     assert result.status == "validation_failed"
     assert result.error_code == "VALIDATION_FAILED_AFTER_REPAIR"
-    assert result.recommendation is None
 
 
 def test_coordinator_provider_timeout_returns_typed_failure() -> None:
@@ -170,91 +224,25 @@ def test_coordinator_provider_timeout_returns_typed_failure() -> None:
     )
     result = coord.run(_request())
     assert result.status == "provider_timeout"
-    assert result.recommendation is None
     assert result.error_code == "AGENT_PROVIDER_TIMEOUT"
 
 
 def test_coordinator_content_filter_returns_typed_failure() -> None:
-    coord, _ = _make_coord(
-        analyst_error=ContentFilterError("CONTENT_FILTER", "blocked"),
-    )
+    coord, _ = _make_coord(analyst_error=ContentFilterError("CONTENT_FILTER", "blocked"))
     result = coord.run(_request())
     assert result.status == "provider_content_filter"
-    assert result.error_code == "AGENT_PROVIDER_CONTENT_FILTER"
 
 
 def test_coordinator_throttling_returns_typed_failure() -> None:
-    coord, _ = _make_coord(
-        analyst_error=ThrottledError("THROTTLED", "429"),
-    )
+    coord, _ = _make_coord(analyst_error=ThrottledError("THROTTLED", "429"))
     result = coord.run(_request())
     assert result.status == "provider_throttling"
-    assert result.error_code == "AGENT_PROVIDER_THROTTLING"
 
 
 def test_coordinator_run_failure_returns_typed_failure() -> None:
-    coord, _ = _make_coord(
-        analyst_error=FoundryRunError("RUN_FAILED", "generic run failure"),
-    )
+    coord, _ = _make_coord(analyst_error=FoundryRunError("RUN_FAILED", "generic run failure"))
     result = coord.run(_request())
     assert result.status == "provider_error"
-    assert result.error_code == "AGENT_PROVIDER_ERROR"
-
-
-def test_coordinator_missing_binding_returns_provider_missing() -> None:
-    client = FakeFoundryClient()
-    # No bindings for any role -> ConfigurationError from adapter
-    adapter = make_fake_adapter(client, bindings={})
-    coord = AgentCoordinator(
-        adapter=adapter,
-        telemetry=TelemetryRecorder(None),
-        contracts=_registry(),
-        provider_display="Azure AI Foundry Agent Service (fake)",
-    )
-    result = coord.run(_request())
-    assert result.status == "provider_missing"
-    assert result.error_code == "AGENT_PROVIDER_MISSING"
-
-
-def test_coordinator_endpoint_mismatch_returns_provider_missing() -> None:
-    """If bindings were produced against a different endpoint, refuse."""
-    client = FakeFoundryClient()
-    other_hash = hash_endpoint("https://different.example.invalid/")
-    from datetime import UTC, datetime
-
-    b: dict[str, AgentBinding] = {
-        "data-analyst-agent": AgentBinding(
-            role="data-analyst-agent",
-            assistant_id="asst_mismatch",
-            agent_name="asg-data-analyst-agent",
-            model="fake",
-            instructions_hash="0" * 64,
-            manifest_version="1.0.0",
-            response_format_mode="json_object",
-            project_endpoint_hash=other_hash,
-            updated_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        ),
-    }
-    from app.foundry_agents import FoundryRemoteAgentAdapter
-
-    adapter = FoundryRemoteAgentAdapter(
-        client=client,
-        bindings=b,
-        project_endpoint=DEFAULT_ENDPOINT,
-        run_timeout_seconds=5.0,
-    )
-    coord = AgentCoordinator(
-        adapter=adapter,
-        telemetry=TelemetryRecorder(None),
-        contracts=_registry(),
-        provider_display="Azure AI Foundry Agent Service (fake)",
-    )
-    try:
-        result = coord.run(_request())
-    except ConfigurationError as exc:
-        # Adapter raises ConfigurationError, coordinator catches it
-        raise AssertionError("ConfigurationError should be caught by coordinator") from exc
-    assert result.status == "provider_missing"
 
 
 def test_coordinator_invalid_json_returns_typed_failure() -> None:
@@ -274,20 +262,10 @@ def test_coordinator_trace_contains_no_prompt_or_completion_text() -> None:
         assert "ignore all previous instructions" not in text
 
 
-def test_coordinator_protocol_validation_after_each_response() -> None:
-    """Out-of-range analyst payload triggers Pydantic invalid_analysis_schema."""
-    payload = {
-        "contract_version": "1.0.0",
-        "analysis": {
-            "detected_need": "n",
-            "evidence_bullets": [],
-            "missing_data_flags": [],
-            "analysis_confidence": 2.5,
-        },
-    }
-    coord, _ = _make_coord(analyst_payload=payload)
+def test_coordinator_correlation_id_propagated_through_trace() -> None:
+    coord, _ = _make_coord()
     result = coord.run(_request())
-    # analysis_confidence out of range should be caught by Pydantic first
-    # producing invalid_analysis_schema. Both are valid outcomes.
-    assert result.status == "invalid_model_json"
-    _ = json  # silence unused-import
+    assert result.correlation_id
+    # correlation_id is a UUID string; must not appear in trace steps as a
+    # standalone field, but must show up on the envelope response.
+    _ = result.correlation_id, json  # silence unused

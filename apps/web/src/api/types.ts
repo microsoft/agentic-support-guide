@@ -25,6 +25,8 @@ export interface HealthDetailsResponse {
   foundry_project_configured: boolean;
   foundry_agents_bound: boolean;
   service_side_remote_workflow_active: boolean;
+  evidence_fixture_available: boolean;
+  district_isolation_enabled: boolean;
   customer_demo_ready: boolean;
   checks: HealthCheckItem[];
   warnings: string[];
@@ -46,6 +48,7 @@ export interface AgentTraceStep {
   token_estimate: number | null;
   issue_codes?: string[];
   warning_codes?: string[];
+  citation_count?: number;
 }
 
 export interface KpiCard {
@@ -137,7 +140,20 @@ export interface RecommendationResource {
   kind: string;
 }
 
+export interface RecommendationCitation {
+  citation_id: string;
+  district_id: string;
+  source_type: string;
+  source_title: string;
+  section_or_page: string;
+  evidence_summary: string;
+  source_ref: string;
+  retrieved_at: string;
+  confidence: number;
+}
+
 export interface Recommendation {
+  district_id: string;
   detected_need: string;
   evidence_summary: string[];
   rationale: string;
@@ -152,7 +168,9 @@ export interface Recommendation {
   caveats: string[];
   smart_goal_suggestions: string[];
   strategy_suggestions: string[];
+  citations: RecommendationCitation[];
   completeness: { ok: boolean; missing: string[] };
+  human_review_state: string;
   generated_by: string;
 }
 
@@ -163,17 +181,21 @@ export interface RecommendationEnvelope {
   recommendation: Recommendation | null;
   agent_trace?: AgentTraceStep[];
   provider_model: string;
+  correlation_id: string;
+  district_id: string;
 }
 
 export interface SavedPlan {
   plan_id: string;
   learner_id: string;
+  district_id: string;
   category: string;
   concern_text: string;
   selected_smart_goal: string | null;
   selected_strategies: string[];
   created_at: string;
   recommendation: Recommendation;
+  human_review_state: string;
 }
 
 export interface SavedPlansResponse {
@@ -191,6 +213,11 @@ export interface AuditEvent {
   duration_ms: number;
   token_estimate: number;
   status: string;
+  correlation_id?: string;
+  district_id?: string;
+  evidence_count?: number;
+  citation_count?: number;
+  validator_status?: string;
 }
 
 export interface AuditResponse {

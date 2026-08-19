@@ -151,6 +151,32 @@ and drops anything else.
   "debugging." Extend the metadata facade with a new coded field
   instead.
 
+## Correlation IDs and district context
+
+The coordinator generates a `correlation_id` (a random 32-character
+identifier) per recommendation request and stamps it on:
+
+- The `RecommendationEnvelope`.
+- Every trace step (`data-analyst-call`, `evidence-retrieval`,
+  `support-recommender-call`, `validator-call`, `contract-validation`,
+  `agent-hop-start`, `agent-hop-end`).
+- Every runtime audit row.
+- Every telemetry event.
+- Every `review_transition` audit row raised by
+  `POST /api/supports/plans/{plan_id}/review`.
+
+Alongside `correlation_id`, the following fields are safe to log and
+are emitted at each hop:
+
+- `district_id`
+- `evidence_count`
+- `citation_count`
+- `validator_status`
+
+None of these are prompts or completions. They allow a support
+engineer to trace a single request end-to-end (or reconstruct a
+review-and-approval sequence) without ever seeing raw model text.
+
 ## Mapping to production observability
 
 The `TelemetryRecorder.record()` shape is intentionally compatible

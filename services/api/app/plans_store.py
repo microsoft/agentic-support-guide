@@ -7,6 +7,7 @@ agent coordinator when the user runs the plan builder.
 
 from __future__ import annotations
 
+from .human_review import HumanReviewState
 from .mock_data import (
     AssessmentRecord,
     BehaviorRecord,
@@ -14,16 +15,24 @@ from .mock_data import (
     ResourceItem,
     SeededPlanSpec,
 )
-from .models import Recommendation, RecommendationResource, SavedPlan
+from .models import (
+    Recommendation,
+    RecommendationCitation,
+    RecommendationResource,
+    SavedPlan,
+)
 
 _STUB_CAVEATS = (
     "Illustrative synthetic output only; not a real benchmark.",
     "Human review is required before any decision or communication.",
 )
 
+_STUB_DISTRICT = "DIST-DEMO"
+
 
 def _stub_recommendation(category: str) -> Recommendation:
     return Recommendation(
+        district_id=_STUB_DISTRICT,
         detected_need=f"Seeded example for category '{category}'.",
         evidence_summary=[
             "Synthetic seeded evidence line 1.",
@@ -46,7 +55,21 @@ def _stub_recommendation(category: str) -> Recommendation:
         caveats=list(_STUB_CAVEATS),
         smart_goal_suggestions=[f"SG-{category}-1"],
         strategy_suggestions=[f"ST-{category}-1"],
+        citations=[
+            RecommendationCitation(
+                citation_id=f"{_STUB_DISTRICT}-seed-{category}",
+                district_id=_STUB_DISTRICT,
+                source_type="synthetic_fixture",
+                source_title="Seeded synthetic fixture",
+                section_or_page="",
+                evidence_summary="Seeded synthetic citation attached to a stub plan.",
+                source_ref=f"fixture://{_STUB_DISTRICT.lower()}/{category}/seed",
+                retrieved_at="2026-01-05T09:00:00Z",
+                confidence=0.7,
+            )
+        ],
         completeness={"ok": True, "missing": []},
+        human_review_state=HumanReviewState.PENDING_REVIEW.value,
         generated_by="Seeded synthetic stub. Not a real agent output.",
     )
 
@@ -75,12 +98,14 @@ class SavedPlansStore:
                 SavedPlan(
                     plan_id=spec.plan_id,
                     learner_id=spec.learner_id,
+                    district_id=_STUB_DISTRICT,
                     category=spec.category,
                     concern_text=spec.concern_text,
                     selected_smart_goal=spec.selected_smart_goal_id,
                     selected_strategies=list(spec.selected_strategy_ids),
                     created_at=spec.created_at,
                     recommendation=_stub_recommendation(spec.category),
+                    human_review_state=HumanReviewState.PENDING_REVIEW.value,
                 )
             )
             self._counter += 1
@@ -88,9 +113,22 @@ class SavedPlansStore:
     def list(self) -> list[SavedPlan]:
         return list(self._plans)
 
+    def get(self, plan_id: str) -> SavedPlan | None:
+        for plan in self._plans:
+            if plan.plan_id == plan_id:
+                return plan
+        return None
+
     def add(self, plan: SavedPlan) -> SavedPlan:
         self._plans.append(plan)
         return plan
+
+    def replace(self, plan: SavedPlan) -> SavedPlan:
+        for i, existing in enumerate(self._plans):
+            if existing.plan_id == plan.plan_id:
+                self._plans[i] = plan
+                return plan
+        raise KeyError(plan.plan_id)
 
     def next_plan_id(self) -> str:
         self._counter += 1

@@ -229,3 +229,67 @@ the persistent banner in the frontend layout.
 - Not a substitute for human review.
 - Not a medical, legal, disability, placement, or compliance
   determination system.
+
+## District isolation
+
+Every request carries a `district_id` matching pattern
+`^[A-Z0-9][A-Z0-9\-]{1,31}$`. It is enforced at four layers:
+
+- **HTTP** - required by `SupportPlanRequest`.
+- **Contracts** - required in every JSON Schema in `/contracts/v1/`.
+- **Coordinator** - propagated to every agent context and stamped on
+  every envelope payload.
+- **Validator Agent** - deterministic checks
+  (`DRAFT_DISTRICT_MISMATCH`, `CROSS_DISTRICT_CITATION`,
+  `UNKNOWN_CITATION_ID`) reject any drift.
+
+The target production topology gives each district its own Microsoft
+Fabric workspace and lakehouse. This repo ships only synthetic
+per-district fixtures via `FixtureEvidenceRetriever`. See
+[`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md).
+
+## Human review
+
+Every recommendation is created in `human_review_state = pending_review`.
+Allowed transitions live in
+[`services/api/app/human_review.py`](../services/api/app/human_review.py):
+
+```
+draft            -> pending_review
+pending_review   -> approved | rejected
+rejected         -> pending_review
+approved         (terminal)
+```
+
+Transitions:
+
+- Are made through `POST /api/supports/plans/{plan_id}/review`.
+- Are validated against the state machine; invalid transitions raise
+  `InvalidReviewTransitionError` (HTTP 409).
+- Are recorded in the runtime audit log as `review_transition` events
+  with `correlation_id`, `district_id`, old state, new state, and a
+  reviewer identifier. No prompt or completion text is stored.
+
+Approval is terminal in the demo. Production would layer on district
+approver identity, signing, and workflow escalation. That is out of
+scope for this prototype.
+
+## Evidence-backed output
+
+Every passing recommendation attaches at least one citation. The
+Validator Agent rejects `MISSING_CITATIONS`,
+`CROSS_DISTRICT_CITATION`, and `UNKNOWN_CITATION_ID`. The
+`Citation` type includes only safe fields (`citation_id`,
+`district_id`, `source_type`, `source_title`, `section_or_page`,
+`evidence_summary`, `source_ref`, `retrieved_at`, `confidence`).
+It never carries a raw document body.
+
+See [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md).
+
+## Correlation IDs and safe audit
+
+The coordinator generates a `correlation_id` per request. Audit rows
+carry `correlation_id`, `district_id`, `evidence_count`,
+`citation_count`, and `validator_status`. None of them contain
+prompts, completions, thread IDs, or run IDs. See
+[`observability.md`](observability.md).

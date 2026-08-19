@@ -23,7 +23,13 @@ or GenAIOps, read these first — in order — before touching code:
    container view.
 4. [GenAIOps](docs/genaiops.md), [Security and privacy](docs/security-and-privacy.md),
    [Observability](docs/observability.md) — concept-first, then repo.
-5. [Glossary](docs/glossary.md) — plain-language definitions of every
+5. [Agents vs. bigger prompts](docs/agents-vs-prompts.md) — the answer
+   to *"why not just keep adding more context to the prompt?"*, anchored
+   to this solution.
+6. [Foundry + Fabric deep dive](docs/foundry-fabric-deep-dive.md) — how
+   Azure AI Foundry (reasoning tier) and Microsoft Fabric (per-district
+   data tier) fit together in the target topology.
+7. [Glossary](docs/glossary.md) — plain-language definitions of every
    term used above.
 
 ## Architecture diagram
@@ -537,6 +543,8 @@ README.
 - [Getting started for new teams](docs/getting-started-for-new-teams.md)
 - [Architecture](docs/architecture.md)
 - [Architecture diagram](docs/architecture-diagram.md)
+- [Agents vs. bigger prompts](docs/agents-vs-prompts.md)
+- [Foundry + Fabric deep dive](docs/foundry-fabric-deep-dive.md)
 - [GenAIOps](docs/genaiops.md)
 - [Security and privacy](docs/security-and-privacy.md)
 - [Observability](docs/observability.md)
@@ -545,3 +553,5 @@ README.
 - [ADR — agent hosting (original, superseded)](docs/adr/0001-agent-hosting.md)
 - [ADR — agent hosting on remote Foundry (current)](docs/adr/0002-agent-hosting-remote-foundry.md)
 - [ADR — Foundry Terraform choices](docs/adr/0001-foundry-project.md)
+- [ADR — district isolation and grounding](docs/adr/0003-district-isolation-and-grounding.md)
+- [ADR — grounding and citations](docs/adr/0004-grounding-and-citations.md)

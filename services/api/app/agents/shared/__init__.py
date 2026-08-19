@@ -3,6 +3,8 @@
 from .contracts import (
     AgentEnvelope,
     AnalysisSummary,
+    Citation,
+    CitationSourceType,
     DataAnalystOutput,
     ResourceRef,
     SupportRecommendationDraft,
@@ -12,6 +14,8 @@ from .contracts import (
 __all__ = [
     "AgentEnvelope",
     "AnalysisSummary",
+    "Citation",
+    "CitationSourceType",
     "DataAnalystOutput",
     "ResourceRef",
     "SupportRecommendationDraft",

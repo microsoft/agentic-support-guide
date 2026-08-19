@@ -34,6 +34,8 @@ class HealthDetailsResponse(BaseModel):
     foundry_project_configured: bool
     foundry_agents_bound: bool
     service_side_remote_workflow_active: bool
+    evidence_fixture_available: bool
+    district_isolation_enabled: bool
     customer_demo_ready: bool
     checks: list[HealthCheckItem]
     warnings: list[str] = Field(default_factory=list)
@@ -55,6 +57,7 @@ class AgentTraceStep(BaseModel):
     token_estimate: int | None
     issue_codes: list[str] = Field(default_factory=list)
     warning_codes: list[str] = Field(default_factory=list)
+    citation_count: int = 0
 
 
 class KpiCard(BaseModel):
@@ -168,6 +171,7 @@ class SupportPlanRequest(BaseModel):
     learner_id: str = Field(min_length=1)
     category: str = Field(min_length=1)
     concern_text: str = Field(min_length=1, max_length=1000)
+    district_id: str = Field(min_length=2, max_length=32, pattern=r"^[A-Z0-9][A-Z0-9\-]{1,31}$")
 
 
 class RecommendationResource(BaseModel):
@@ -176,7 +180,22 @@ class RecommendationResource(BaseModel):
     kind: str
 
 
+class RecommendationCitation(BaseModel):
+    """District-scoped evidence pointer surfaced to the UI."""
+
+    citation_id: str
+    district_id: str
+    source_type: str
+    source_title: str
+    section_or_page: str = ""
+    evidence_summary: str
+    source_ref: str
+    retrieved_at: str
+    confidence: float
+
+
 class Recommendation(BaseModel):
+    district_id: str
     detected_need: str
     evidence_summary: list[str]
     rationale: str
@@ -191,7 +210,9 @@ class Recommendation(BaseModel):
     caveats: list[str]
     smart_goal_suggestions: list[str]
     strategy_suggestions: list[str]
+    citations: list[RecommendationCitation]
     completeness: dict[str, bool | list[str]]
+    human_review_state: str
     generated_by: str
 
 
@@ -208,17 +229,21 @@ class RecommendationEnvelope(BaseModel):
     recommendation: Recommendation | None = None
     agent_trace: list[AgentTraceStep] = Field(default_factory=list)
     provider_model: str
+    correlation_id: str
+    district_id: str
 
 
 class SavedPlan(BaseModel):
     plan_id: str
     learner_id: str
+    district_id: str
     category: str
     concern_text: str
     selected_smart_goal: str | None
     selected_strategies: list[str]
     created_at: str
     recommendation: Recommendation
+    human_review_state: str = "draft"
 
 
 class SavedPlansResponse(BaseModel):
@@ -233,6 +258,14 @@ class SavePlanRequest(BaseModel):
     selected_smart_goal: str | None = None
     selected_strategies: list[str] = Field(default_factory=list)
     recommendation: Recommendation
+    district_id: str = Field(min_length=2, max_length=32, pattern=r"^[A-Z0-9][A-Z0-9\-]{1,31}$")
+
+
+class ReviewTransitionRequest(BaseModel):
+    """Request body for POST /api/supports/plans/{plan_id}/review."""
+
+    to_state: str = Field(pattern=r"^(pending_review|approved|rejected)$")
+    user_label: str = Field(default="Staff S-01", max_length=32)
 
 
 class AuditEvent(BaseModel):
@@ -245,6 +278,11 @@ class AuditEvent(BaseModel):
     duration_ms: int
     token_estimate: int
     status: str
+    correlation_id: str = ""
+    district_id: str = ""
+    evidence_count: int = 0
+    citation_count: int = 0
+    validator_status: str = ""
 
 
 class AuditResponse(BaseModel):

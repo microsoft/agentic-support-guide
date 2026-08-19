@@ -218,3 +218,87 @@ guards against silent drift.
 
 See [`adr/0002-agent-hosting-remote-foundry.md`](adr/0002-agent-hosting-remote-foundry.md) and
 [`adr/0001-foundry-project.md`](adr/0001-foundry-project.md).
+
+## District isolation, evidence retrieval, and human review
+
+Three concerns overlay the base workflow. They are all first-class in
+the contracts and enforced in code, not in prompts.
+
+### District isolation (`district_id`)
+
+Every request carries a `district_id` matching pattern
+`^[A-Z0-9][A-Z0-9\-]{1,31}$`. It is required by:
+
+- `SupportPlanRequest` at the HTTP boundary.
+- Every JSON Schema in `/contracts/v1/` (request, result, citation).
+- `DataAnalystOutput`, `SupportRecommendationDraft`, `ValidatorReport`,
+  and `Citation` on the Python side.
+- The runtime audit and telemetry rows.
+
+The Validator Agent raises `DRAFT_DISTRICT_MISMATCH` and
+`CROSS_DISTRICT_CITATION` deterministically if anything drifts. In the
+target production topology, each district maps to its own Fabric
+workspace and lakehouse (see
+[`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md)
+and [`foundry-fabric-deep-dive.md`](foundry-fabric-deep-dive.md)).
+
+### Evidence retrieval
+
+The coordinator retrieves evidence **before** invoking any agent:
+
+```
+services/api/app/evidence/
+  retrieval.py    # EvidenceRetriever Protocol (stable interface)
+  fixtures.py     # FixtureEvidenceRetriever (synthetic per-district)
+```
+
+The bundle is passed to the Support Recommendation Agent, which
+attaches citations by ID. The Validator Agent checks citation
+integrity (`MISSING_CITATIONS`, `UNKNOWN_CITATION_ID`,
+`CROSS_DISTRICT_CITATION`). See
+[`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md).
+
+### Human review lifecycle
+
+Every recommendation is created in `human_review_state = pending_review`.
+Allowed transitions live in
+[`services/api/app/human_review.py`](../services/api/app/human_review.py):
+
+```
+draft            -> pending_review
+pending_review   -> approved | rejected
+rejected         -> pending_review
+approved         (terminal)
+```
+
+Transitions go through `POST /api/supports/plans/{plan_id}/review`
+and are recorded in the runtime audit log as
+`review_transition` events with `correlation_id`, `district_id`, old
+state, new state, and reviewer identifier. No prompt or completion text
+is stored.
+
+### Correlation IDs
+
+The coordinator generates a `correlation_id` per request and stamps it
+on every envelope, every audit row, every trace step, and every
+review-transition record. See
+[`observability.md`](observability.md).
+
+## The Support Recommendation Agent
+
+The recommender is referred to as the **Support Recommendation Agent**
+throughout the code, UI, and current documentation. Earlier internal
+notes may have called it "Interventionist", "Interventionalist", or
+"Instructional Expert"; those labels are historical only and are not
+used as identifiers today.
+
+## Related documents
+
+- [`agents-vs-prompts.md`](agents-vs-prompts.md) - why this is a
+  multi-agent workflow instead of one bigger prompt.
+- [`foundry-fabric-deep-dive.md`](foundry-fabric-deep-dive.md) -
+  how Foundry and Fabric fit together in the target topology.
+- [`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md)
+- [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md)
+- [`security-and-privacy.md`](security-and-privacy.md)
+- [`observability.md`](observability.md)

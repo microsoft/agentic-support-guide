@@ -1,9 +1,9 @@
 """Data Analyst Agent - remote Foundry agent invocation.
 
-The role-specific prompt template and expected schema live here. The
-underlying LLM call is delegated to a remote Azure AI Foundry Agent
-Service assistant via FoundryRemoteAgentAdapter. There is no local
-model call and no local fallback.
+The Python wrapper attaches `district_id` (from context) to the parsed
+model output. The remote agent itself does not need to know about
+`district_id`; the coordinator is the source of truth for tenant
+boundaries.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ AGENT_NAME = "data-analyst-agent"
 
 @dataclass(frozen=True)
 class DataAnalystContext:
+    district_id: str
     learner_label: str
     grade: int
     school_id: str
@@ -73,5 +74,7 @@ class DataAnalystAgent:
             raise ValueError("invalid_analysis_schema") from exc
         return DataAnalystOutput(
             contract_version=payload.get("contract_version", "1.0.0"),
+            district_id=context.district_id,
             analysis=analysis,
+            citations=[],
         )

@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import AzureFoundrySettings
+from app.evidence import FixtureEvidenceRetriever
 from app.foundry_agents import FoundryRemoteAgentAdapter
 from app.main import create_app
 
@@ -27,6 +28,8 @@ ENV_KEYS = (
     "FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER",
     "FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR",
 )
+
+DEFAULT_DISTRICT = "DIST-DEMO"
 
 
 @pytest.fixture(autouse=True)
@@ -63,8 +66,9 @@ def canned_recommendation_draft(
     strategy_ids: list[str] | None = None,
     tier: str = "Targeted support (Tier 2)",
     caveats: list[str] | None = None,
+    cited_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    return {
+    body: dict[str, Any] = {
         "contract_version": "1.0.0",
         "detected_need": "Early literacy skill gap",
         "support_tier": tier,
@@ -85,6 +89,9 @@ def canned_recommendation_draft(
             "Human review is required before any decision or communication.",
         ],
     }
+    if cited_ids is not None:
+        body["cited_ids"] = cited_ids
+    return body
 
 
 def canned_validator_critique() -> dict[str, Any]:
@@ -131,6 +138,11 @@ def fake_client() -> FakeFoundryClient:
 @pytest.fixture()
 def fake_adapter(fake_client: FakeFoundryClient) -> FoundryRemoteAgentAdapter:
     return make_fake_adapter(fake_client)
+
+
+@pytest.fixture()
+def evidence_retriever() -> FixtureEvidenceRetriever:
+    return FixtureEvidenceRetriever()
 
 
 @pytest.fixture()
