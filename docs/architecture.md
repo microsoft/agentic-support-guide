@@ -1,5 +1,7 @@
 # Architecture
 
+> See also: [High-level architecture diagram](architecture-diagram.md).
+
 `agentic-support-guide` is a customer-demo prototype demonstrating an
 Azure AI Foundry three-agent workflow. All data is synthetic. Every LLM
 call is a run against a remote **Azure AI Foundry Agent Service**

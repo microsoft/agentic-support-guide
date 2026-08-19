@@ -440,6 +440,7 @@ README.
 ## Docs
 
 - [Architecture](docs/architecture.md)
+- [Architecture diagram](docs/architecture-diagram.md)
 - [Security and privacy](docs/security-and-privacy.md)
 - [Future Azure architecture](docs/future-azure-architecture.md)
 - [ADR — agent hosting](docs/adr/0001-agent-hosting.md)

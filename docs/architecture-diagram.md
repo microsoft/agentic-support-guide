@@ -1,36 +1,32 @@
 # Architecture diagram
 
-The high-level C4 container view for **Agentic Support Guide** lives in
-[`architecture.dsl`](architecture.dsl) as a Structurizr DSL model.
+A high-level C4 container view of **Agentic Support Guide** that is safe
+to show in a customer demo. The diagram intentionally omits sequence
+detail; see [`architecture.md`](architecture.md) for runtime and
+protocol notes.
 
-## What it shows
+## Rendered diagram
 
-- One person (`Demo User`) and one internal system (`Agentic Support Guide`)
-  with five containers: `Web App`, `API Service`, `Synthetic Data`,
-  `Agent Definitions`, and `Protocol Contracts`.
-- One external system `Azure AI Foundry` with `Foundry Project`,
-  `Remote Foundry Agents`, `Model Deployment`, and `Observability`.
-- One external system `Operations` with `Terraform and Scripts`.
+> The rendered diagram will appear here once `architecture.svg` is exported from `architecture.dsl` and committed.
 
-The three role agents (Data Analyst, Support Recommendation, Validator)
-are represented as a single `Remote Foundry Agents` container. The API
-Service performs deterministic orchestration in application code; there
-is no fourth "coordinator agent" in the model.
+## Source
 
-## Viewing
+- Structurizr DSL source: [`architecture.dsl`](architecture.dsl).
 
-- Open `architecture.dsl` with a Structurizr DSL VS Code extension for
-  inline rendering.
-- Or paste the file contents into a Structurizr Lite instance to render
-  the container view.
+GitHub does not render Structurizr DSL directly, so the SVG above is the
+version that appears inline. Regenerate `architecture.svg` whenever
+`architecture.dsl` changes and commit the updated SVG.
 
-The Container view is named `AgenticSupportGuideContainers` and uses
-`autoLayout lr`.
+## Viewing and editing the DSL
 
-## Scope
+- Open `architecture.dsl` with a Structurizr-compatible editor
+  (for example, a Structurizr DSL VS Code extension) to preview and
+  edit the model inline.
+- Or load the file into a Structurizr Lite instance to render the
+  Container view named `AgenticSupportGuideContainers`.
 
-This diagram is intentionally high-level and customer-safe. It omits
-sequence-level detail, per-request arrows, and internal wiring on
-purpose. For runtime protocol and orchestration detail, see
-[`architecture.md`](architecture.md) and
-[`adr/0001-agent-hosting.md`](adr/0001-agent-hosting.md).
+## Exporting to SVG
+
+No SVG export command is currently documented in this repository.
+Use a Structurizr-compatible tool to export `docs/architecture.dsl` to
+`docs/architecture.svg`, then commit the SVG so GitHub can render it.
