@@ -109,6 +109,63 @@ def test_save_plan_persists_district_and_review_state() -> None:
     assert saved["human_review_state"] == "pending_review"
 
 
+def test_save_plan_rejects_recommendation_from_another_district() -> None:
+    """The save endpoint does not re-run the pipeline, so it must re-check."""
+
+    client = make_default_client()
+    rec = client.post(
+        "/api/recommendations/support-plan",
+        json={
+            "learner_id": "LRN-0001",
+            "category": "early-literacy",
+            "concern_text": "Letter-sound fluency below expected pace.",
+            "district_id": "DIST-DEMO",
+        },
+    ).json()["recommendation"]
+
+    resp = client.post(
+        "/api/supports/plans",
+        json={
+            "learner_id": "LRN-0001",
+            "category": "early-literacy",
+            "concern_text": "Letter-sound fluency below expected pace.",
+            "selected_smart_goal": None,
+            "selected_strategies": [],
+            "recommendation": rec,
+            "district_id": "DIST-A",
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_save_plan_rejects_oversized_rationale() -> None:
+    client = make_default_client()
+    rec = client.post(
+        "/api/recommendations/support-plan",
+        json={
+            "learner_id": "LRN-0001",
+            "category": "early-literacy",
+            "concern_text": "Letter-sound fluency below expected pace.",
+            "district_id": "DIST-DEMO",
+        },
+    ).json()["recommendation"]
+    rec["rationale"] = "x" * 5000
+
+    resp = client.post(
+        "/api/supports/plans",
+        json={
+            "learner_id": "LRN-0001",
+            "category": "early-literacy",
+            "concern_text": "Letter-sound fluency below expected pace.",
+            "selected_smart_goal": None,
+            "selected_strategies": [],
+            "recommendation": rec,
+            "district_id": "DIST-DEMO",
+        },
+    )
+    assert resp.status_code == 422
+
+
 def test_unknown_learner_returns_404() -> None:
     client = make_default_client()
     resp = client.post(

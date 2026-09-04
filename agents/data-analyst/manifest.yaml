@@ -3,16 +3,15 @@ name: Data Analyst Agent
 version: 1.0.0
 
 # Remote Foundry Agent Service binding. The remote agent is created and
-# updated by scripts/sync_foundry_agents.py from agent.md + this manifest.
+# updated by scripts/validate_agent_definitions.py from agent.md + this manifest.
 foundry:
-  foundry_agent_name: asg-data-analyst-agent
   model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_ANALYST
   response_format: json_object
   temperature: 0.2
   max_output_tokens: 800
 
 runtime:
-  provider: azure_foundry_agents
+  provider: azure_foundry_responses
   timeout_seconds: 30
 
 contracts:

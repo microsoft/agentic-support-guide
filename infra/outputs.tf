@@ -43,6 +43,36 @@ output "log_analytics_workspace_name" {
   value       = azurerm_log_analytics_workspace.main.name
 }
 
+output "router_deployment_name" {
+  description = "Model router deployment name. Set as FOUNDRY_MODEL_DEPLOYMENT_ROUTER for Module 3. Empty when the router is disabled."
+  value       = var.enable_model_router ? azurerm_cognitive_deployment.router[0].name : ""
+}
+
+output "judge_deployment_name" {
+  description = "Judge model deployment used by Module 6 evaluations. Set as FOUNDRY_MODEL_DEPLOYMENT_JUDGE. Empty when disabled."
+  value       = var.enable_judge_deployment ? azurerm_cognitive_deployment.judge[0].name : ""
+}
+
+output "search_service_name" {
+  description = "Azure AI Search service backing Foundry IQ. Empty when the knowledge plane is disabled."
+  value       = var.enable_knowledge_plane ? azurerm_search_service.knowledge[0].name : ""
+}
+
+output "search_endpoint" {
+  description = "Search endpoint. Set as AZURE_SEARCH_ENDPOINT for Module 2."
+  value       = var.enable_knowledge_plane ? "https://${azurerm_search_service.knowledge[0].name}.search.windows.net" : ""
+}
+
+output "knowledge_storage_account_name" {
+  description = "Storage account holding district source documents for Foundry IQ."
+  value       = var.enable_knowledge_plane ? azurerm_storage_account.knowledge[0].name : ""
+}
+
+output "knowledge_container_name" {
+  description = "Blob container holding district source documents."
+  value       = var.enable_knowledge_plane ? azurerm_storage_container.knowledge[0].name : ""
+}
+
 output "application_insights_name" {
   description = "Application Insights resource name (metadata only)."
   value       = azurerm_application_insights.main.name

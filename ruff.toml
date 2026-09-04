@@ -1,0 +1,22 @@
+# Ruff config for files outside services/api (mainly scripts/).
+#
+# Without this, scripts/ falls back to ruff's built-in defaults, so lint
+# results changed depending on which directory ruff was invoked from.
+# services/api/pyproject.toml still wins for files under it - ruff uses the
+# closest config to each file.
+
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "node_modules", "build", "dist"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4"]
+ignore = ["B008"]
+
+[lint.per-file-ignores]
+# Scripts must extend sys.path to import the app package before importing
+# from it, so module-level imports legitimately follow executable code.
+"scripts/*.py" = ["E402"]
+
+[format]
+quote-style = "double"

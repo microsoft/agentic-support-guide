@@ -76,10 +76,11 @@ workflow: multiple specialized agents exchanging typed messages, with a
 central coordinator, structured output, prompt-injection defenses, and
 metadata-only auditing.
 
-The three agents are hosted as remote assistants in **Azure AI Foundry
-Agent Service**. Foundry is the Azure service that owns the model
-deployment, provides keyless Entra ID authentication, and is the
-organizational unit for hosted agents, evaluation, and safety workflows.
+The three agents run on **Azure AI Foundry** through Microsoft Agent
+Framework, and the same definitions are published to Foundry as **prompt
+agents** so they are visible and versioned in the portal. Foundry owns the
+model deployment, provides keyless Entra ID authentication, and is the
+organizational unit for agents, evaluation, and safety workflows.
 
 ## What is synthetic vs. real
 
@@ -92,8 +93,8 @@ organizational unit for hosted agents, evaluation, and safety workflows.
 ## How to know the demo is ready
 
 - `GET /api/health/details` returns `"active_provider":
-  "azure_foundry_agents"`, `"foundry_project_configured": true`,
-  `"foundry_agents_bound": true`, and `"customer_demo_ready": true`.
+  "azure_foundry_responses"`, `"foundry_project_configured": true`,
+  `"agent_definitions_valid": true`, and `"customer_demo_ready": true`.
 - The in-app **Demo Guide** page shows a green *Customer demo ready*
   banner.
 - `POST /api/recommendations/support-plan` returns `status: "ok"` with
@@ -103,29 +104,40 @@ organizational unit for hosted agents, evaluation, and safety workflows.
 
 Implemented now:
 
-- Three role wrappers in Python, each invoking a **remote** Azure AI
-  Foundry Agent Service assistant via
-  [`FoundryRemoteAgentAdapter`](services/api/app/foundry_agents/adapter.py).
+- Three role wrappers in Python, each invoking Azure AI Foundry through
+  Microsoft Agent Framework via
+  [`MafAgentRuntime`](services/api/app/foundry_agents/maf_runtime.py).
 - Deterministic coordinator, typed shared contracts, JSON Schema
   protocol validation at every hop, one-shot repair loop.
 - Keyless Azure AI Foundry auth via `DefaultAzureCredential`.
 - Terraform for AI Services account, Foundry project, model deployment,
   RBAC, Log Analytics + Application Insights.
-- Sync script [`scripts/sync_foundry_agents.py`](scripts/sync_foundry_agents.py)
-  with `--dry-run`, `--apply`, `--check-connectivity`, and `--rebind`
-  modes, driving `azure-ai-agents` CRUD from
-  `/agents/*/agent.md` + `manifest.yaml`.
+- Validation script
+  [`scripts/validate_agent_definitions.py`](scripts/validate_agent_definitions.py)
+  checks every `/agents/*/agent.md` + `manifest.yaml` offline, and
+  `--check-connectivity` verifies the live project endpoint. Publishing to
+  Foundry is a separate step:
+  [`scripts/publish_prompt_agents.py`](scripts/publish_prompt_agents.py).
+- Offline eval gate [`scripts/run_evals.py`](scripts/run_evals.py) scoring
+  the synthetic cases against `evals/expected_checks.yaml` in CI.
 - Rule-based privacy scanner, prompt-injection sanitization,
   metadata-only audit trail.
 
 Remaining gaps (not implemented in this repo):
 
-- No CI workflow runs the eval cases, sync script dry-run, or lint/test
-  suite on push.
-- No exported `docs/architecture.svg` (see the Architecture diagram
-  section above).
-- No automatic promotion gate that requires eval and safety checks to
-  pass before an agent version is applied to Foundry.
+- No automatic promotion gate beyond CI. `scripts/run_evals.py --offline`
+  scores structure and safety on every pull request, but nothing scores
+  answer *quality*, and no gate blocks a merge on a live-model eval.
+- The AI Services account is reachable over the public internet
+  (`public_network_access_enabled = true`); keyless Entra auth is the only
+  control. No private endpoint or network ACLs.
+- Human review transitions exist in the API but are not driven from the
+  web UI.
+- The AI Services account is reachable over the public internet
+  (`public_network_access_enabled = true`); keyless Entra auth is the only
+  control. No private endpoint or network ACLs.
+- Human review transitions exist in the API but are not driven from the
+  web UI.
 
 Broader roadmap notes live in
 [docs/future-azure-architecture.md](docs/future-azure-architecture.md).
@@ -172,10 +184,10 @@ No Docker. No local database. No global npm or pip packages required.
   Services accounts, and Log Analytics/Application Insights resources.
 - A user or admin who can create **role assignments** (`Owner` or
   `User Access Administrator` on the target subscription or resource
-  group). The stack assigns two roles: `Cognitive Services OpenAI User`
-  and `Azure AI User`. If you cannot create role assignments yourself, ask
-  your subscription admin to run `terraform apply` on your behalf, or to
-  grant those two roles to your Object ID after apply.
+  group). The stack assigns one role: `Cognitive Services OpenAI User`
+  at the AI Services account scope. If you cannot create role assignments
+  yourself, ask your subscription admin to run `terraform apply` on your
+  behalf, or to grant that role to your Object ID after apply.
 - **Model quota** in the region you choose. Quota is per-region and
   per-SKU. If your subscription is new, request quota for `gpt-4.1-mini`
   on `DataZoneStandard` in your chosen region before the demo.
@@ -272,21 +284,23 @@ paste the values into the corresponding keys in `.env`. Use
 `terraform output -raw application_insights_connection_string` to
 reveal the sensitive value.
 
-**Step 5 — provision the remote Foundry agents.**
+**Step 5 — validate and publish the agent definitions.**
 
-The three role instructions live in `/agents/<id>/agent.md`. The sync
-script creates or updates one remote assistant per role in Azure AI
-Foundry Agent Service and writes the assistant IDs to
-`.foundry/agent-bindings.local.json` (gitignored).
+The role instructions live in `/agents/<id>/agent.md`. Validate them
+offline first, then publish them to Foundry as prompt agents so they show
+up in the portal:
 
 ```powershell
-python scripts/sync_foundry_agents.py --dry-run
-python scripts/sync_foundry_agents.py --apply
+python scripts/validate_agent_definitions.py
+python scripts/publish_prompt_agents.py --suffix <your-alias> --apply
 ```
 
-Re-run `--apply` any time `agent.md` or `manifest.yaml` changes. The
-script computes an `instructions_hash` and only touches remote agents
-whose configuration has drifted.
+`--suffix` is required so many people can publish into one Foundry project
+without overwriting each other. Remove yours with `--delete`.
+
+Re-run publish any time `agent.md` or `manifest.yaml` changes. The validate
+script prints an `instructions_hash` so you can tell whether what you
+published is what you meant to publish.
 
 ### Start the app for the demo
 
@@ -297,8 +311,13 @@ cd services\api
 py -3.13 -m venv .venv           # first time only
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env
 ```
+
+> `--env-file .env` is required. The application reads configuration from
+> the process environment and does not load `.env` on its own, so omitting
+> the flag leaves `customer_demo_ready` stuck at `false`.
+> `.\scripts\run-backend.ps1` passes it for you.
 
 Frontend (a second terminal):
 
@@ -323,19 +342,18 @@ Before starting the demo, confirm all of these:
       plan output).
 - [ ] `services/api/.env` contains `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
       and the per-role `FOUNDRY_MODEL_DEPLOYMENT_*` values.
-- [ ] `.foundry/agent-bindings.local.json` exists with an entry for each
-      of the three roles (produced by `sync_foundry_agents.py --apply`).
+      of the three roles (produced by `validate_agent_definitions.py`).
 - [ ] `GET /api/health/details` returns
-      `"active_provider": "azure_foundry_agents"`,
+      `"active_provider": "azure_foundry_responses"`,
       `"foundry_project_configured": true`,
-      `"foundry_agents_bound": true`, and
+      `"agent_definitions_valid": true`, and
       `"customer_demo_ready": true`.
 - [ ] The in-app **Demo Guide** page shows a green *Customer demo ready*
       banner.
 - [ ] Generating a recommendation in **Supports** returns
       `status: "ok"` with a three-agent trace.
 - [ ] **AI Audit** shows a new runtime row whose provider column is
-      `Azure AI Foundry Agent Service (remote agents)`.
+      `Azure AI Foundry (Agent Framework, prompt agents)`.
 
 ### Quick readiness probe
 
@@ -397,7 +415,7 @@ person, meeting, or source document.
 
 Automated tests inject a fake Foundry client
 (`services/api/tests/fakes.py::FakeFoundryClient`) into the
-`FoundryRemoteAgentAdapter` via dependency injection. This is only
+`MafAgentRuntime` via dependency injection. This is only
 available inside `pytest`; there is no environment variable to enable
 it at runtime. When the runtime cannot find bindings or an endpoint,
 `/api/health/details` reports `"active_provider": "unconfigured"` and
@@ -439,6 +457,11 @@ terraform init
 terraform validate
 ```
 
+All of the above run automatically on every pull request via
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml), along with
+`python scripts/validate_agent_definitions.py`. None of the CI jobs
+need Azure credentials.
+
 ---
 
 ## Troubleshooting
@@ -457,7 +480,7 @@ terraform validate
 
 ### Backend not running
 - The frontend shows *API unavailable - start the local backend*.
-  Restart `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`.
+  Restart `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`.
 
 ### Vite proxy / API unavailable
 - Ensure `apps/web/vite.config.ts` still proxies `/api` to
@@ -468,8 +491,20 @@ terraform validate
   `status: "provider_missing"`. Either the project endpoint is not
   configured or the sync script has not been run. Populate
   `services/api/.env` from the Terraform outputs, then run
-  `python scripts/sync_foundry_agents.py --apply`, then restart the
+  `python scripts/validate_agent_definitions.py`, then restart the
   backend.
+
+### `.env` exists but `foundry_project_configured` is still `false`
+- The backend was started without `--env-file .env`. The app reads the
+  process environment and never loads `.env` implicitly. Restart with
+  `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`,
+  or use `.\scripts\run-backend.ps1`.
+- If the file predates the current setup flow, regenerate it with
+  `.\scripts\populate-env.ps1`. Older copies used
+  `AZURE_AI_FOUNDRY_DEPLOYMENT` / `AZURE_AI_FOUNDRY_PROJECT_NAME`, which
+  the current runtime and sync script ignore. The keys that matter now are
+  `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` and the three
+  `FOUNDRY_MODEL_DEPLOYMENT_*` values.
 
 ### RBAC 401 / 403 after Terraform apply
 - Wait a few minutes. The `Cognitive Services OpenAI User` role
@@ -486,9 +521,22 @@ terraform validate
   `foundry_project_endpoint`.
 
 ### Foundry agents not bound
-- `/api/health/details` reports `"foundry_agents_bound": false`. Run
-  `python scripts/sync_foundry_agents.py --apply` to create the remote
-  assistants and write `.foundry/agent-bindings.local.json`.
+- `/api/health/details` reports `"agent_definitions_valid": false`. Run
+  `python scripts/validate_agent_definitions.py` to create the remote
+
+### `terraform apply` fails on a soft-deleted resource
+- `FlagMustBeSetForRestore ... has been soft-deleted` (AI Services
+  account) or `Soft-deleted workspace exists` (the workspace behind the
+  Foundry project). Azure keeps a tombstone that reserves the old name.
+- Fix by taking a new random suffix, which renames everything:
+  `terraform apply -replace="random_string.suffix"`.
+- Details and the purge-based alternative are in
+  [`infra/README.md`](infra/README.md#troubleshooting-soft-delete).
+
+### Two people deploying into one subscription
+- Supported. Every unique-scoped resource name carries a random suffix,
+  so parallel stacks do not collide. See
+  [`infra/README.md`](infra/README.md#resource-naming-and-collisions).
 
 ### Model deployment quota or region issues
 - `terraform apply` fails on the deployment. Options:
@@ -525,9 +573,9 @@ terraform validate
 
 - `scripts/populate-env.ps1` — read `terraform output` and write
   `services/api/.env` (overwrites).
-- `scripts/sync_foundry_agents.py` — create/update remote Foundry
+- `scripts/validate_agent_definitions.py` — create/update remote Foundry
   agents from `/agents/<id>/agent.md` + `manifest.yaml`. Supports
-  `--dry-run`, `--apply`, `--check-connectivity`, and `--rebind`.
+  `--dry-run`, `--apply`, `--check-connectivity`, and `--check-connectivity`.
 - `scripts/run-backend.ps1` — activate the venv and start uvicorn.
 - `scripts/run-frontend.ps1` — start the Vite dev server.
 - `scripts/verify-demo.ps1` — call `/api/health/details` and print
@@ -550,8 +598,13 @@ README.
 - [Observability](docs/observability.md)
 - [Glossary](docs/glossary.md)
 - [Future Azure architecture](docs/future-azure-architecture.md)
+- [Workshop](workshop/README.md) - seven hands-on modules, about two days.
+- [ADR - Published prompt agents (current)](docs/adr/0006-published-prompt-agents.md)
+- [Iteration plan](docs/iteration-plan.md) — point-in-time planning
+  snapshot, not kept current.
 - [ADR — agent hosting (original, superseded)](docs/adr/0001-agent-hosting.md)
 - [ADR — agent hosting on remote Foundry (current)](docs/adr/0002-agent-hosting-remote-foundry.md)
 - [ADR — Foundry Terraform choices](docs/adr/0001-foundry-project.md)
 - [ADR — district isolation and grounding](docs/adr/0003-district-isolation-and-grounding.md)
 - [ADR — grounding and citations](docs/adr/0004-grounding-and-citations.md)
+

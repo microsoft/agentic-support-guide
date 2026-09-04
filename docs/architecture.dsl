@@ -41,7 +41,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             foundryProject = container "Foundry Project" "Project boundary for agents, model, and observability" {
                 tags "Azure"
             }
-            remoteAgents = container "Remote Foundry Agents" "Hosts the three role agents in Azure AI Foundry Agent Service" {
+            remoteAgents = container "Ephemeral Foundry Agents" "Agent Framework agents assembled in-process per call; nothing is persisted in Foundry" {
                 tags "Azure"
                 dataAnalystAgent = component "Data Analyst Agent" "Reviews synthetic signals and writes an evidence summary"
                 supportRecommendationAgent = component "Support Recommendation Agent" "Proposes a plan drawn from an allowed catalog"
@@ -56,7 +56,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
         }
 
         operations = softwareSystem "Deployment & Operations" {
-            terraformAndScripts = container "Terraform & Sync Scripts" "Provision Azure resources, sync agents, and verify demo readiness" {
+            terraformAndScripts = container "Terraform & Ops Scripts" "Provision Azure infrastructure and validate agent definitions. Never creates agents." {
                 tags "Ops"
             }
         }
@@ -69,13 +69,13 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
         coordinator -> evidenceRetriever "retrieves per-district evidence bundle"
         coordinator -> protocolContracts "validates"
         coordinator -> agentDefinitions "loads"
-        coordinator -> dataAnalystAgent "invokes via Foundry Agents SDK"
+        coordinator -> dataAnalystAgent "invokes via Microsoft Agent Framework"
 
         dataAnalystAgent -> supportRecommendationAgent "passes evidence"
         supportRecommendationAgent -> validatorAgent "passes draft"
 
         coordinator -> humanReview "creates draft in pending_review"
-        webApp -> humanReview "approves or rejects"
+        apiService -> humanReview "approves or rejects (API only; no UI yet)"
 
         evidenceRetriever -> fabricDistA "district-scoped read (target production)"
         evidenceRetriever -> fabricDistB "district-scoped read (target production)"
@@ -85,7 +85,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
         apiService -> observability "emits correlation_id, district_id, coded status only"
 
         terraformAndScripts -> foundry "provisions and verifies"
-        terraformAndScripts -> agentDefinitions "syncs definitions"
+        terraformAndScripts -> agentDefinitions "validates definitions (no deploy)"
     }
 
     views {
@@ -99,7 +99,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             autoLayout lr
         }
 
-        component remoteAgents "RemoteFoundryAgentsComponents" "Components inside the Remote Foundry Agents container." {
+        component remoteAgents "EphemeralFoundryAgentsComponents" "Roles composed in-process from /agents definitions." {
             include *
             autoLayout lr
         }

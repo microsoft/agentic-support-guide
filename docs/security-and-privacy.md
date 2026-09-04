@@ -114,7 +114,7 @@ in [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/c
   account and never reads model keys. No key is written to Key Vault.
 
 **How to verify.** Read
-[`services/api/app/foundry_agents/sdk_client.py`](../services/api/app/foundry_agents/sdk_client.py)
+[`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py)
 and
 [`infra/ai_foundry.tf`](../infra/ai_foundry.tf) (the
 `local_auth_enabled` setting on the `azurerm_cognitive_account`
@@ -177,19 +177,17 @@ the persistent banner in the frontend layout.
 
 ## Secret handling
 
-- `.env`, `terraform.tfvars`, and `.foundry/agent-bindings.local.json`
   are gitignored.
 - `.env.example`, `terraform.tfvars.example`, and
-  `.foundry/agent-bindings.example.json` contain placeholder values
+  `services/api/.env.example` contain placeholder values
   only.
 - Application Insights connection string is marked `sensitive = true`
   in Terraform outputs.
 - The privacy scanner test flags 32+ character base64/hex values on
   lines beginning with `AZURE_*=`.
-- `.foundry/agent-bindings.local.json` contains only assistant IDs
   and metadata hashes. It never contains tokens or connection
   strings, and the runtime refuses to use it if the
-  `project_endpoint_hash` does not match the configured endpoint.
+  the configured project endpoint does not match the configured endpoint.
 
 ## Validation gates
 

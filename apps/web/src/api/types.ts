@@ -23,7 +23,8 @@ export interface HealthDetailsResponse {
   version: string;
   active_provider: string;
   foundry_project_configured: boolean;
-  foundry_agents_bound: boolean;
+  agent_definitions_valid: boolean;
+  model_deployments_configured: boolean;
   service_side_remote_workflow_active: boolean;
   evidence_fixture_available: boolean;
   district_isolation_enabled: boolean;
@@ -243,3 +244,5 @@ export interface LearnersResponse {
   learners: LearnerSummary[];
   total: number;
 }
+
+

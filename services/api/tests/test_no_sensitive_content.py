@@ -14,9 +14,9 @@ def test_denylist_only_contains_placeholder_tokens() -> None:
     for token in tokens:
         upper = token.upper()
         assert upper == token, f"Denylist token must be uppercase placeholder: {token}"
-        assert upper.startswith(
-            ("REPLACE_WITH_", "FORBIDDEN_", "SECRET_")
-        ), f"Denylist token must be a placeholder marker: {token}"
+        assert upper.startswith(("REPLACE_WITH_", "FORBIDDEN_", "SECRET_")), (
+            f"Denylist token must be a placeholder marker: {token}"
+        )
 
 
 def test_repository_has_no_privacy_violations() -> None:

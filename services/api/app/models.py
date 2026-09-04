@@ -7,7 +7,7 @@ shapes. Raw model files are not shared across languages.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class HealthResponse(BaseModel):
@@ -32,7 +32,8 @@ class HealthDetailsResponse(BaseModel):
     version: str
     active_provider: str
     foundry_project_configured: bool
-    foundry_agents_bound: bool
+    agent_definitions_valid: bool
+    model_deployments_configured: bool
     service_side_remote_workflow_active: bool
     evidence_fixture_available: bool
     district_isolation_enabled: bool
@@ -168,8 +169,8 @@ class SupportOptions(BaseModel):
 
 
 class SupportPlanRequest(BaseModel):
-    learner_id: str = Field(min_length=1)
-    category: str = Field(min_length=1)
+    learner_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9\-_]*$")
+    category: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9\-_]*$")
     concern_text: str = Field(min_length=1, max_length=1000)
     district_id: str = Field(min_length=2, max_length=32, pattern=r"^[A-Z0-9][A-Z0-9\-]{1,31}$")
 
@@ -195,25 +196,32 @@ class RecommendationCitation(BaseModel):
 
 
 class Recommendation(BaseModel):
-    district_id: str
-    detected_need: str
-    evidence_summary: list[str]
-    rationale: str
-    support_tier: str
-    recommended_frequency: str
-    grouping_guidance: str
-    resource_matches: list[RecommendationResource]
-    educator_next_steps: list[str]
-    progress_monitoring: list[str]
-    review_window_days: int
-    decision_rule: str
-    caveats: list[str]
-    smart_goal_suggestions: list[str]
-    strategy_suggestions: list[str]
-    citations: list[RecommendationCitation]
+    """Coordinator output, also accepted back on POST /api/supports/plans.
+
+    The bounds below are not a substitute for the validator - they cap what a
+    client can persist through the save endpoint, which does not re-run the
+    three-agent pipeline.
+    """
+
+    district_id: str = Field(min_length=2, max_length=32)
+    detected_need: str = Field(max_length=300)
+    evidence_summary: list[str] = Field(max_length=20)
+    rationale: str = Field(max_length=2000)
+    support_tier: str = Field(max_length=60)
+    recommended_frequency: str = Field(max_length=120)
+    grouping_guidance: str = Field(max_length=200)
+    resource_matches: list[RecommendationResource] = Field(max_length=20)
+    educator_next_steps: list[str] = Field(max_length=20)
+    progress_monitoring: list[str] = Field(max_length=20)
+    review_window_days: int = Field(ge=0, le=365)
+    decision_rule: str = Field(max_length=300)
+    caveats: list[str] = Field(max_length=20)
+    smart_goal_suggestions: list[str] = Field(max_length=20)
+    strategy_suggestions: list[str] = Field(max_length=20)
+    citations: list[RecommendationCitation] = Field(max_length=20)
     completeness: dict[str, bool | list[str]]
-    human_review_state: str
-    generated_by: str
+    human_review_state: str = Field(max_length=40)
+    generated_by: str = Field(max_length=300)
 
 
 class RecommendationEnvelope(BaseModel):
@@ -252,13 +260,25 @@ class SavedPlansResponse(BaseModel):
 
 
 class SavePlanRequest(BaseModel):
-    learner_id: str = Field(min_length=1)
-    category: str = Field(min_length=1)
+    learner_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9\-_]*$")
+    category: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9\-_]*$")
     concern_text: str = Field(min_length=1, max_length=1000)
-    selected_smart_goal: str | None = None
-    selected_strategies: list[str] = Field(default_factory=list)
+    selected_smart_goal: str | None = Field(default=None, max_length=64)
+    selected_strategies: list[str] = Field(default_factory=list, max_length=20)
     recommendation: Recommendation
     district_id: str = Field(min_length=2, max_length=32, pattern=r"^[A-Z0-9][A-Z0-9\-]{1,31}$")
+
+    @model_validator(mode="after")
+    def _district_must_match_recommendation(self) -> SavePlanRequest:
+        """Refuse to persist a plan whose recommendation belongs elsewhere.
+
+        The save endpoint does not re-run the pipeline, so this is the only
+        place the district boundary is re-checked on the way in.
+        """
+
+        if self.recommendation.district_id != self.district_id:
+            raise ValueError("recommendation.district_id must match district_id")
+        return self
 
 
 class ReviewTransitionRequest(BaseModel):

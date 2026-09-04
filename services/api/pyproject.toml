@@ -1,6 +1,6 @@
 [project]
 name = "agentic-support-guide-api"
-version = "0.1.0"
+version = "0.3.0"
 description = "Local prototype API - synthetic data, rule-based logic. Not a production AI system."
 requires-python = ">=3.12"
 
@@ -30,3 +30,5 @@ disallow_untyped_defs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

@@ -68,15 +68,15 @@ try {
 }
 
 if ($health) {
-    Add-Result "active_provider_azure_foundry_agents" `
-        ($health.active_provider -eq "azure_foundry_agents") `
+    Add-Result "active_provider_azure_foundry_responses" `
+        ($health.active_provider -eq "azure_foundry_responses") `
         "active_provider = $($health.active_provider)"
     Add-Result "customer_demo_ready" ([bool]$health.customer_demo_ready) `
         "customer_demo_ready = $($health.customer_demo_ready)"
     Add-Result "foundry_project_configured" ([bool]$health.foundry_project_configured) `
         "foundry_project_configured = $($health.foundry_project_configured)"
-    Add-Result "foundry_agents_bound" ([bool]$health.foundry_agents_bound) `
-        "foundry_agents_bound = $($health.foundry_agents_bound)"
+    Add-Result "agent_definitions_valid" ([bool]$health.agent_definitions_valid) `
+        "agent_definitions_valid = $($health.agent_definitions_valid)"
     Add-Result "service_side_remote_workflow_active" ([bool]$health.service_side_remote_workflow_active) `
         "service_side_remote_workflow_active = $($health.service_side_remote_workflow_active)"
 }
@@ -85,6 +85,7 @@ if ($health) {
 if (-not $SkipRecommendation -and $health -and $health.customer_demo_ready) {
     try {
         $recBody = @{
+            district_id   = "DIST-A"
             learner_id    = "LRN-0001"
             category      = "early-literacy"
             concern_text  = "Letter-sound fluency below expected pace."
@@ -126,3 +127,4 @@ if ($allOk) {
     Write-Host "NOT ready. Fix the [FAIL] items above before the demo." -ForegroundColor Red
     exit 1
 }
+

@@ -104,11 +104,12 @@ export function DemoGuidePage() {
           </li>
           <li>
             <span className="font-mono">Active provider</span> above should read{" "}
-            <span className="font-mono">azure_foundry</span>.
+            <span className="font-mono">azure_foundry_responses</span>.
           </li>
           <li>
             Open the AI Audit page after generating a recommendation. The runtime rows
-            should show <span className="font-mono">azure-openai / &lt;deployment&gt;</span>{" "}
+            should show{" "}
+            <span className="font-mono">Azure AI Foundry (Agent Framework, prompt agents)</span>{" "}
             in the provider/model column.
           </li>
         </ol>
@@ -125,3 +126,4 @@ export function DemoGuidePage() {
     </div>
   );
 }
+

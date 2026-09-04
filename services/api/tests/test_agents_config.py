@@ -43,11 +43,20 @@ def test_agent_manifest_has_required_top_level_keys(agent_id: str) -> None:
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
-def test_agent_manifest_has_foundry_binding_block(agent_id: str) -> None:
+def test_agent_manifest_has_foundry_runtime_block(agent_id: str) -> None:
     assets = load_agent_assets(agent_id)
     foundry = assets.manifest.get("foundry") or {}
-    for key in ("foundry_agent_name", "model_deployment_env", "response_format"):
+    for key in ("model_deployment_env", "response_format"):
         assert foundry.get(key), f"{agent_id}: foundry.{key} missing"
+
+
+@pytest.mark.parametrize("agent_id", AGENT_IDS)
+def test_agent_manifest_has_no_persisted_agent_name(agent_id: str) -> None:
+    """Published names are learner-suffixed at publish time, never in the manifest."""
+
+    assets = load_agent_assets(agent_id)
+    foundry = assets.manifest.get("foundry") or {}
+    assert "foundry_agent_name" not in foundry
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
@@ -63,17 +72,45 @@ def test_agent_local_schemas_are_valid_json(agent_id: str) -> None:
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
 def test_composed_instructions_include_agent_md_body_and_envelope(agent_id: str) -> None:
     assets = load_agent_assets(agent_id)
-    instructions = compose_instructions(assets.agent_md_body)
+    instructions = compose_instructions(
+        assets.agent_md_body, frontmatter=assets.agent_md_frontmatter
+    )
     assert assets.agent_md_body.splitlines()[0] in instructions
     assert RUNTIME_ENVELOPE.strip() in instructions
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
+def test_composed_instructions_carry_frontmatter_rules(agent_id: str) -> None:
+    """The output contract lives in frontmatter; dropping it yields off-contract JSON."""
+
+    assets = load_agent_assets(agent_id)
+    instructions = compose_instructions(
+        assets.agent_md_body, frontmatter=assets.agent_md_frontmatter
+    )
+    for key in ("constraints", "safety_rules", "grounding_rules"):
+        for item in assets.agent_md_frontmatter.get(key) or []:
+            assert str(item).strip() in instructions, f"{agent_id}: dropped {key} -> {item}"
+
+
+def test_data_analyst_instructions_state_the_output_shape() -> None:
+    assets = load_agent_assets("data-analyst")
+    instructions = compose_instructions(
+        assets.agent_md_body, frontmatter=assets.agent_md_frontmatter
+    )
+    for token in ("contract_version", "analysis", "detected_need", "evidence_bullets"):
+        assert token in instructions
+
+
+@pytest.mark.parametrize("agent_id", AGENT_IDS)
 def test_instructions_hash_is_stable_across_whitespace(agent_id: str) -> None:
     assets = load_agent_assets(agent_id)
-    ihash1 = instructions_hash(compose_instructions(assets.agent_md_body))
+    ihash1 = instructions_hash(
+        compose_instructions(assets.agent_md_body, frontmatter=assets.agent_md_frontmatter)
+    )
     crlf_body = assets.agent_md_body.replace("\n", "\r\n")
-    ihash2 = instructions_hash(compose_instructions(crlf_body))
+    ihash2 = instructions_hash(
+        compose_instructions(crlf_body, frontmatter=assets.agent_md_frontmatter)
+    )
     assert ihash1 == ihash2
 
 

@@ -18,13 +18,15 @@ from dataclasses import dataclass
 from pydantic import ValidationError
 
 from ...evidence import EvidenceBundle
-from ...foundry_agents import FoundryRemoteAgentAdapter
+from ...foundry_agents.maf_runtime import MafAgentRuntime
 from ..shared.contracts import (
     Citation,
     DataAnalystOutput,
     ResourceRef,
     SupportRecommendationDraft,
+    SupportRecommendationModelOutput,
 )
+from ..shared.responses import parse_role_response
 from ..shared.sanitization import wrap_untrusted
 
 AGENT_ID = "support-recommender"
@@ -43,15 +45,16 @@ class SupportRecommenderContext:
 
 
 class SupportRecommendationAgent:
-    def __init__(self, adapter: FoundryRemoteAgentAdapter) -> None:
-        self._adapter = adapter
+    def __init__(self, runtime: MafAgentRuntime) -> None:
+        self._runtime = runtime
 
-    def recommend(
+    async def recommend(
         self,
         analysis: DataAnalystOutput,
         context: SupportRecommenderContext,
         *,
         repair_guidance: str = "",
+        deadline: float | None = None,
     ) -> SupportRecommendationDraft:
         allowed = {
             "resource_ids": [r.id for r in context.allowed_resources],
@@ -87,26 +90,26 @@ class SupportRecommendationAgent:
             f"{analyst_block}\n{allowed_block}\n{evidence_block}\n{concern_block}\n{repair_block}"
         )
 
-        response = self._adapter.invoke(role=AGENT_NAME, user_message=user_prompt)
-        try:
-            payload = json.loads(response.text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("invalid_model_json") from exc
+        response = await self._runtime.invoke(
+            role=AGENT_NAME,
+            user_message=user_prompt,
+            response_model=SupportRecommendationModelOutput,
+            deadline=deadline,
+        )
+        output = parse_role_response(response, SupportRecommendationModelOutput)
 
-        # The remote agent returns cited_ids: the wrapper resolves them
-        # against the coordinator-supplied district-scoped evidence bundle.
-        cited_ids: list[str] = list(payload.get("cited_ids") or [])
+        # Resolve cited IDs against the coordinator-supplied, district-scoped
+        # bundle so the model cannot invent citation content. An empty list
+        # stays empty: attaching every retrieved citation would let an
+        # ungrounded draft pass the validator's citation check.
         by_id = {c.citation_id: c for c in context.evidence.citations}
-        citations: tuple[Citation, ...] = tuple(by_id[cid] for cid in cited_ids if cid in by_id)
-        # If the remote agent produced no cited_ids at all, default to
-        # attaching every retrieved citation. The Validator can then still
-        # reject if the retrieval bundle itself was empty.
-        if not cited_ids:
-            citations = tuple(context.evidence.citations)
+        citations: tuple[Citation, ...] = tuple(
+            by_id[cid] for cid in output.cited_ids if cid in by_id
+        )
 
-        payload["district_id"] = context.district_id
-        # Drop non-draft fields before Pydantic validation.
+        payload = output.model_dump(mode="json")
         payload.pop("cited_ids", None)
+        payload["district_id"] = context.district_id
         payload["citations"] = [c.model_dump(mode="json") for c in citations]
 
         try:

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, TypeVar
@@ -51,16 +51,21 @@ from ..evidence import (
     EvidenceRetrievalError,
     EvidenceRetriever,
 )
-from ..foundry_agents import (
+from ..foundry_agents.errors import (
     AuthError,
     ConfigurationError,
     ContentFilterError,
     FoundryProviderError,
-    FoundryRemoteAgentAdapter,
     FoundryRunError,
     FoundryTimeoutError,
     RequiresActionError,
     ThrottledError,
+)
+from ..foundry_agents.maf_runtime import (
+    PROVIDER_ID,
+    CallMetrics,
+    MafAgentRuntime,
+    collect_call_metrics,
 )
 from ..human_review import HumanReviewState
 from ..models import AgentTraceStep, Recommendation, RecommendationCitation, RecommendationResource
@@ -104,6 +109,10 @@ class CoordinatorResult:
 
 _T = TypeVar("_T")
 
+# Recorded on trace steps that completed without any model call, so a
+# deterministic step is never credited to a model that did no work.
+LOCAL_STEP_MODEL = "none"
+
 
 PROVIDER_ERROR_TO_STATUS: dict[type[FoundryProviderError], tuple[str, str]] = {
     ConfigurationError: ("provider_missing", "AGENT_PROVIDER_MISSING"),
@@ -124,41 +133,62 @@ class _RunState:
     district_id: str
     provider_model: str
     trace: list[AgentTraceStep] = field(default_factory=list)
+    calls: list[CallMetrics] = field(default_factory=list)
+
+    def drain_calls(self, start: int) -> tuple[str, int | None]:
+        """Model that served the newest calls, and their total token count."""
+
+        new = self.calls[start:]
+        if not new:
+            return "", None
+        counted = [
+            (c.input_tokens or 0) + (c.output_tokens or 0)
+            for c in new
+            if c.input_tokens is not None or c.output_tokens is not None
+        ]
+        return new[-1].model, (sum(counted) if counted else None)
 
 
 class AgentCoordinator:
     def __init__(
         self,
         *,
-        adapter: FoundryRemoteAgentAdapter,
+        runtime: MafAgentRuntime,
         telemetry: TelemetryRecorder,
         contracts: ContractsRegistry,
         evidence_retriever: EvidenceRetriever,
         provider_display: str,
     ) -> None:
-        self._adapter = adapter
+        self._runtime = runtime
         self._telemetry = telemetry
         self._contracts = contracts
         self._evidence = evidence_retriever
         self._provider_display = provider_display
-        self._data_analyst = DataAnalystAgent(adapter)
-        self._recommender = SupportRecommendationAgent(adapter)
-        self._validator = ValidatorAgent(adapter)
+        self._data_analyst = DataAnalystAgent(runtime)
+        self._recommender = SupportRecommendationAgent(runtime)
+        self._validator = ValidatorAgent(runtime)
 
-    def run(self, request: CoordinatorRequest) -> CoordinatorResult:
+    async def run(self, request: CoordinatorRequest) -> CoordinatorResult:
+        with collect_call_metrics() as calls:
+            return await self._run(request, calls)
+
+    async def _run(
+        self, request: CoordinatorRequest, calls: list[CallMetrics]
+    ) -> CoordinatorResult:
         correlation_id = str(uuid.uuid4())
         deadline = time.monotonic() + ORCHESTRATION_TOTAL_BUDGET_SECONDS
         state = _RunState(
             correlation_id=correlation_id,
             district_id=request.district_id,
             provider_model=self._provider_display,
+            calls=calls,
         )
 
         sanitized_concern = sanitize_free_text(request.concern_text, max_len=CONCERN_TEXT_MAX_LEN)
 
         # 1) District-scoped evidence retrieval BEFORE any agent call.
         try:
-            evidence = self._evidence.retrieve(
+            evidence = await self._evidence.retrieve(
                 EvidenceRequest(
                     district_id=request.district_id,
                     category=request.category,
@@ -233,9 +263,9 @@ class AgentCoordinator:
             category=request.category,
             sanitized_concern_text=sanitized_concern,
         )
-        analysis_result = self._call(
+        analysis_result = await self._call(
             DATA_ANALYST_NAME,
-            lambda: self._data_analyst.analyze(analyst_ctx),
+            lambda: self._data_analyst.analyze(analyst_ctx, deadline=deadline),
             state=state,
             deadline=deadline,
         )
@@ -266,9 +296,11 @@ class AgentCoordinator:
             allowed_strategy_ids=request.allowed_strategy_ids,
             evidence=evidence,
         )
-        draft_result = self._call(
+        draft_result = await self._call(
             RECOMMENDER_NAME,
-            lambda: self._recommender.recommend(analysis_result, rec_ctx, repair_guidance=""),
+            lambda: self._recommender.recommend(
+                analysis_result, rec_ctx, repair_guidance="", deadline=deadline
+            ),
             state=state,
             deadline=deadline,
         )
@@ -298,7 +330,7 @@ class AgentCoordinator:
             allowed_citation_ids=tuple(c.citation_id for c in evidence.citations),
             required_contract_version=CONTRACT_VERSION,
         )
-        report = self._validate(analysis_result, draft_result, validator_ctx, state, deadline)
+        report = await self._validate(analysis_result, draft_result, validator_ctx, state, deadline)
         if isinstance(report, CoordinatorResult):
             return report
 
@@ -319,10 +351,10 @@ class AgentCoordinator:
         # 5) Optional one-shot repair
         if not report.passed:
             repair_guidance = _sanitize_repair(report.repair_guidance)
-            repair_result = self._call(
+            repair_result = await self._call(
                 RECOMMENDER_NAME + ":repair",
                 lambda: self._recommender.recommend(
-                    analysis_result, rec_ctx, repair_guidance=repair_guidance
+                    analysis_result, rec_ctx, repair_guidance=repair_guidance, deadline=deadline
                 ),
                 state=state,
                 deadline=deadline,
@@ -345,7 +377,7 @@ class AgentCoordinator:
             if maybe_fail is not None:
                 return maybe_fail
 
-            report = self._validate(
+            report = await self._validate(
                 analysis_result,
                 draft_result,
                 validator_ctx,
@@ -469,8 +501,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status="failed",
-                    provider="azure_foundry_agents",
-                    model="remote",
+                    provider=PROVIDER_ID,
+                    model=state.provider_model,
                     latency_ms=0,
                     token_estimate=None,
                     issue_codes=["PROTOCOL_VALIDATION_FAILED"],
@@ -532,10 +564,10 @@ class AgentCoordinator:
             "synthetic_only": True,
         }
 
-    def _call(
+    async def _call(
         self,
         agent_name: str,
-        fn: Callable[[], _T],
+        fn: Callable[[], Awaitable[_T]],
         *,
         state: _RunState,
         deadline: float,
@@ -545,8 +577,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status="budget_exhausted",
-                    provider="azure_foundry_agents",
-                    model="remote",
+                    provider=PROVIDER_ID,
+                    model=state.provider_model,
                     latency_ms=0,
                     token_estimate=None,
                     issue_codes=["ORCHESTRATION_BUDGET_EXHAUSTED"],
@@ -562,8 +594,9 @@ class AgentCoordinator:
                 validator_status="",
             )
         started = time.monotonic()
+        calls_before = len(state.calls)
         try:
-            result = fn()
+            result = await fn()
         except FoundryProviderError as exc:
             latency = int((time.monotonic() - started) * 1000)
             status, code = _classify_provider_error(exc)
@@ -571,8 +604,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status=status,
-                    provider="azure_foundry_agents",
-                    model="remote",
+                    provider=PROVIDER_ID,
+                    model=state.provider_model,
                     latency_ms=latency,
                     token_estimate=None,
                     issue_codes=[code],
@@ -604,8 +637,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=agent_name,
                     status="invalid_model_json",
-                    provider="azure_foundry_agents",
-                    model="remote",
+                    provider=PROVIDER_ID,
+                    model=state.provider_model,
                     latency_ms=latency,
                     token_estimate=None,
                     issue_codes=[f"AGENT_INVALID_JSON:{code}"],
@@ -621,14 +654,15 @@ class AgentCoordinator:
                 validator_status="",
             )
         latency = int((time.monotonic() - started) * 1000)
+        served_model, tokens = state.drain_calls(calls_before)
         state.trace.append(
             AgentTraceStep(
                 agent=agent_name,
                 status="ok",
-                provider="azure_foundry_agents",
-                model="remote",
+                provider=PROVIDER_ID,
+                model=served_model or LOCAL_STEP_MODEL,
                 latency_ms=latency,
-                token_estimate=None,
+                token_estimate=tokens,
             )
         )
         self._telemetry.record(
@@ -639,11 +673,12 @@ class AgentCoordinator:
                 "agent": agent_name,
                 "status": "ok",
                 "latency_ms": latency,
+                "model": served_model,
             },
         )
         return result
 
-    def _validate(
+    async def _validate(
         self,
         analysis: DataAnalystOutput,
         draft: SupportRecommendationDraft,
@@ -658,8 +693,8 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent=VALIDATOR_NAME,
                     status="budget_exhausted",
-                    provider="azure_foundry_agents",
-                    model="remote",
+                    provider=PROVIDER_ID,
+                    model=state.provider_model,
                     latency_ms=0,
                     token_estimate=None,
                     issue_codes=["ORCHESTRATION_BUDGET_EXHAUSTED"],
@@ -675,19 +710,24 @@ class AgentCoordinator:
                 validator_status="",
             )
         started = time.monotonic()
-        report = self._validator.validate(
+        calls_before = len(state.calls)
+        report = await self._validator.validate(
             ValidatorInput(analysis=analysis, draft=draft, context=ctx),
             use_llm_critique=use_llm_critique,
+            deadline=deadline,
         )
         latency = int((time.monotonic() - started) * 1000)
+        served_model, tokens = state.drain_calls(calls_before)
         state.trace.append(
             AgentTraceStep(
                 agent=VALIDATOR_NAME,
                 status="passed" if report.passed else "failed",
-                provider="azure_foundry_agents",
-                model="remote",
+                provider=PROVIDER_ID,
+                # Deterministic validation makes no model call, so naming a
+                # model here would misattribute work that never happened.
+                model=served_model or LOCAL_STEP_MODEL,
                 latency_ms=latency,
-                token_estimate=None,
+                token_estimate=tokens,
                 issue_codes=list(report.issue_codes),
                 warning_codes=list(report.warning_codes),
                 citation_count=len(draft.citations),
@@ -710,7 +750,7 @@ _SAFE_MESSAGES = {
     "provider_error": "Remote agent returned an error.",
     "provider_missing": (
         "Foundry Agent Service is not configured or bindings are missing. "
-        "Run scripts/sync_foundry_agents.py --apply."
+        "Run scripts/validate_agent_definitions.py."
     ),
     "evidence_missing": (
         "District-scoped evidence was not available. Confirm the district_id and "

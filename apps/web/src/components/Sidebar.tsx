@@ -72,7 +72,7 @@ export function Sidebar() {
         </ul>
       </nav>
       <div className="border-t border-slate-800 px-4 py-3 text-xs text-slate-500">
-        Local-only prototype v0.1.0
+        Prototype v0.3.0 - synthetic data
       </div>
     </aside>
   );

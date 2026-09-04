@@ -1,12 +1,25 @@
 locals {
-  suffix                 = random_string.suffix.result
-  ai_services_name       = "${var.ai_services_name}-${local.suffix}"
-  custom_subdomain_name  = replace("${var.ai_services_name}${local.suffix}", "-", "")
-  effective_principal_id = length(var.principal_id) > 0 ? var.principal_id : data.azurerm_client_config.current.object_id
+  suffix                = random_string.suffix.result
+  ai_services_name      = "${var.ai_services_name}-${local.suffix}"
+  custom_subdomain_name = replace("${var.ai_services_name}${local.suffix}", "-", "")
+  # Dozens of learners deploy this into shared subscriptions, so every
+  # uniqueness-scoped name carries the suffix. The project also provisions a
+  # backing AML workspace that soft-deletes on destroy; without the suffix a
+  # re-apply collides with the tombstone ("Soft-deleted workspace exists").
+  resource_group_name    = "${var.resource_group_name}-${local.suffix}"
+  foundry_project_name   = "${var.foundry_project_name}-${local.suffix}"
+  effective_principal_id = length(trimspace(var.principal_id)) > 0 ? trimspace(var.principal_id) : data.azurerm_client_config.current.object_id
+
+  # Everyone who needs workshop roles. Blank entries are dropped and the set
+  # deduplicates, so re-listing the deployer does not fail the apply.
+  workshop_principal_ids = toset(concat(
+    [local.effective_principal_id],
+    [for id in var.additional_principal_ids : trimspace(id) if length(trimspace(id)) > 0],
+  ))
 }
 
 resource "azurerm_resource_group" "main" {
-  name     = var.resource_group_name
+  name     = local.resource_group_name
   location = var.location
   tags     = var.tags
 }
@@ -31,7 +44,7 @@ resource "azurerm_cognitive_account" "ai_services" {
 }
 
 resource "azurerm_cognitive_account_project" "foundry_project" {
-  name                 = var.foundry_project_name
+  name                 = local.foundry_project_name
   cognitive_account_id = azurerm_cognitive_account.ai_services.id
   location             = azurerm_resource_group.main.location
   display_name         = var.foundry_project_display_name

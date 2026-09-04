@@ -448,6 +448,9 @@ build/
 .env
 .env.local
 
+# TypeScript incremental build state (tsc -b)
+*.tsbuildinfo
+
 # Denylist local override (never commit real terms)
 services/api/denylist.local.txt
 
@@ -472,3 +475,8 @@ evals/results/
 
 # Foundry bindings (env-specific, never commit)
 .foundry/agent-bindings.local.json
+
+# Generated knowledge export for Module 2A
+evals/knowledge/
+# Terraform apply logs can contain resource detail
+infra/*.log

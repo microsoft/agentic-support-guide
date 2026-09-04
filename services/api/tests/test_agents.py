@@ -17,7 +17,7 @@ from .conftest import (
     canned_recommendation_draft,
     canned_validator_critique,
 )
-from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
+from .fakes import FakeChatClientFactory, make_fake_runtime
 
 
 def _seed_client(
@@ -28,15 +28,14 @@ def _seed_client(
     tier: str = "Targeted support (Tier 2)",
     caveats: list[str] | None = None,
     cited_ids: list[str] | None = None,
-) -> tuple[FakeFoundryClient, dict[str, Any]]:
-    client = FakeFoundryClient()
-    bindings = build_bindings()
+) -> tuple[FakeChatClientFactory, dict[str, Any]]:
+    client = FakeChatClientFactory()
     client.register_response(
-        bindings["data-analyst-agent"].assistant_id,
+        "data-analyst-agent",
         canned_data_analyst_output(),
     )
     client.register_response(
-        bindings["support-recommendation-agent"].assistant_id,
+        "support-recommendation-agent",
         canned_recommendation_draft(
             resource_ids=resource_ids,
             smart_goal_ids=smart_goal_ids or ["SG-early-literacy-1"],
@@ -47,10 +46,10 @@ def _seed_client(
         ),
     )
     client.register_response(
-        bindings["validator-agent"].assistant_id,
+        "validator-agent",
         canned_validator_critique(),
     )
-    return client, bindings
+    return client, {}
 
 
 def _analyst_ctx() -> DataAnalystContext:
@@ -71,9 +70,9 @@ def _analyst_ctx() -> DataAnalystContext:
     )
 
 
-def _bundle() -> EvidenceBundle:
+async def _bundle() -> EvidenceBundle:
     retriever = FixtureEvidenceRetriever()
-    return retriever.retrieve(
+    return await retriever.retrieve(
         EvidenceRequest(
             district_id=DEFAULT_DISTRICT,
             category="early-literacy",
@@ -82,7 +81,7 @@ def _bundle() -> EvidenceBundle:
     )
 
 
-def _rec_ctx() -> SupportRecommenderContext:
+async def _rec_ctx() -> SupportRecommenderContext:
     return SupportRecommenderContext(
         district_id=DEFAULT_DISTRICT,
         category="early-literacy",
@@ -90,47 +89,47 @@ def _rec_ctx() -> SupportRecommenderContext:
         allowed_resources=(),
         allowed_smart_goal_ids=("SG-early-literacy-1",),
         allowed_strategy_ids=("ST-early-literacy-1",),
-        evidence=_bundle(),
+        evidence=await _bundle(),
     )
 
 
-def test_data_analyst_agent_returns_typed_output() -> None:
+async def test_data_analyst_agent_returns_typed_output() -> None:
     client, _ = _seed_client()
-    adapter = make_fake_adapter(client)
-    result = DataAnalystAgent(adapter).analyze(_analyst_ctx())
+    runtime, _ = make_fake_runtime(client)
+    result = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
     assert result.contract_version == "1.0.0"
     assert result.district_id == DEFAULT_DISTRICT
     assert result.analysis.detected_need
 
 
-def test_support_recommender_attaches_district_citations() -> None:
+async def test_support_recommender_attaches_district_citations() -> None:
     client, _ = _seed_client()
-    adapter = make_fake_adapter(client)
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, _rec_ctx())
+    runtime, _ = make_fake_runtime(client)
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, await _rec_ctx())
     assert draft.district_id == DEFAULT_DISTRICT
     assert len(draft.citations) >= 1
     for c in draft.citations:
         assert c.district_id == DEFAULT_DISTRICT
 
 
-def test_support_recommender_respects_cited_ids_selection() -> None:
-    bundle = _bundle()
+async def test_support_recommender_respects_cited_ids_selection() -> None:
+    bundle = await _bundle()
     first_id = bundle.citations[0].citation_id
     client, _ = _seed_client(cited_ids=[first_id])
-    adapter = make_fake_adapter(client)
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, _rec_ctx())
+    runtime, _ = make_fake_runtime(client)
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, await _rec_ctx())
     assert [c.citation_id for c in draft.citations] == [first_id]
 
 
-def test_validator_pass_with_valid_citations() -> None:
+async def test_validator_pass_with_valid_citations() -> None:
     client, _ = _seed_client()
-    adapter = make_fake_adapter(client)
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, _rec_ctx())
-    bundle = _bundle()
-    report = ValidatorAgent(adapter).validate(
+    runtime, _ = make_fake_runtime(client)
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, await _rec_ctx())
+    bundle = await _bundle()
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -151,10 +150,10 @@ def test_validator_pass_with_valid_citations() -> None:
     assert not report.failed_fields
 
 
-def test_validator_flags_unknown_resource() -> None:
+async def test_validator_flags_unknown_resource() -> None:
     client, _ = _seed_client(resource_ids=["RES-000-INVENTED"])
-    adapter = make_fake_adapter(client)
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
+    runtime, _ = make_fake_runtime(client)
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
     ctx = SupportRecommenderContext(
         district_id=DEFAULT_DISTRICT,
         category="early-literacy",
@@ -162,11 +161,11 @@ def test_validator_flags_unknown_resource() -> None:
         allowed_resources=(ResourceRef(id="RES-001", label="Kit", kind="guide"),),
         allowed_smart_goal_ids=("SG-early-literacy-1",),
         allowed_strategy_ids=("ST-early-literacy-1",),
-        evidence=_bundle(),
+        evidence=await _bundle(),
     )
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, ctx)
-    bundle = _bundle()
-    report = ValidatorAgent(adapter).validate(
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, ctx)
+    bundle = await _bundle()
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -186,13 +185,13 @@ def test_validator_flags_unknown_resource() -> None:
     assert "resource_ids" in report.failed_fields
 
 
-def test_validator_flags_missing_caveats() -> None:
+async def test_validator_flags_missing_caveats() -> None:
     client, _ = _seed_client(caveats=[])
-    adapter = make_fake_adapter(client)
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, _rec_ctx())
-    bundle = _bundle()
-    report = ValidatorAgent(adapter).validate(
+    runtime, _ = make_fake_runtime(client)
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, await _rec_ctx())
+    bundle = await _bundle()
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,

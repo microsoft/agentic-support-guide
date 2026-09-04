@@ -11,37 +11,34 @@ from .conftest import (
     canned_recommendation_draft,
     canned_validator_critique,
 )
-from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
+from .fakes import FakeChatClientFactory, make_fake_runtime
 from .test_agents import _analyst_ctx, _rec_ctx
 
 
-def _seed(client: FakeFoundryClient, bindings: dict) -> None:  # type: ignore[type-arg]
+def _seed(client: FakeChatClientFactory) -> None:
+    client.register_response("data-analyst-agent", canned_data_analyst_output())
     client.register_response(
-        bindings["data-analyst-agent"].assistant_id, canned_data_analyst_output()
-    )
-    client.register_response(
-        bindings["support-recommendation-agent"].assistant_id,
+        "support-recommendation-agent",
         canned_recommendation_draft(
             smart_goal_ids=["SG-early-literacy-1"], strategy_ids=["ST-early-literacy-1"]
         ),
     )
-    client.register_response(bindings["validator-agent"].assistant_id, canned_validator_critique())
+    client.register_response("validator-agent", canned_validator_critique())
 
 
-def _bundle_from_ctx() -> EvidenceBundle:
-    return _rec_ctx().evidence
+async def _bundle_from_ctx() -> EvidenceBundle:
+    return (await _rec_ctx()).evidence
 
 
-def test_validator_fails_on_missing_citations() -> None:
+async def test_validator_fails_on_missing_citations() -> None:
     """Empty citations list on the draft must trigger MISSING_CITATIONS."""
 
     from app.agents.support_recommender.agent import SupportRecommenderContext
     from app.evidence import EvidenceBundle
 
-    client = FakeFoundryClient()
-    bindings = build_bindings()
-    _seed(client, bindings)
-    adapter = make_fake_adapter(client)
+    client = FakeChatClientFactory()
+    _seed(client)
+    runtime, _ = make_fake_runtime(client)
 
     empty_bundle = EvidenceBundle(district_id=DEFAULT_DISTRICT, citations=())
     ctx = SupportRecommenderContext(
@@ -53,11 +50,11 @@ def test_validator_fails_on_missing_citations() -> None:
         allowed_strategy_ids=("ST-early-literacy-1",),
         evidence=empty_bundle,
     )
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, ctx)
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, ctx)
     assert list(draft.citations) == []
 
-    report = ValidatorAgent(adapter).validate(
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -78,7 +75,7 @@ def test_validator_fails_on_missing_citations() -> None:
     assert report.safe_summary.startswith("Validator failed on:")
 
 
-def test_validator_flags_forbidden_determination_language() -> None:
+async def test_validator_flags_forbidden_determination_language() -> None:
     """Draft mentioning diagnosis must trigger FORBIDDEN_DETERMINATION."""
 
     from app.agents.shared.contracts import (
@@ -124,11 +121,10 @@ def test_validator_flags_forbidden_determination_language() -> None:
         ),
     )
 
-    client = FakeFoundryClient()
-    bindings = build_bindings()
-    _seed(client, bindings)
-    adapter = make_fake_adapter(client)
-    report = ValidatorAgent(adapter).validate(
+    client = FakeChatClientFactory()
+    _seed(client)
+    runtime, _ = make_fake_runtime(client)
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -147,7 +143,7 @@ def test_validator_flags_forbidden_determination_language() -> None:
     assert "FORBIDDEN_DETERMINATION" in report.issue_codes
 
 
-def test_validator_safe_summary_never_contains_raw_critique() -> None:
+async def test_validator_safe_summary_never_contains_raw_critique() -> None:
     from app.agents.shared.contracts import (
         AnalysisSummary,
         Citation,
@@ -157,16 +153,15 @@ def test_validator_safe_summary_never_contains_raw_critique() -> None:
     )
 
     # Register a validator LLM critique with adversarial free text.
-    client = FakeFoundryClient()
-    bindings = build_bindings()
+    client = FakeChatClientFactory()
     client.register_response(
-        bindings["validator-agent"].assistant_id,
+        "validator-agent",
         {
             "warning_codes": ["real free-text leak here"],
             "repair_guidance": "the user's raw concern text is ...",
         },
     )
-    adapter = make_fake_adapter(client)
+    runtime, _ = make_fake_runtime(client)
 
     citation = Citation(
         citation_id="DIST-DEMO-el-01",
@@ -202,7 +197,7 @@ def test_validator_safe_summary_never_contains_raw_critique() -> None:
             detected_need="n", evidence_bullets=[], missing_data_flags=[], analysis_confidence=0.5
         ),
     )
-    report = ValidatorAgent(adapter).validate(
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,

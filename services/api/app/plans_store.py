@@ -7,6 +7,8 @@ agent coordinator when the user runs the plan builder.
 
 from __future__ import annotations
 
+import threading
+
 from .human_review import HumanReviewState
 from .mock_data import (
     AssessmentRecord,
@@ -75,11 +77,18 @@ def _stub_recommendation(category: str) -> Recommendation:
 
 
 class SavedPlansStore:
-    """Process-local plan store. Resets on server restart."""
+    """Process-local plan store. Resets on server restart.
 
-    def __init__(self) -> None:
+    FastAPI runs sync path functions on a thread pool, so every mutation is
+    guarded. Retention is capped so a long-lived process cannot grow without
+    bound from repeated saves.
+    """
+
+    def __init__(self, max_plans: int = 500) -> None:
         self._plans: list[SavedPlan] = []
         self._counter = 0
+        self._max = max_plans
+        self._lock = threading.Lock()
 
     def seed(
         self,
@@ -111,31 +120,39 @@ class SavedPlansStore:
             self._counter += 1
 
     def list(self) -> list[SavedPlan]:
-        return list(self._plans)
+        with self._lock:
+            return list(self._plans)
 
     def get(self, plan_id: str) -> SavedPlan | None:
-        for plan in self._plans:
-            if plan.plan_id == plan_id:
-                return plan
-        return None
+        with self._lock:
+            for plan in self._plans:
+                if plan.plan_id == plan_id:
+                    return plan
+            return None
 
     def add(self, plan: SavedPlan) -> SavedPlan:
-        self._plans.append(plan)
-        return plan
+        with self._lock:
+            self._plans.append(plan)
+            if len(self._plans) > self._max:
+                del self._plans[: len(self._plans) - self._max]
+            return plan
 
     def replace(self, plan: SavedPlan) -> SavedPlan:
-        for i, existing in enumerate(self._plans):
-            if existing.plan_id == plan.plan_id:
-                self._plans[i] = plan
-                return plan
-        raise KeyError(plan.plan_id)
+        with self._lock:
+            for i, existing in enumerate(self._plans):
+                if existing.plan_id == plan.plan_id:
+                    self._plans[i] = plan
+                    return plan
+            raise KeyError(plan.plan_id)
 
     def next_plan_id(self) -> str:
-        self._counter += 1
-        return f"PLN-U{self._counter:04d}"
+        with self._lock:
+            self._counter += 1
+            return f"PLN-U{self._counter:04d}"
 
     def clear(self) -> int:
-        removed = len(self._plans)
-        self._plans = []
-        self._counter = 0
-        return removed
+        with self._lock:
+            removed = len(self._plans)
+            self._plans = []
+            self._counter = 0
+            return removed

@@ -398,7 +398,8 @@ function RecommendationPanel({
   providerModel: string;
 }) {
   const ok = rec.completeness.ok;
-  const isFoundry = providerModel.startsWith("azure-openai");
+  // Must match PROVIDER_DISPLAY_CONFIGURED in services/api/app/main.py.
+  const isFoundry = providerModel.startsWith("Azure AI Foundry");
   return (
     <div className="mt-3 rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200">
       <p className="text-xs uppercase tracking-wide text-amber-300">
@@ -450,3 +451,4 @@ function RecommendationPanel({
     </div>
   );
 }
+

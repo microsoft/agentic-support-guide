@@ -8,7 +8,47 @@ calls from the three implemented agents:
 - Azure AI Foundry project (`azurerm_cognitive_account_project`).
 - Model deployment (`azurerm_cognitive_deployment`, `format = "OpenAI"`).
 - Log Analytics workspace + Application Insights (metadata / telemetry).
+- Diagnostic setting routing the AI Services account's own logs and
+  metrics into the Log Analytics workspace.
 - RBAC role assignments for keyless (Entra) access.
+
+> **Network exposure.** The AI Services account is created with
+> `public_network_access_enabled = true` and no network ACLs. Keyless
+> Entra auth (`local_auth_enabled = false`) is the only access control.
+> Add a private endpoint or `network_acls` before using this outside a
+> prototype.
+
+## Resource naming and collisions
+
+This stack is meant to be deployed many times over — dozens of learners,
+frequently into the same subscription. Every name that has to be unique
+gets a shared random suffix from `random_string.suffix`:
+
+| Resource | Name | Uniqueness scope |
+| --- | --- | --- |
+| Resource group | `rg-agentic-support-guide-<suffix>` | Subscription |
+| AI Services account | `ai-foundry-asg-<suffix>` | Resource group |
+| Custom subdomain | `aifoundryasg<suffix>` | **Global** (DNS) |
+| Foundry project | `asg-project-<suffix>` | Account, plus its backing workspace |
+| Log Analytics | `log-asg-<suffix>` | Resource group |
+| Application Insights | `appi-asg-<suffix>` | Resource group |
+
+Two learners running `terraform apply` in the same subscription get
+different suffixes and therefore never collide. Do not hardcode any of
+these names.
+
+The suffix also matters on **re-deploy**. Azure soft-deletes both the
+Cognitive Services account and the workspace backing the Foundry project,
+and a tombstone keeps the old name reserved. A fresh state directory
+generates a fresh suffix, so this resolves itself. If you reuse a state
+whose resources were deleted out of band, force a new suffix:
+
+```powershell
+terraform apply -replace="random_string.suffix"
+```
+
+See [Troubleshooting](#troubleshooting-soft-delete) for the errors this
+prevents.
 
 ## Prerequisites
 
@@ -154,8 +194,6 @@ model_capacity = 1
 
 ## RBAC propagation
 
-The role assignments grant your local principal:
-
 The role assignment grants your local principal:
 
 - `Cognitive Services OpenAI User` at the AI Services account scope.
@@ -185,3 +223,37 @@ The `.gitignore` at the repo root already excludes state files.
 
 `.terraform.lock.hcl` is intentionally committed so provider versions are
 reproducible.
+
+## Troubleshooting (soft delete)
+<a id="troubleshooting-soft-delete"></a>
+
+Both errors below mean a previous deployment reserved the name and Azure is
+holding a soft-delete tombstone.
+
+**`FlagMustBeSetForRestore: An existing resource ... has been soft-deleted`**
+— the Cognitive Services account name is tombstoned.
+
+**`ResourceProviderExtensionError ... Soft-deleted workspace exists`**
+— the workspace behind the Foundry project is tombstoned. Purging the
+Cognitive Services account does *not* clear this one.
+
+Preferred fix — take a new suffix so nothing collides:
+
+```powershell
+terraform apply -replace="random_string.suffix"
+```
+
+Alternative — purge the tombstone and keep the current name:
+
+```powershell
+az cognitiveservices account list-deleted --query "[].{name:name,location:location}" -o table
+az cognitiveservices account purge -l <location> -g <resource-group> -n <account-name>
+```
+
+Purging is permanent. Only purge accounts belonging to this stack; the
+listing is subscription-wide and may include other people's resources.
+
+**`a resource with the ID ... already exists - to be managed via Terraform
+this resource needs to be imported`** — a previous apply created the
+resource but failed before recording it in state. Either
+`terraform import` it, or delete it in Azure and re-apply.

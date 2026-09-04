@@ -11,10 +11,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from pydantic import ValidationError
-
-from ...foundry_agents import FoundryRemoteAgentAdapter
-from ..shared.contracts import AnalysisSummary, DataAnalystOutput
+from ...foundry_agents.maf_runtime import MafAgentRuntime
+from ..shared.contracts import DataAnalystModelOutput, DataAnalystOutput
+from ..shared.responses import parse_role_response
 from ..shared.sanitization import wrap_untrusted
 
 AGENT_ID = "data-analyst"
@@ -39,10 +38,12 @@ class DataAnalystContext:
 
 
 class DataAnalystAgent:
-    def __init__(self, adapter: FoundryRemoteAgentAdapter) -> None:
-        self._adapter = adapter
+    def __init__(self, runtime: MafAgentRuntime) -> None:
+        self._runtime = runtime
 
-    def analyze(self, context: DataAnalystContext) -> DataAnalystOutput:
+    async def analyze(
+        self, context: DataAnalystContext, *, deadline: float | None = None
+    ) -> DataAnalystOutput:
         facts = {
             "learner_label": context.learner_label,
             "grade": context.grade,
@@ -63,18 +64,16 @@ class DataAnalystAgent:
             + "\n"
             + wrap_untrusted("concern_text", context.sanitized_concern_text)
         )
-        response = self._adapter.invoke(role=AGENT_NAME, user_message=user_prompt)
-        try:
-            payload = json.loads(response.text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("invalid_model_json") from exc
-        try:
-            analysis = AnalysisSummary.model_validate(payload.get("analysis", {}))
-        except ValidationError as exc:
-            raise ValueError("invalid_analysis_schema") from exc
+        response = await self._runtime.invoke(
+            role=AGENT_NAME,
+            user_message=user_prompt,
+            response_model=DataAnalystModelOutput,
+            deadline=deadline,
+        )
+        output = parse_role_response(response, DataAnalystModelOutput)
         return DataAnalystOutput(
-            contract_version=payload.get("contract_version", "1.0.0"),
+            contract_version=output.contract_version,
             district_id=context.district_id,
-            analysis=analysis,
+            analysis=output.analysis,
             citations=[],
         )

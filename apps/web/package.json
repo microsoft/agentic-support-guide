@@ -1,7 +1,7 @@
 {
   "name": "agentic-support-guide-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc -b --noEmit"
+    "lint": "tsc -b"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

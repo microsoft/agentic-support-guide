@@ -1,0 +1,34 @@
+id: support-explainer-agent
+name: Support Explainer
+version: 1.0.0
+
+# Published to Foundry as a prompt agent. Foundry runs it; there is no
+# application code. See scripts/publish_prompt_agents.py.
+foundry:
+  model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER
+  response_format: text
+  temperature: 0.2
+  max_output_tokens: 600
+
+runtime:
+  provider: azure_foundry_responses
+  timeout_seconds: 30
+  kind: prompt_agent
+
+contracts:
+  input:
+    schema_ref: data-analysis-request.schema.json
+    schema_version: 1.0.0
+  output:
+    schema_ref: data-analysis-result.schema.json
+    schema_version: 1.0.0
+
+handoff: []
+
+safety:
+  human_review_required: true
+  determinations_forbidden:
+    - educational
+    - clinical
+    - legal
+    - disability

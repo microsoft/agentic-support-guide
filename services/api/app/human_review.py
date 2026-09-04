@@ -8,10 +8,10 @@ audit-record shape the coordinator emits on each transition.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class HumanReviewState(str, Enum):
+class HumanReviewState(StrEnum):
     """States a recommendation can be in."""
 
     DRAFT = "draft"

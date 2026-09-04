@@ -71,7 +71,7 @@ records one telemetry event per agent step through
 | `agent` | `data-analyst-agent` | Which agent step ran. |
 | `status` | `ok`, `provider_timeout`, `provider_content_filter`, `validation_failed`, `orchestration_budget_exhausted` | Coarse-grained outcome. |
 | `latency_ms` | `842` | Elapsed wall time. |
-| `provider` | `azure_foundry_agents` | Fixed provider bucket. |
+| `provider` | `azure_foundry_responses` | Fixed provider bucket. |
 | `token_estimate` | `620` | When the provider returns usage. |
 | `trace_id` | correlation-id-per-request | Ties the three agent steps of one request together. |
 
@@ -125,7 +125,7 @@ and drops anything else.
   and confirm the fixed schema.
 - Read the trace-metadata construction in
   [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py)
-  and confirm `provider="azure_foundry_agents"` and `model="remote"`
+  and confirm `provider="azure_foundry_responses"` and `model="remote"`
   are hard-coded rather than derived from endpoint or deployment
   strings.
 - Run the privacy scanner:
@@ -142,7 +142,7 @@ and drops anything else.
 ### Common mistakes to avoid
 
 - Adding `print()` calls that dump `response.text` from
-  `FoundryRemoteAgentAdapter.invoke()`. The denylist protects the
+  `MafAgentRuntime.invoke()`. The denylist protects the
   telemetry facade, not `stdout`.
 - Passing the raw endpoint URL into a metric label "so we can filter
   by environment." Use a static environment tag applied at

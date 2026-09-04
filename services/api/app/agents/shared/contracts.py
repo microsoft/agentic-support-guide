@@ -7,7 +7,7 @@ import nothing from agent implementation modules.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -34,7 +34,7 @@ class ResourceRef(BaseModel):
     kind: str = Field(min_length=1, max_length=40)
 
 
-class CitationSourceType(str, Enum):
+class CitationSourceType(StrEnum):
     """Enumerated source types allowed in a Citation.
 
     `synthetic_fixture` is the only source type produced by this
@@ -115,6 +115,44 @@ class ValidatorReport(BaseModel):
     warning_codes: list[_ID] = Field(default_factory=list, max_length=20)
     failed_fields: list[_ID] = Field(default_factory=list, max_length=20)
     safe_summary: str = Field(default="", max_length=500)
+    repair_guidance: str = Field(default="", max_length=1000)
+
+
+# --- Model-facing output shapes -------------------------------------------
+# These are what the LLM is asked to emit, and what `response_format` targets.
+# They deliberately omit fields the coordinator injects from trusted context
+# (district_id above all), which the model has no way to know.
+
+
+class DataAnalystModelOutput(BaseModel):
+    contract_version: str = CONTRACT_VERSION
+    analysis: AnalysisSummary
+
+
+class SupportRecommendationModelOutput(BaseModel):
+    contract_version: str = CONTRACT_VERSION
+    detected_need: str = _STR
+    support_tier: str = _STR
+    recommended_frequency: str = _STR
+    grouping_guidance: str = _STR
+    resource_ids: list[_ID] = Field(default_factory=list, max_length=8)
+    rationale: str = _STR_LONG
+    smart_goal_suggestions: list[_ID] = Field(default_factory=list, max_length=6)
+    strategy_suggestions: list[_ID] = Field(default_factory=list, max_length=8)
+    educator_next_steps: list[_BULLET] = Field(default_factory=list, max_length=8)
+    progress_monitoring: list[_BULLET] = Field(default_factory=list, max_length=8)
+    review_window_days: int = Field(ge=7, le=180)
+    decision_rule: str = _STR
+    caveats: list[_BULLET] = Field(default_factory=list, max_length=8)
+    # IDs only. The wrapper resolves them against the district-scoped evidence
+    # bundle, so the model cannot fabricate citation text.
+    cited_ids: list[_ID] = Field(default_factory=list, max_length=12)
+
+
+class ValidatorCritiqueModelOutput(BaseModel):
+    """Advisory-only critique. The deterministic checks own pass/fail."""
+
+    warning_codes: list[str] = Field(default_factory=list, max_length=20)
     repair_guidance: str = Field(default="", max_length=1000)
 
 

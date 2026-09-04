@@ -33,7 +33,7 @@ model.
 
 The **Azure AI Foundry Agent Service** capability. It hosts assistants
 (remote agents), threads, runs, and messages. This repo invokes it
-through [`services/api/app/foundry_agents/sdk_client.py`](../services/api/app/foundry_agents/sdk_client.py).
+through [`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py).
 
 ## Foundry Project
 
@@ -70,8 +70,9 @@ A test that checks how well an agent workflow behaves against a set of
 synthetic cases. Evaluations grade the **structure and safety** of the
 output (does it use only allowed IDs, does it include the required
 human-review caveat), not the exact wording. This repo's synthetic
-cases live in [`/evals`](../evals). No automated eval harness is wired
-into CI in this repo yet.
+cases live in [`/evals`](../evals) and are scored by
+[`scripts/run_evals.py`](../scripts/run_evals.py), which runs offline on
+every pull request. Nothing grades answer quality against a live model.
 
 ## GenAIOps
 
@@ -108,7 +109,7 @@ A pattern where the application never holds a static API key.
 Instead, `DefaultAzureCredential` from `azure-identity` acquires a
 short-lived bearer token for the target resource using the developer's
 `az login`, a managed identity, or a workload identity. This repo
-uses it in [`services/api/app/foundry_agents/sdk_client.py`](../services/api/app/foundry_agents/sdk_client.py).
+uses it in [`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py).
 
 ## RBAC
 

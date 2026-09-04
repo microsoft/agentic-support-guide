@@ -5,21 +5,21 @@ from app.config import AzureFoundrySettings
 from .conftest import make_default_client
 
 
-def test_health_details_reports_ready_with_fake_bindings_and_fixture() -> None:
+def test_health_details_reports_ready_with_definitions_and_fixture() -> None:
     client = make_default_client()
     body = client.get("/api/health/details").json()
     assert body["status"] == "ok"
     assert body["service"] == "agentic-support-guide-api"
-    assert body["active_provider"] == "azure_foundry_agents"
+    assert body["active_provider"] == "azure_foundry_responses"
     assert body["foundry_project_configured"] is True
-    assert body["foundry_agents_bound"] is True
+    assert body["agent_definitions_valid"] is True
     assert body["service_side_remote_workflow_active"] is True
     assert body["evidence_fixture_available"] is True
     assert body["district_isolation_enabled"] is True
     assert body["customer_demo_ready"] is True
     assert any(check["name"] == "backend" and check["ok"] for check in body["checks"])
     assert any(check["name"] == "foundry_project_endpoint" for check in body["checks"])
-    assert any(check["name"] == "agent_bindings" for check in body["checks"])
+    assert any(check["name"] == "agent_definitions_valid" for check in body["checks"])
     assert any(check["name"] == "evidence_fixture" for check in body["checks"])
     assert any(check["name"] == "district_isolation" for check in body["checks"])
 
@@ -41,13 +41,13 @@ def test_health_details_unconfigured_when_project_endpoint_missing() -> None:
     assert body["warnings"]
 
 
-def test_health_details_unconfigured_when_bindings_missing() -> None:
+def test_health_details_unconfigured_when_definitions_missing() -> None:
     client = make_default_client()
-    client.app.state.adapter = None  # type: ignore[attr-defined]
+    client.app.state.runtime = None  # type: ignore[attr-defined]
     body = client.get("/api/health/details").json()
 
     assert body["active_provider"] == "unconfigured"
-    assert body["foundry_agents_bound"] is False
+    assert body["agent_definitions_valid"] is False
     assert body["service_side_remote_workflow_active"] is False
     assert body["customer_demo_ready"] is False
 

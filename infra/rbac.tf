@@ -2,15 +2,82 @@
 # Grants keyless (Entra) chat completion calls from developer workstations.
 # The backend calls the account endpoint, so this account-scope role is what
 # actually authorizes runtime inference.
+#
+# All workshop roles use for_each over local.workshop_principal_ids so a whole
+# room can be onboarded in one apply. Pass an Entra group object ID in
+# additional_principal_ids for larger groups.
 resource "azurerm_role_assignment" "cognitive_openai_user" {
+  for_each = local.workshop_principal_ids
+
   scope                = azurerm_cognitive_account.ai_services.id
   role_definition_name = "Cognitive Services OpenAI User"
-  principal_id         = local.effective_principal_id
+  principal_id         = each.value
 }
 
-# NOTE: a project-scope role assignment (e.g. "Azure AI User" or
-# "Cognitive Services User") would only be needed if the backend later
-# switches to the Foundry project endpoint. "Azure AI User" is not
-# universally available in every tenant yet; add "Cognitive Services User"
-# on `azurerm_cognitive_account_project.foundry_project.id` if you migrate
-# to project-scoped SDK routing.
+# Publishing prompt agents and running evaluations are project-scope
+# operations, not account-scope inference.
+resource "azurerm_role_assignment" "project_user" {
+  for_each = var.grant_project_ai_user ? local.workshop_principal_ids : toset([])
+
+  scope                = azurerm_cognitive_account_project.foundry_project.id
+  role_definition_name = var.project_role_definition_name
+  principal_id         = each.value
+}
+
+# ---- Knowledge plane (Foundry IQ) ------------------------------------------
+#
+# SECURITY NOTE, read before running a shared workshop:
+# `Search Service Contributor` is scoped to the WHOLE search service. Azure AI
+# Search has no per-index RBAC. Index name prefixes are a naming convention,
+# not an authorization boundary: any learner holding this role can list, read,
+# and DELETE every other learner's index.
+# Acceptable only in a throwaway workshop subscription. Otherwise set
+# grant_search_control_plane = false and pre-create indexes yourself.
+
+resource "azurerm_role_assignment" "search_service_contributor" {
+  for_each = (
+    var.enable_knowledge_plane && var.grant_search_control_plane
+    ? local.workshop_principal_ids
+    : toset([])
+  )
+
+  scope                = azurerm_search_service.knowledge[0].id
+  role_definition_name = "Search Service Contributor"
+  principal_id         = each.value
+}
+
+resource "azurerm_role_assignment" "search_index_data_contributor" {
+  for_each = var.enable_knowledge_plane ? local.workshop_principal_ids : toset([])
+
+  scope                = azurerm_search_service.knowledge[0].id
+  role_definition_name = "Search Index Data Contributor"
+  principal_id         = each.value
+}
+
+resource "azurerm_role_assignment" "storage_blob_data_contributor" {
+  for_each = var.enable_knowledge_plane ? local.workshop_principal_ids : toset([])
+
+  scope                = azurerm_storage_account.knowledge[0].id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = each.value
+}
+
+# The Search service reads source documents from blob using its own managed
+# identity, so the indexer never needs a storage key.
+resource "azurerm_role_assignment" "search_reads_blob" {
+  count = var.enable_knowledge_plane ? 1 : 0
+
+  scope                = azurerm_storage_account.knowledge[0].id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_search_service.knowledge[0].identity[0].principal_id
+}
+
+# The AI Services account queries the Search index on the agent's behalf
+# during agentic retrieval.
+resource "azurerm_role_assignment" "ai_services_reads_index" {
+  count = var.enable_knowledge_plane ? 1 : 0
+
+  scope                = azurerm_search_service.knowledge[0].id
+  role_definition_name = "Search Index Data Reader"
+  principal_id         = azurerm_cognitive_account.ai_services.identity[0].principal_id
+}

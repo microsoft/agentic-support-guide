@@ -15,25 +15,25 @@ from .conftest import (
     canned_recommendation_draft,
     canned_validator_critique,
 )
-from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
+from .fakes import FakeChatClientFactory, make_fake_runtime
 from .test_agents import _analyst_ctx, _bundle  # reuse helpers
 
 
-def test_fixture_retriever_never_returns_other_districts() -> None:
+async def test_fixture_retriever_never_returns_other_districts() -> None:
     retriever = FixtureEvidenceRetriever()
     for district in list_available_districts():
-        bundle = retriever.retrieve(
+        bundle = await retriever.retrieve(
             EvidenceRequest(district_id=district, category="early-literacy", detected_need_hint="")
         )
         for c in bundle.citations:
-            assert (
-                c.district_id == district
-            ), f"retriever leaked a citation from {c.district_id} into request for {district}"
+            assert c.district_id == district, (
+                f"retriever leaked a citation from {c.district_id} into request for {district}"
+            )
 
 
-def test_fixture_retriever_returns_empty_for_unknown_category() -> None:
+async def test_fixture_retriever_returns_empty_for_unknown_category() -> None:
     retriever = FixtureEvidenceRetriever()
-    bundle = retriever.retrieve(
+    bundle = await retriever.retrieve(
         EvidenceRequest(
             district_id="DIST-DEMO",
             category="__does_not_exist__",
@@ -43,12 +43,12 @@ def test_fixture_retriever_returns_empty_for_unknown_category() -> None:
     assert bundle.citations == ()
 
 
-def test_two_districts_receive_different_citations() -> None:
+async def test_two_districts_receive_different_citations() -> None:
     retriever = FixtureEvidenceRetriever()
-    a = retriever.retrieve(
+    a = await retriever.retrieve(
         EvidenceRequest(district_id="DIST-A", category="early-literacy", detected_need_hint="")
     )
-    b = retriever.retrieve(
+    b = await retriever.retrieve(
         EvidenceRequest(district_id="DIST-B", category="early-literacy", detected_need_hint="")
     )
     a_ids = {c.citation_id for c in a.citations}
@@ -56,7 +56,7 @@ def test_two_districts_receive_different_citations() -> None:
     assert a_ids.isdisjoint(b_ids)
 
 
-def test_validator_rejects_cross_district_citation() -> None:
+async def test_validator_rejects_cross_district_citation() -> None:
     """Draft carries a DIST-B citation for a DIST-A request - must fail."""
 
     from app.agents.data_analyst import DataAnalystAgent
@@ -65,23 +65,20 @@ def test_validator_rejects_cross_district_citation() -> None:
         SupportRecommenderContext,
     )
 
-    client = FakeFoundryClient()
-    bindings = build_bindings()
+    client = FakeChatClientFactory()
+    client.register_response("data-analyst-agent", canned_data_analyst_output())
     client.register_response(
-        bindings["data-analyst-agent"].assistant_id, canned_data_analyst_output()
-    )
-    client.register_response(
-        bindings["support-recommendation-agent"].assistant_id,
+        "support-recommendation-agent",
         canned_recommendation_draft(
             smart_goal_ids=["SG-early-literacy-1"],
             strategy_ids=["ST-early-literacy-1"],
         ),
     )
-    client.register_response(bindings["validator-agent"].assistant_id, canned_validator_critique())
-    adapter = make_fake_adapter(client)
+    client.register_response("validator-agent", canned_validator_critique())
+    runtime, _ = make_fake_runtime(client)
 
     retriever = FixtureEvidenceRetriever()
-    dist_b_bundle = retriever.retrieve(
+    dist_b_bundle = await retriever.retrieve(
         EvidenceRequest(district_id="DIST-B", category="early-literacy", detected_need_hint="")
     )
     ctx = SupportRecommenderContext(
@@ -93,11 +90,13 @@ def test_validator_rejects_cross_district_citation() -> None:
         allowed_strategy_ids=("ST-early-literacy-1",),
         evidence=dist_b_bundle,  # But bundle is from DIST-B (illegal)
     )
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, ctx)
-    # Draft district_id gets set to context.district_id ("DIST-A") by wrapper.
-    # But the citations carry district_id=DIST-B.
-    report = ValidatorAgent(adapter).validate(
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, ctx)
+    # The wrapper resolves cited_ids against the supplied bundle, so a model
+    # can no longer smuggle in another district's citation. Attach one
+    # directly to prove the validator still catches it defensively.
+    draft = draft.model_copy(update={"citations": list(dist_b_bundle.citations)})
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -117,15 +116,14 @@ def test_validator_rejects_cross_district_citation() -> None:
     assert "citations" in report.failed_fields
 
 
-def test_validator_rejects_unknown_source_ref() -> None:
+async def test_validator_rejects_unknown_source_ref() -> None:
     """Draft carries a citation whose citation_id is not in allowed set."""
 
     from datetime import UTC, datetime
 
-    client = FakeFoundryClient()
-    bindings = build_bindings()
-    client.register_response(bindings["validator-agent"].assistant_id, canned_validator_critique())
-    adapter = make_fake_adapter(client)
+    client = FakeChatClientFactory()
+    client.register_response("validator-agent", canned_validator_critique())
+    runtime, _ = make_fake_runtime(client)
     # Build a synthetic draft directly to bypass wrapper attaching citations.
     from app.agents.shared.contracts import (
         AnalysisSummary,
@@ -167,8 +165,8 @@ def test_validator_rejects_unknown_source_ref() -> None:
             detected_need="n", evidence_bullets=[], missing_data_flags=[], analysis_confidence=0.5
         ),
     )
-    real_bundle = _bundle()
-    report = ValidatorAgent(adapter).validate(
+    real_bundle = await _bundle()
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,
@@ -187,7 +185,7 @@ def test_validator_rejects_unknown_source_ref() -> None:
     assert "UNKNOWN_CITATION_ID" in report.issue_codes
 
 
-def test_recommendation_request_requires_district_id() -> None:
+async def test_recommendation_request_requires_district_id() -> None:
     """The API-level Pydantic model refuses missing district_id."""
 
     from pydantic import ValidationError

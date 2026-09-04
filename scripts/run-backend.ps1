@@ -11,4 +11,9 @@ if (Test-Path ".\.venv\Scripts\Activate.ps1") {
     exit 1
 }
 
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+if (-not (Test-Path ".\.env")) {
+    Write-Warning "No services/api/.env found. Run .\scripts\populate-env.ps1 first, or the backend will start unconfigured."
+    uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+} else {
+    uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env
+}

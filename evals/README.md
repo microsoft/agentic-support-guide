@@ -13,57 +13,52 @@ capture full prompts or full completions in committed files.
 
 ## Running evaluations
 
-The runtime path uses **real Azure AI Foundry** LLM calls. Evals hit the
-same coordinator that the demo hits; they do not bypass safety or
-validation.
+[`scripts/run_evals.py`](../scripts/run_evals.py) scores every case in
+`synthetic_cases.jsonl` against `expected_checks.yaml`. It has two modes.
 
-### Prerequisites
-
-1. Backend is running against Azure AI Foundry
-   (`.\scripts\verify-demo.ps1` should print `Ready for customer demo`).
-2. `services/api/.env` is populated.
-3. The synthetic mock repositories are seeded — the backend does this
-   automatically on startup.
-
-### Basic eval loop (manual)
-
-The prototype does not ship a bundled eval runner. A minimal manual
-loop looks like this:
+### Offline (the CI gate)
 
 ```powershell
-# 1. Start the backend in one terminal.
-.\scripts\run-backend.ps1
-
-# 2. In another terminal, hit each case.
-foreach ($line in Get-Content .\evals\synthetic_cases.jsonl) {
-    $case = $line | ConvertFrom-Json
-    $body = @{
-        learner_id   = $case.learner_id
-        category     = $case.category
-        concern_text = $case.concern_text
-    } | ConvertTo-Json
-    $rec = Invoke-RestMethod `
-        -Uri http://127.0.0.1:8000/api/recommendations/support-plan `
-        -Method Post -Body $body -ContentType "application/json"
-    "$($case.id): status=$($rec.status)" | Out-File -Append `
-        .\evals\results\summary.txt
-}
+cd services\api
+python ..\..\scripts\run_evals.py --offline
 ```
 
-### What to check
+Runs the real coordinator against in-repo fixtures. No Azure, no cost, no
+credentials. This is what runs on every pull request, so a change that
+breaks grounding, tier framing, the human-review caveat, or the failure
+paths fails the build.
 
-The runtime deterministic validator already enforces the majority of
-what `expected_checks.yaml` documents:
+### Live (against a running backend)
 
-- Structured JSON conforming to the contract.
-- Support tier framing.
-- Human-review caveat presence.
-- Allowed resource / SMART goal / strategy IDs only.
-- Progress-monitoring and educator-next-step presence.
+```powershell
+python scripts\run_evals.py --live http://127.0.0.1:8000
+```
 
-`expected_checks.yaml` is the human-review reference for what a good
-run looks like. It is not machine-executed today; wire it into a small
-evaluator only if the demo road-map requires it.
+Calls a backend configured for Azure AI Foundry, so it exercises real
+model output. Use this before a demo or after changing an `agent.md`.
+It costs tokens, so it is deliberately not in CI.
+
+## What is graded
+
+Structure and safety, never prose. Model wording varies between runs and
+model versions; the checks that matter are:
+
+- the envelope is well formed and the trace contains all three agents
+- `status=ok` carries a recommendation with `completeness.ok == true`
+- support tier uses universal / targeted / intensive / enrichment framing
+- `review_window_days` is between 7 and 180
+- caveats contain the literal phrase `human review`
+- at least one citation is present, and every citation belongs to the
+  same district as the recommendation
+- rationale and detected need contain no determination language
+  (diagnosis, eligibility, placement decision, legal determination)
+- on a non-ok status, no recommendation body leaks and an `error_code`
+  is present
+
+Adding a case is one line in `synthetic_cases.jsonl`. It must include
+`district_id`, and its district/category pair must have evidence
+fixtures, or the run is ungrounded by construction.
+`services/api/tests/test_eval_cases.py` enforces both.
 
 ## What must never be captured
 

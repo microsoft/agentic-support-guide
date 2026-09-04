@@ -2,6 +2,15 @@
 
 Date: 2026-08-19
 
+> **Historical document.** It describes the retired persisted-agent
+> design; see [ADR 0005](adr/0005-agent-framework-ephemeral-agents.md)
+> for the current one.
+>
+> **Original note:** This is a point-in-time planning snapshot and is
+> not kept current. Counts and file inventories below reflect the repository
+> as of the date above. For current state, read the
+> [README](../README.md) and [architecture](architecture.md).
+
 This plan captures the current state of the repository against the
 requirements of the latest customer alignment call and lists the exact
 changes this iteration will make.
@@ -17,14 +26,13 @@ changes this iteration will make.
 - Each folder has `agent.md` (instructions), `manifest.yaml` (runtime +
   Foundry binding metadata), and `schemas/`.
 - Runtime is remote Azure AI Foundry Agent Service via
-  [`FoundryRemoteAgentAdapter`](../services/api/app/foundry_agents/adapter.py).
-- Bindings recorded in `.foundry/agent-bindings.local.json` (gitignored).
+  [`MafAgentRuntime`](../services/api/app/foundry_agents/maf_runtime.py).
 
 ### Foundry integration
 
-- [`services/api/app/foundry_agents/sdk_client.py`](../services/api/app/foundry_agents/sdk_client.py)
+- [`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py)
   is the only file that imports `azure.ai.agents`. Enforced by
-  `tests/test_agents_config.py::test_no_direct_model_calls_outside_sdk_client`.
+  `tests/test_agents_config.py::test_no_direct_model_calls_outside_maf_client`.
 - Adapter maps SDK failures to typed `FoundryProviderError` subclasses
   (`ConfigurationError`, `AuthError`, `ThrottledError`,
   `ContentFilterError`, `FoundryTimeoutError`, `RequiresActionError`,

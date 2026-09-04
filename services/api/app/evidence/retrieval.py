@@ -49,12 +49,13 @@ class EvidenceBundle:
 class EvidenceRetriever(Protocol):
     """Stable interface used by the coordinator.
 
-    Concrete implementations live under `app/evidence/`. Today only the
-    fixture retriever is implemented; a Fabric-backed retriever can be
-    added later without changing agents.
+    `retrieve` is async because real implementations do network I/O. The
+    fixture retriever is in-memory and returns immediately, but it still
+    implements the async signature so a Foundry IQ or Fabric retriever can
+    be swapped in without touching the coordinator or the agents.
     """
 
-    def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
+    async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
         """Return a district-scoped evidence bundle.
 
         Raises `EvidenceRetrievalError` on failure. Must not return

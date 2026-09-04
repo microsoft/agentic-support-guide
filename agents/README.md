@@ -1,14 +1,20 @@
 # Agents
 
-This folder is the **target source-of-truth for agent configuration**.
-It is intentionally protocol- and configuration-only: no Python
-implementation lives here.
+This folder is the **source of truth for agent configuration**, and it is
+what the runtime actually loads. It is intentionally protocol- and
+configuration-only: no Python implementation lives here.
 
-Today, the FastAPI backend at [`services/api/`](../services/api/) still
-loads specs from `services/api/app/agents/specs/` because the runtime
-demo path uses that loader. This folder is the migration target: the
-manifests, agent.md files, and schemas below are the definitions we
-plan to move to as the runtime seam.
+Agents are **ephemeral**. On every call the backend composes a role's
+instructions from `agent.md` (body plus the behavioural rules in its YAML
+frontmatter) and runs it against the Foundry project's Responses API via
+Microsoft Agent Framework. Nothing is published to Foundry, so the version
+that runs is exactly the version on your branch. See
+[ADR 0005](../docs/adr/0005-agent-framework-ephemeral-agents.md).
+
+The loader is
+[`services/api/app/foundry_agents/role_definitions.py`](../services/api/app/foundry_agents/role_definitions.py),
+which composes instructions through
+[`prompt_envelope.py`](../services/api/app/foundry_agents/prompt_envelope.py).
 
 ## Layout
 
@@ -20,8 +26,6 @@ plan to move to as the runtime seam.
     schemas/
       input.schema.json
       output.schema.json
-    tests/
-      <optional agent-scoped tests>
 ```
 
 - `agent.md` is the source of truth for the human-readable instructions
@@ -30,10 +34,14 @@ plan to move to as the runtime seam.
   which model deployment to call, the schema contract versions, the
   handoff targets, and safety policy references.
 - `schemas/input.schema.json` and `schemas/output.schema.json` describe
-  the **agent-local** payloads. Cross-agent messages live in
+  the **agent-local** payloads - exactly what the model is asked to emit.
+  They deliberately omit fields the coordinator injects from trusted
+  context (for example `district_id`). Cross-agent envelope messages,
+  which do carry those fields, live in
   [`/contracts/v1/`](../contracts/v1/).
-- `tests/` holds agent-scoped tests that do not require the FastAPI
-  runtime.
+- Agent behavior is tested from the FastAPI suite in
+  [`services/api/tests`](../services/api/tests); there are no
+  agent-scoped test folders.
 
 ## Source-of-truth rules
 
@@ -45,42 +53,15 @@ plan to move to as the runtime seam.
   messages. Compatibility rules are documented in
   [`/contracts/README.md`](../contracts/README.md).
 
-## Migration status
+## Editing an agent
 
-- [x] Spec content lives here as `agent.md` per agent.
-- [x] Manifests present with contract references and model bindings.
-- [x] Schemas present.
-- [ ] Runtime adapter loads from this folder. **Not yet.** The current
-      runtime loader in `services/api/app/agents/specs/loader.py`
-      continues to be the source until the adapter is switched. See the
-      *"Post-demo migration"* section below.
+1. Edit `agent.md`. Behavioural rules (`constraints`, `safety_rules`,
+   `grounding_rules`) live in the YAML frontmatter and **are** sent to the
+   model - dropping them yields plausible but off-contract output.
+2. Run `python scripts/validate_agent_definitions.py`. It validates the
+   manifest, contract references, and frontmatter, and prints an
+   `instructions_hash` per role so you can see the change took effect.
+3. Restart the backend. There is no deploy or sync step.
 
-## Post-demo migration
-
-Once the demo has run and the app is stable:
-
-1. Introduce `LocalManifestAgentAdapter` in
-   `services/api/app/agents/adapter.py` that:
-   - reads `manifest.yaml` for a given agent name,
-   - resolves `agent.md` alongside it,
-   - loads referenced contract schemas from `/contracts/v1/`,
-   - constructs the same rendered system prompt the existing
-     `render_system_prompt(spec)` helper produces,
-   - hands off to the existing `AzureFoundryLlmProvider`.
-2. Swap the three agent classes to consume `LocalManifestAgentAdapter`
-   instead of the existing loader.
-3. Delete `services/api/app/agents/specs/` and its README.
-4. Introduce `FoundryHostedAgentAdapter` only when the pinned openai +
-   azure-identity + Foundry SDK versions clearly support hosted-agent
-   CRUD.
-
-## What must never appear here
-
-- Real customer, partner, vendor, or product names.
-- Real learner, staff, or personnel names.
-- Real school, district, organization, meeting, or source-document
-  names.
-- Real email addresses (only `@example.invalid` is permitted anywhere
-  in the repo).
-- Any URL not in the scanner's Microsoft/Azure allowlist or
-  `example.invalid`.
+CI runs the same validation, plus `scripts/run_evals.py --offline`, on
+every pull request.

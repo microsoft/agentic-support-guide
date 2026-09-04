@@ -25,12 +25,15 @@ import json
 import re
 from dataclasses import dataclass
 
-from ...foundry_agents import FoundryProviderError, FoundryRemoteAgentAdapter
+from ...foundry_agents.errors import FoundryProviderError
+from ...foundry_agents.maf_runtime import MafAgentRuntime
 from ..shared.contracts import (
     DataAnalystOutput,
     SupportRecommendationDraft,
+    ValidatorCritiqueModelOutput,
     ValidatorReport,
 )
+from ..shared.responses import parse_role_response
 from ..shared.sanitization import enforce_code, wrap_untrusted
 
 AGENT_ID = "validator"
@@ -67,14 +70,15 @@ class ValidatorInput:
 
 
 class ValidatorAgent:
-    def __init__(self, adapter: FoundryRemoteAgentAdapter) -> None:
-        self._adapter = adapter
+    def __init__(self, runtime: MafAgentRuntime) -> None:
+        self._runtime = runtime
 
-    def validate(
+    async def validate(
         self,
         payload: ValidatorInput,
         *,
         use_llm_critique: bool,
+        deadline: float | None = None,
     ) -> ValidatorReport:
         issue_codes: list[str] = []
         failed_fields: list[str] = []
@@ -165,12 +169,14 @@ class ValidatorAgent:
         repair_guidance = _build_repair_guidance(issue_codes, unknown_res)
         warning_codes: list[str] = []
 
-        if use_llm_critique and self._adapter.is_bound(AGENT_NAME):
+        if use_llm_critique and self._runtime.has_role(AGENT_NAME):
             try:
                 # Advisory only: LLM critique may add warning codes.
                 # Raw LLM repair text is intentionally discarded; repair
                 # guidance must come from _REPAIR_TEMPLATES only.
-                llm_warnings, _llm_repair_ignored = self._llm_critique(payload)
+                llm_warnings, _llm_repair_ignored = await self._llm_critique(
+                    payload, deadline=deadline
+                )
                 warning_codes.extend(llm_warnings)
             except FoundryProviderError:
                 warning_codes.append("VALIDATOR_LLM_CRITIQUE_UNAVAILABLE")
@@ -190,7 +196,9 @@ class ValidatorAgent:
             repair_guidance=repair_guidance[:1000],
         )
 
-    def _llm_critique(self, payload: ValidatorInput) -> tuple[list[str], str]:
+    async def _llm_critique(
+        self, payload: ValidatorInput, *, deadline: float | None = None
+    ) -> tuple[list[str], str]:
         analyst_block = wrap_untrusted(
             "prior_agent_output_data_analyst",
             json.dumps(payload.analysis.model_dump(mode="json")),
@@ -206,21 +214,22 @@ class ValidatorAgent:
             "must be under 500 characters.\n"
             f"{analyst_block}\n{draft_block}"
         )
-        response = self._adapter.invoke(role=AGENT_NAME, user_message=user_prompt)
+        response = await self._runtime.invoke(
+            role=AGENT_NAME,
+            user_message=user_prompt,
+            response_model=ValidatorCritiqueModelOutput,
+            deadline=deadline,
+        )
         try:
-            data = json.loads(response.text)
-        except json.JSONDecodeError:
+            critique = parse_role_response(response, ValidatorCritiqueModelOutput)
+        except ValueError:
             return [], ""
-        warnings_raw = data.get("warning_codes") or []
-        repair_raw = data.get("repair_guidance") or ""
         warnings: list[str] = []
-        if isinstance(warnings_raw, list):
-            for w in warnings_raw:
-                code = enforce_code(w) if isinstance(w, str) else None
-                if code is not None:
-                    warnings.append(code)
-        repair = repair_raw if isinstance(repair_raw, str) else ""
-        return warnings[:10], repair
+        for w in critique.warning_codes:
+            code = enforce_code(w) if isinstance(w, str) else None
+            if code is not None:
+                warnings.append(code)
+        return warnings[:10], critique.repair_guidance
 
 
 _REPAIR_TEMPLATES = {

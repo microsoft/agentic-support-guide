@@ -3,14 +3,13 @@ name: Support Recommendation Agent
 version: 1.0.0
 
 foundry:
-  foundry_agent_name: asg-support-recommendation-agent
   model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER
   response_format: json_object
   temperature: 0.2
   max_output_tokens: 800
 
 runtime:
-  provider: azure_foundry_agents
+  provider: azure_foundry_responses
   timeout_seconds: 30
 
 contracts:

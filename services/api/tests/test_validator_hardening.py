@@ -11,33 +11,32 @@ from .conftest import (
     canned_data_analyst_output,
     canned_recommendation_draft,
 )
-from .fakes import FakeFoundryClient, build_bindings, make_fake_adapter
+from .fakes import FakeChatClientFactory, make_fake_runtime
 from .test_agents import _analyst_ctx, _bundle, _rec_ctx
 
 
-def _adapter_with_adversarial_critique(critique: dict[str, Any]) -> Any:
-    client = FakeFoundryClient()
-    bindings = build_bindings()
+def _runtime_with_adversarial_critique(critique: dict[str, Any]) -> Any:
+    client = FakeChatClientFactory()
     client.register_response(
-        bindings["data-analyst-agent"].assistant_id,
+        "data-analyst-agent",
         canned_data_analyst_output(),
     )
     client.register_response(
-        bindings["support-recommendation-agent"].assistant_id,
+        "support-recommendation-agent",
         canned_recommendation_draft(
             smart_goal_ids=["SG-early-literacy-1"],
             strategy_ids=["ST-early-literacy-1"],
         ),
     )
     client.register_response(
-        bindings["validator-agent"].assistant_id,
+        "validator-agent",
         critique,
     )
-    return make_fake_adapter(client)
+    return make_fake_runtime(client)[0]
 
 
-def test_validator_drops_non_conforming_llm_warnings() -> None:
-    adapter = _adapter_with_adversarial_critique(
+async def test_validator_drops_non_conforming_llm_warnings() -> None:
+    runtime = _runtime_with_adversarial_critique(
         {
             "warning_codes": [
                 "leaked user secret abcdef",
@@ -50,10 +49,10 @@ def test_validator_drops_non_conforming_llm_warnings() -> None:
             "repair_guidance": "",
         }
     )
-    analysis = DataAnalystAgent(adapter).analyze(_analyst_ctx())
-    draft = SupportRecommendationAgent(adapter).recommend(analysis, _rec_ctx())
-    bundle = _bundle()
-    report = ValidatorAgent(adapter).validate(
+    analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
+    draft = await SupportRecommendationAgent(runtime).recommend(analysis, await _rec_ctx())
+    bundle = await _bundle()
+    report = await ValidatorAgent(runtime).validate(
         ValidatorInput(
             analysis=analysis,
             draft=draft,

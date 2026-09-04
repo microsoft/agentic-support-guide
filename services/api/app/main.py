@@ -1,22 +1,25 @@
 """FastAPI application entry point.
 
 All routes are mounted under /api. OpenAPI is served at /api/openapi.json
-and the interactive docs at /api/docs. There is no CORS middleware because
-the frontend uses the Vite dev proxy.
+and the interactive docs at /api/docs. CORS is an explicit allowlist,
+overridable with ALLOWED_ORIGINS.
 
 Runtime shape: every recommendation request is orchestrated by the
-AgentCoordinator, which invokes three remote Azure AI Foundry Agent
-Service assistants through FoundryRemoteAgentAdapter. There is no local
-model call and no local fallback.
+AgentCoordinator, which invokes three Azure AI Foundry agent roles through
+Microsoft Agent Framework. There is no local model call and no local
+fallback.
 """
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import assessments as assessments_mod
 from . import audit as audit_mod
@@ -37,10 +40,10 @@ from .contracts_registry import ContractsRegistry, load_registry
 from .diagnostics import build_health_details
 from .evidence import EvidenceRetriever, FixtureEvidenceRetriever
 from .foundry_agents import (
-    FoundryAgentClient,
-    FoundryAgentClientProtocol,
-    FoundryRemoteAgentAdapter,
-    load_bindings,
+    FoundryResponsesClientFactory,
+    MafAgentRuntime,
+    default_credential_factory,
+    load_role_definitions,
 )
 from .human_review import (
     HumanReviewState,
@@ -74,8 +77,20 @@ from .telemetry import TelemetryRecorder
 from .workflows import AgentCoordinator
 from .workflows.coordinator import CoordinatorRequest
 
-PROVIDER_DISPLAY_CONFIGURED = "Azure AI Foundry Agent Service (remote agents)"
-PROVIDER_DISPLAY_UNCONFIGURED = "unconfigured (Azure AI Foundry Agent Service not set up)"
+PROVIDER_DISPLAY_CONFIGURED = "Azure AI Foundry (Agent Framework, prompt agents)"
+
+# Vite dev server. Override with a comma-separated ALLOWED_ORIGINS when the
+# API is served anywhere other than the local dev proxy.
+DEFAULT_ALLOWED_ORIGINS = ("http://127.0.0.1:5173", "http://localhost:5173")
+
+
+def _allowed_origins() -> list[str]:
+    raw = os.environ.get("ALLOWED_ORIGINS", "")
+    configured = [o.strip() for o in raw.split(",") if o.strip()]
+    return configured or list(DEFAULT_ALLOWED_ORIGINS)
+
+
+PROVIDER_DISPLAY_UNCONFIGURED = "unconfigured (Azure AI Foundry not set up)"
 
 
 def _next_iso(offset_seconds: int) -> str:
@@ -83,26 +98,32 @@ def _next_iso(offset_seconds: int) -> str:
     return (base + timedelta(seconds=offset_seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _default_client_factory(endpoint: str) -> FoundryAgentClientProtocol:
-    from azure.identity import DefaultAzureCredential
-
-    return FoundryAgentClient(endpoint=endpoint, credential=DefaultAzureCredential())
-
-
-def _build_adapter(
+def _build_runtime(
     settings: AzureFoundrySettings,
-    client_factory: Callable[[str], FoundryAgentClientProtocol],
-) -> FoundryRemoteAgentAdapter | None:
+    client_factory: Callable[[str], Any] | None,
+) -> MafAgentRuntime | None:
+    """Assemble role definitions from agent.md + per-role model deployments.
+
+    There are no persisted agents to look up: a role is available when its
+    definition loads and its model deployment env var is set.
+    """
+
     if not settings.project_endpoint:
         return None
-    bindings = load_bindings()
-    if not bindings:
+    roles = load_role_definitions()
+    if not roles:
         return None
-    client = client_factory(settings.project_endpoint)
-    return FoundryRemoteAgentAdapter(
-        client=client,
-        bindings=bindings,
-        project_endpoint=settings.project_endpoint,
+    factory = (
+        client_factory(settings.project_endpoint)
+        if client_factory is not None
+        else FoundryResponsesClientFactory(
+            project_endpoint=settings.project_endpoint,
+            credential_factory=default_credential_factory,
+        )
+    )
+    return MafAgentRuntime(
+        roles=roles,
+        client_factory=factory,
         run_timeout_seconds=FOUNDRY_RUN_TIMEOUT_SECONDS,
     )
 
@@ -112,21 +133,35 @@ LEARNERS_RESPONSE_MODEL = "LearnersResponse"
 
 def create_app(
     *,
-    adapter: FoundryRemoteAgentAdapter | None = None,
-    client_factory: Callable[[str], FoundryAgentClientProtocol] | None = None,
+    runtime: MafAgentRuntime | None = None,
+    client_factory: Callable[[str], Any] | None = None,
     evidence_retriever: EvidenceRetriever | None = None,
 ) -> FastAPI:
     settings = load_foundry_settings()
     app = FastAPI(
         title="Agentic Support Guide API",
         description=(
-            "Prototype API demonstrating three collaborating agents hosted "
-            "in Azure AI Foundry Agent Service. Synthetic data only."
+            "Prototype API demonstrating three collaborating agents. The "
+            "coordinator composes each role in-process with Microsoft Agent "
+            "Framework and calls Azure AI Foundry models; the same "
+            "definitions are also published to Foundry as prompt agents. "
+            "Synthetic data only."
         ),
         version=SERVICE_VERSION,
         openapi_url="/api/openapi.json",
         docs_url="/api/docs",
         redoc_url=None,
+    )
+
+    # Explicit allowlist rather than relying on the Vite dev proxy: if this
+    # app is ever served directly, no-CORS-middleware means any origin can
+    # call it. Credentials are deliberately not allowed.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_allowed_origins(),
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
     )
 
     repos: Repositories = build_repositories()
@@ -140,8 +175,8 @@ def create_app(
     )
     telemetry = TelemetryRecorder(settings.application_insights_connection_string)
     runtime_audit = RuntimeAuditLog()
-    if adapter is None:
-        adapter = _build_adapter(settings, client_factory or _default_client_factory)
+    if runtime is None:
+        runtime = _build_runtime(settings, client_factory)
     if evidence_retriever is None:
         evidence_retriever = FixtureEvidenceRetriever()
     contracts = load_registry()
@@ -151,12 +186,12 @@ def create_app(
     app.state.plans_store = plans_store
     app.state.telemetry = telemetry
     app.state.runtime_audit = runtime_audit
-    app.state.adapter = adapter
+    app.state.runtime = runtime
     app.state.evidence_retriever = evidence_retriever
     app.state.contracts = contracts
 
-    def get_adapter(request: Request) -> FoundryRemoteAgentAdapter | None:
-        return request.app.state.adapter  # type: ignore[no-any-return]
+    def get_runtime(request: Request) -> MafAgentRuntime | None:
+        return request.app.state.runtime  # type: ignore[no-any-return]
 
     def get_settings_dep(request: Request) -> AzureFoundrySettings:
         return request.app.state.settings  # type: ignore[no-any-return]
@@ -197,12 +232,12 @@ def create_app(
     @router.get("/health/details", response_model=HealthDetailsResponse)
     def get_health_details(
         settings: AzureFoundrySettings = Depends(get_settings_dep),
-        adapter: FoundryRemoteAgentAdapter | None = Depends(get_adapter),
+        runtime: MafAgentRuntime | None = Depends(get_runtime),
         evidence: EvidenceRetriever = Depends(get_evidence),
     ) -> HealthDetailsResponse:
         return build_health_details(
             settings=settings,
-            adapter=adapter,
+            runtime=runtime,
             evidence_retriever=evidence,
             service=SERVICE_NAME,
             version=SERVICE_VERSION,
@@ -214,6 +249,7 @@ def create_app(
         plans: SavedPlansStore = Depends(get_plans),
         audit: RuntimeAuditLog = Depends(get_audit),
         repos: Repositories = Depends(get_repos),
+        telemetry: TelemetryRecorder = Depends(get_telemetry),
     ) -> DemoResetResponse:
         if not settings.demo_reset_enabled:
             raise HTTPException(
@@ -225,6 +261,7 @@ def create_app(
             )
         audit_removed = audit.clear()
         plans_removed = plans.clear()
+        telemetry.clear()
         plans.seed(
             specs=repos.seeded_plans,
             learners=repos.learners,
@@ -279,10 +316,10 @@ def create_app(
         "/recommendations/support-plan",
         response_model=RecommendationEnvelope,
     )
-    def post_recommendation(
+    async def post_recommendation(
         payload: SupportPlanRequest,
         repos: Repositories = Depends(get_repos),
-        adapter: FoundryRemoteAgentAdapter | None = Depends(get_adapter),
+        runtime: MafAgentRuntime | None = Depends(get_runtime),
         telemetry: TelemetryRecorder = Depends(get_telemetry),
         audit: RuntimeAuditLog = Depends(get_audit),
         contracts: ContractsRegistry = Depends(get_contracts),
@@ -295,13 +332,13 @@ def create_app(
         if learner is None:
             raise HTTPException(status_code=404, detail="Unknown learner_id")
 
-        if adapter is None:
+        if runtime is None:
             return RecommendationEnvelope(
                 status="provider_missing",
                 error_code="AGENT_PROVIDER_MISSING",
                 error_message=(
                     "Azure AI Foundry Agent Service is not configured or bindings "
-                    "are missing. Run scripts/sync_foundry_agents.py --apply."
+                    "are missing. Run scripts/validate_agent_definitions.py."
                 ),
                 recommendation=None,
                 agent_trace=[],
@@ -324,7 +361,7 @@ def create_app(
         )
 
         coordinator = AgentCoordinator(
-            adapter=adapter,
+            runtime=runtime,
             telemetry=telemetry,
             contracts=contracts,
             evidence_retriever=evidence,
@@ -353,7 +390,7 @@ def create_app(
             allowed_strategy_ids=allowed_strategy_ids,
         )
         started = time.monotonic()
-        result = coordinator.run(crequest)
+        result = await coordinator.run(crequest)
         duration_ms = int((time.monotonic() - started) * 1000)
         audit.append(
             endpoint="/api/recommendations/support-plan",

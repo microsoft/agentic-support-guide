@@ -61,11 +61,15 @@ A well-run GenAIOps workflow does most of these:
 
 - Each agent's instructions live in `agent.md` inside its folder under
   [`/agents`](../agents).
-- Runtime metadata (agent name, response format, model deployment env
-  var, temperature) lives in `manifest.yaml` next to it.
+- Runtime metadata (response format, model deployment env var,
+  temperature) lives in `manifest.yaml` next to it.
 - Both are plain text and are reviewed via normal PR flow.
-- The remote assistant on Foundry is regenerated from the on-disk
-  files by [`scripts/sync_foundry_agents.py`](../scripts/sync_foundry_agents.py).
+- The runtime composes instructions from these files on every call, so the
+  version that runs locally is exactly the version on the branch.
+- Publishing the same definitions to Foundry as prompt agents is a separate,
+  explicit step (`scripts/publish_prompt_agents.py`), which is what makes
+  them visible and versioned in the portal. See
+  [ADR 0006](adr/0006-published-prompt-agents.md).
 
 **How to verify.** Manual review of
 [`agents/data-analyst/agent.md`](../agents/data-analyst/agent.md),
@@ -128,14 +132,18 @@ eval runner (see gaps below).
   per role from `FOUNDRY_MODEL_DEPLOYMENT_ANALYST`,
   `FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER`, and
   `FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR` in `services/api/.env`.
-- The role-to-assistant mapping (and an `instructions_hash` for drift
-  detection) lives in `.foundry/agent-bindings.local.json`, produced
-  by `scripts/sync_foundry_agents.py --apply`.
+- The role-to-deployment mapping comes from `manifest.yaml`
+  (`foundry.model_deployment_env`) resolved against the environment at
+  startup. There is no binding file, because there is no persisted
+  agent to bind to.
+- `scripts/validate_agent_definitions.py` prints an `instructions_hash`
+  per role. A changed hash means the composed instructions changed, which
+  is the drift signal that used to live in the bindings file.
 
 **How to verify.** `terraform state list` in `/infra`; open
 `services/api/.env.example`; run
-`python scripts/sync_foundry_agents.py --dry-run` from the repo root
-— it prints the planned actions per role with no network I/O.
+`python scripts/validate_agent_definitions.py` from the repo root
+— it validates every definition and prints each hash with no network I/O.
 
 ### 6. Capture metadata-only traces
 
@@ -159,62 +167,77 @@ also asserts the repo does not leak canary values.
 
 - All prompt, contract, Terraform, and code changes go through source
   control PR review.
-- A remote agent is only updated by running
-  `scripts/sync_foundry_agents.py --apply`. That command is not run
-  automatically anywhere in this repo, so a human is always in the
-  loop before a change reaches Foundry.
+- The locally running instructions are always the ones on the branch,
+  composed per call. Promotion of the *running* app is just merging.
+- The **published** prompt agents are a separate artifact and can drift
+  from the branch. Re-run
+  `python scripts/publish_prompt_agents.py --suffix <you> --apply` after
+  merging a prompt change, and compare the `instructions_hash` from
+  `validate_agent_definitions.py` against the version you published.
+- CI runs `scripts/validate_agent_definitions.py` on every pull request,
+  so a malformed definition or a stale contract reference fails before
+  merge.
 
-**How to verify.** Read
-[`scripts/sync_foundry_agents.py`](../scripts/sync_foundry_agents.py).
-Note the `--dry-run` / `--apply` / `--check-connectivity` / `--rebind`
-mode split.
+**How to verify.** Read the `agent-definitions` job in
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) and
+[`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py).
 
 ### 8. Maintain a rollback path
 
-- Rolling back a prompt or manifest is a revert commit followed by
-  `sync_foundry_agents.py --apply`.
+- Rolling back a prompt or manifest is a **revert commit**. Because
+  instructions are composed per call, the running app reverts as soon as
+  the reverted code is running.
+- If you had published that prompt, also re-publish after reverting.
+  Prompt agents are versioned, so the previous version stays visible in
+  the portal and the new version simply supersedes it.
 - Rolling back a model deployment change is a Terraform `plan` +
   `apply` on the reverted state.
-- Bindings are refused when the `project_endpoint_hash` does not
-  match the configured endpoint, unless the operator passes
-  `--rebind`. This prevents accidental cross-environment reuse of
-  assistant IDs.
 
-**How to verify.** Read the endpoint-hash guard in
-[`services/api/app/foundry_agents/adapter.py`](../services/api/app/foundry_agents/adapter.py)
-and the `--rebind` block in
-[`scripts/sync_foundry_agents.py`](../scripts/sync_foundry_agents.py).
+**How to verify.** Revert a change to any `agents/*/agent.md`, restart
+the backend, and confirm the `instructions_hash` reported by
+[`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py)
+returns to its previous value.
 
 ## Health / readiness signal
 
 `GET /api/health/details` reports the demo-readiness posture without
 leaking any configured environment values:
 
-- `active_provider` — `azure_foundry_agents` when the project endpoint
-  is configured and all three roles have bindings; `unconfigured`
-  otherwise.
+- `active_provider` — `azure_foundry_responses` when the project endpoint
+  is configured, all three agent definitions load, and their model
+  deployments are set; `unconfigured` otherwise.
 - `foundry_project_configured` — is the project endpoint set.
-- `foundry_agents_bound` — do all three role bindings exist and match
-  the current endpoint.
-- `service_side_remote_workflow_active` — both of the above.
+- `agent_definitions_valid` — did all three role definitions load from
+  `/agents`.
+- `model_deployments_configured` — are all three
+  `FOUNDRY_MODEL_DEPLOYMENT_*` variables set.
+- `service_side_remote_workflow_active` — all of the above.
 - `customer_demo_ready` — the same as above.
+
+All of these are local checks. The frontend polls this endpoint on every
+page load, so it deliberately makes no network call to Azure. Use
+`python scripts/validate_agent_definitions.py --check-connectivity` for
+the live check.
 
 **How to verify.** `curl.exe -s http://127.0.0.1:8000/api/health/details`
 against a running backend.
 
 ## Common mistakes to avoid
 
-- Editing `agent.md` and forgetting to run `sync_foundry_agents.py
-  --apply`. The remote assistant then serves stale instructions. The
-  `instructions_hash` field in the bindings file exists to catch this
-  drift on the next `--dry-run`.
+- Calling `to_prompt_agent` or `agents.create_version` from application
+  code. Publishing is a GenAIOps step, allowlisted to
+  `scripts/publish_prompt_agents.py`; a web request must never publish an
+  agent. `tests/test_no_persisted_agents.py` fails the build if those
+  symbols appear anywhere else.
+- Publishing without `--suffix`. The script refuses, because dozens of
+  learners share one Foundry project and unsuffixed names collide.
 - Adding a "just this once" direct model call from the coordinator or
-  a role wrapper. The import-graph assertion in
-  `tests/test_agents_config.py::test_no_direct_model_calls_outside_sdk_client`
-  fails the build if any file outside
-  `services/api/app/foundry_agents/sdk_client.py` imports
-  `azure.ai.agents`, `AzureOpenAI`, `openai.`, or references
-  `chat.completions`.
+  a role wrapper. All Agent Framework SDK imports belong in
+  `services/api/app/foundry_agents/maf_client.py`.
+- Renaming the provider identifier in Python only. It is also written
+  into YAML manifests, TypeScript, PowerShell, and Markdown, which
+  cannot import a Python constant.
+  `tests/test_provider_vocabulary.py` greps those files for stale terms.
 - Grading eval output by prose. Grade by allowed IDs, required
   caveats, tier framing, and schema conformance.
 - Turning on prompt/completion logging in Application Insights "for
@@ -226,15 +249,15 @@ against a running backend.
 None of the following is implemented and should not be described as
 existing:
 
-- **No CI workflow.** Lint, mypy, pytest, ruff, frontend build/test,
-  `terraform validate`, and `sync_foundry_agents.py --dry-run` all run
-  locally but are not enforced by any pipeline in this repo.
 - **No automated eval harness.** The `/evals` folder holds synthetic
   cases and expected checks, but there is no runner that scores an
-  agent version against them and blocks promotion.
+  agent version against them and blocks promotion. CI validates that
+  each case still satisfies the API contract and resolves to real
+  evidence, which is not the same as scoring output quality.
 - **No promotion gate.** A prompt change can be applied to Foundry
   without any eval or safety pass; the guardrail today is human PR
-  review.
+  review plus the CI checks in
+  [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 - **No signed audit records.** The audit trail is metadata-only but
   is not tamper-evident.
 

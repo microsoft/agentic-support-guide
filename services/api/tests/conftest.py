@@ -8,14 +8,14 @@ from fastapi.testclient import TestClient
 
 from app.config import AzureFoundrySettings
 from app.evidence import FixtureEvidenceRetriever
-from app.foundry_agents import FoundryRemoteAgentAdapter
+from app.foundry_agents import MafAgentRuntime
 from app.main import create_app
 
 from .fakes import (
+    DEFAULT_DEPLOYMENT,
     DEFAULT_ENDPOINT,
-    FakeFoundryClient,
-    build_bindings,
-    make_fake_adapter,
+    FakeChatClientFactory,
+    make_fake_runtime,
 )
 
 ENV_KEYS = (
@@ -36,6 +36,13 @@ DEFAULT_DISTRICT = "DIST-DEMO"
 def _clean_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for key in ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
+    # Role readiness now derives from these instead of a bindings file.
+    for key in (
+        "FOUNDRY_MODEL_DEPLOYMENT_ANALYST",
+        "FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER",
+        "FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR",
+    ):
+        monkeypatch.setenv(key, DEFAULT_DEPLOYMENT)
     yield
 
 
@@ -91,6 +98,10 @@ def canned_recommendation_draft(
     }
     if cited_ids is not None:
         body["cited_ids"] = cited_ids
+    else:
+        # Citations are no longer auto-attached when the model cites nothing,
+        # so the canned draft must cite explicitly like a real one would.
+        body["cited_ids"] = ["DIST-DEMO-el-01", "DIST-DEMO-el-02"]
     return body
 
 
@@ -103,41 +114,35 @@ def canned_validator_critique() -> dict[str, Any]:
 # ---------------------------------------------------------------------
 
 
-def _canned_client(
+def _canned_factory(
     *,
     resource_ids: list[str] | None = None,
     smart_goal_ids: list[str] | None = None,
     strategy_ids: list[str] | None = None,
-) -> FakeFoundryClient:
-    client = FakeFoundryClient()
-    bindings = build_bindings()
-    client.register_response(
-        bindings["data-analyst-agent"].assistant_id,
-        canned_data_analyst_output(),
-    )
-    client.register_response(
-        bindings["support-recommendation-agent"].assistant_id,
+) -> FakeChatClientFactory:
+    factory = FakeChatClientFactory()
+    factory.register_response("data-analyst-agent", canned_data_analyst_output())
+    factory.register_response(
+        "support-recommendation-agent",
         canned_recommendation_draft(
             resource_ids=resource_ids,
             smart_goal_ids=smart_goal_ids or ["SG-early-literacy-1"],
             strategy_ids=strategy_ids or ["ST-early-literacy-1"],
         ),
     )
-    client.register_response(
-        bindings["validator-agent"].assistant_id,
-        canned_validator_critique(),
-    )
-    return client
+    factory.register_response("validator-agent", canned_validator_critique())
+    return factory
 
 
 @pytest.fixture()
-def fake_client() -> FakeFoundryClient:
-    return _canned_client()
+def fake_factory() -> FakeChatClientFactory:
+    return _canned_factory()
 
 
 @pytest.fixture()
-def fake_adapter(fake_client: FakeFoundryClient) -> FoundryRemoteAgentAdapter:
-    return make_fake_adapter(fake_client)
+def fake_runtime(fake_factory: FakeChatClientFactory) -> MafAgentRuntime:
+    runtime, _ = make_fake_runtime(fake_factory)
+    return runtime
 
 
 @pytest.fixture()
@@ -148,34 +153,34 @@ def evidence_retriever() -> FixtureEvidenceRetriever:
 @pytest.fixture()
 def make_client() -> Callable[..., TestClient]:
     def _factory(
-        adapter: FoundryRemoteAgentAdapter | None = None,
+        runtime: MafAgentRuntime | None = None,
         *,
         demo_reset_enabled: bool = False,
         project_endpoint: str | None = DEFAULT_ENDPOINT,
     ) -> TestClient:
-        if adapter is None:
-            adapter = make_fake_adapter(_canned_client())
-        app = create_app(adapter=adapter)
+        if runtime is None:
+            runtime, _ = make_fake_runtime(_canned_factory())
+        app = create_app(runtime=runtime)
         app.state.settings = AzureFoundrySettings(
             project_endpoint=project_endpoint,
             auth_mode="entra",
             application_insights_connection_string=None,
             demo_reset_enabled=demo_reset_enabled,
         )
-        app.state.adapter = adapter
+        app.state.runtime = runtime
         return TestClient(app)
 
     return _factory
 
 
 def make_default_client(*, demo_reset_enabled: bool = False) -> TestClient:
-    adapter = make_fake_adapter(_canned_client())
-    app = create_app(adapter=adapter)
+    runtime, _ = make_fake_runtime(_canned_factory())
+    app = create_app(runtime=runtime)
     app.state.settings = AzureFoundrySettings(
         project_endpoint=DEFAULT_ENDPOINT,
         auth_mode="entra",
         application_insights_connection_string=None,
         demo_reset_enabled=demo_reset_enabled,
     )
-    app.state.adapter = adapter
+    app.state.runtime = runtime
     return TestClient(app)

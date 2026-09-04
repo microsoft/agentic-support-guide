@@ -11,7 +11,7 @@ from .agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
 from .agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
 from .config import AzureFoundrySettings
 from .evidence import EvidenceRetriever
-from .foundry_agents import FoundryRemoteAgentAdapter
+from .foundry_agents import PROVIDER_ID, MafAgentRuntime, missing_model_deployments
 from .models import HealthCheckItem, HealthDetailsResponse
 
 SERVICE_STATUS = "ok"
@@ -25,28 +25,30 @@ REQUIRED_ROLES: tuple[str, ...] = (
 def build_health_details(
     *,
     settings: AzureFoundrySettings,
-    adapter: FoundryRemoteAgentAdapter | None,
+    runtime: MafAgentRuntime | None,
     evidence_retriever: EvidenceRetriever | None,
     service: str,
     version: str,
 ) -> HealthDetailsResponse:
     project_configured = settings.configured
-    agents_bound = adapter is not None and adapter.all_roles_bound(REQUIRED_ROLES)
-    # `evidence_fixture_available` reports whether any district-scoped
-    # fixture is present. The runtime always requires `district_id`, so
-    # `district_isolation_enabled` is a constant True; the flag exists so
-    # operators can see it explicitly.
+    # There are no persisted agents to bind to. A role is ready when its
+    # definition loads and its model deployment env var is set - both are
+    # local checks, so this endpoint stays free of network calls even though
+    # the frontend polls it on every page load.
+    missing_deployments = missing_model_deployments()
+    deployments_configured = not missing_deployments
+    definitions_valid = runtime is not None and runtime.all_roles_available(REQUIRED_ROLES)
     evidence_available = evidence_retriever is not None and any(
         evidence_retriever.has_district(d) for d in ("DIST-A", "DIST-B", "DIST-DEMO")
     )
     district_isolation_enabled = True
 
-    if project_configured and agents_bound and evidence_available:
-        active_provider = "azure_foundry_agents"
+    if project_configured and definitions_valid and deployments_configured and evidence_available:
+        active_provider = PROVIDER_ID
     else:
         active_provider = "unconfigured"
 
-    service_side_remote_workflow_active = active_provider == "azure_foundry_agents"
+    service_side_remote_workflow_active = active_provider == PROVIDER_ID
     customer_demo_ready = service_side_remote_workflow_active
 
     checks: list[HealthCheckItem] = [
@@ -67,14 +69,23 @@ def build_health_details(
             ),
         ),
         HealthCheckItem(
-            name="agent_bindings",
-            label="Foundry agent bindings present",
-            ok=agents_bound,
+            name="model_deployments_configured",
+            label="Per-role model deployments configured",
+            ok=deployments_configured,
             detail=(
-                "All required roles are bound to remote Foundry agents."
-                if agents_bound
-                else "One or more roles are not bound. Run "
-                "scripts/sync_foundry_agents.py --apply."
+                "All three role deployments are set."
+                if deployments_configured
+                else f"Missing: {', '.join(missing_deployments)}. Run .\\scripts\\populate-env.ps1."
+            ),
+        ),
+        HealthCheckItem(
+            name="agent_definitions_valid",
+            label="Agent definitions loaded",
+            ok=definitions_valid,
+            detail=(
+                "All three role definitions loaded from /agents."
+                if definitions_valid
+                else "One or more agent definitions could not be loaded."
             ),
         ),
         HealthCheckItem(
@@ -125,11 +136,16 @@ def build_health_details(
             "requests will fail with a typed provider_missing error until "
             "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is set."
         )
-    elif not agents_bound:
+    elif not deployments_configured:
         warnings.append(
-            "Foundry project is configured but agent bindings are missing. Run "
-            "scripts/sync_foundry_agents.py --apply to create/update remote "
-            "agents from the /agents definitions."
+            "Foundry project is configured but per-role model deployments are "
+            "missing. Run .\\scripts\\populate-env.ps1 to regenerate "
+            "services/api/.env, then restart the backend with --env-file .env."
+        )
+    elif not definitions_valid:
+        warnings.append(
+            "Agent definitions in /agents could not be loaded. Run "
+            "'python scripts/validate_agent_definitions.py' to see why."
         )
     if not evidence_available:
         warnings.append(
@@ -145,7 +161,8 @@ def build_health_details(
         version=version,
         active_provider=active_provider,
         foundry_project_configured=project_configured,
-        foundry_agents_bound=agents_bound,
+        agent_definitions_valid=definitions_valid,
+        model_deployments_configured=deployments_configured,
         service_side_remote_workflow_active=service_side_remote_workflow_active,
         evidence_fixture_available=evidence_available,
         district_isolation_enabled=district_isolation_enabled,
@@ -157,13 +174,14 @@ def build_health_details(
 
 
 def _guidance(active_provider: str) -> str:
-    if active_provider == "azure_foundry_agents":
+    if active_provider == PROVIDER_ID:
         return (
             "Ready for a live demo. Sign in with 'az login' if you have not already. "
             "First-request RBAC propagation may take a few minutes; retry if you see 401/403."
         )
     return (
-        "Not demo-ready. To finish setup: run Terraform in /infra, populate "
-        "services/api/.env with AZURE_AI_FOUNDRY_PROJECT_ENDPOINT, run "
-        "scripts/sync_foundry_agents.py --apply, then restart the backend."
+        "Not demo-ready. To finish setup: run Terraform in /infra, run "
+        ".\\scripts\\populate-env.ps1 to write services/api/.env, then start the "
+        "backend with --env-file .env. No agent deployment step is needed - "
+        "agent definitions live in /agents and load at runtime."
     )

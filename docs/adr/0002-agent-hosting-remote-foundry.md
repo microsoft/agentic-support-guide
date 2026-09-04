@@ -1,7 +1,7 @@
 # ADR 0002 - Agent hosting: remote Azure AI Foundry Agent Service
 
 Supersedes: [0001-agent-hosting.md](0001-agent-hosting.md)
-Status: Accepted
+Status: Superseded by [ADR 0005](0005-agent-framework-ephemeral-agents.md)
 Date: 2026-08-19
 
 ## Context

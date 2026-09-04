@@ -60,10 +60,42 @@ def load_agent_assets(agent_id: str) -> AgentAssets:
     )
 
 
-def compose_instructions(agent_md_body: str) -> str:
-    """Runtime instructions the remote Foundry agent sees."""
+def compose_instructions(
+    agent_md_body: str,
+    *,
+    frontmatter: dict[str, Any] | None = None,
+) -> str:
+    """Runtime instructions the remote Foundry agent sees.
 
-    return agent_md_body.rstrip() + RUNTIME_ENVELOPE
+    The behavioral rules live in agent.md's YAML frontmatter, not its prose.
+    They must be included, otherwise the model only ever sees the descriptive
+    body and returns a plausible but off-contract shape.
+    """
+
+    sections = [agent_md_body.rstrip()]
+    rules = _frontmatter_rules(frontmatter or {})
+    if rules:
+        sections.append(rules)
+    return "\n".join(sections) + RUNTIME_ENVELOPE
+
+
+_RULE_FIELDS = (
+    ("constraints", "Constraints"),
+    ("safety_rules", "Safety rules"),
+    ("grounding_rules", "Grounding rules"),
+)
+
+
+def _frontmatter_rules(frontmatter: dict[str, Any]) -> str:
+    blocks: list[str] = []
+    for key, heading in _RULE_FIELDS:
+        items = frontmatter.get(key) or []
+        if not isinstance(items, list):
+            continue
+        lines = [f"- {str(item).strip()}" for item in items if str(item).strip()]
+        if lines:
+            blocks.append(f"\n## {heading}\n\n" + "\n".join(lines))
+    return "\n".join(blocks)
 
 
 def normalize_for_hash(text: str) -> str:

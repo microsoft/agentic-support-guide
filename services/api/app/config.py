@@ -23,12 +23,7 @@ PROTOTYPE_BANNER: str = (
 FOUNDRY_RUN_TIMEOUT_SECONDS: float = 30.0
 # Whole-workflow budget across all remote agent invocations.
 ORCHESTRATION_TOTAL_BUDGET_SECONDS: float = 120.0
-# Deprecated: kept for backwards-compat with any test that still imports it.
-AGENT_REQUEST_TIMEOUT_SECONDS: float = FOUNDRY_RUN_TIMEOUT_SECONDS
-AGENT_MAX_OUTPUT_TOKENS: int = 800
-AGENT_MAX_RETRIES: int = 3
 CONCERN_TEXT_MAX_LEN: int = 1000
-PROCESS_LLM_CALL_CEILING: int = 500
 
 CONTRACT_VERSION: str = "1.0.0"
 

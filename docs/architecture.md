@@ -4,8 +4,11 @@
 
 `agentic-support-guide` is a customer-demo prototype demonstrating an
 Azure AI Foundry three-agent workflow. All data is synthetic. Every LLM
-call is a run against a remote **Azure AI Foundry Agent Service**
-assistant. There is no local model call in the recommendation path.
+call runs against the **Azure AI Foundry** project through Microsoft Agent
+Framework, with each role composed in-process from `/agents/<id>/agent.md`.
+The same definitions are published to Foundry as **prompt agents**, so they
+are visible and versioned in the portal. There is no local model call in the
+recommendation path.
 
 ## The pattern this repo follows
 
@@ -22,9 +25,9 @@ application built this way has seven pieces:
    one repair pass, and produces a predictable failure taxonomy. This
    is not a language-model agent — it is regular code the tests can
    drive with a fake client.
-4. **Remote agents.** Each specialized reasoning role runs as a
-   separate assistant on Azure AI Foundry Agent Service, configured by
-   instructions and a bound model deployment.
+4. **Remote agents.** Each specialized reasoning role is composed from
+   `/agents/<id>/agent.md` — instructions plus a bound model deployment —
+   and published to Foundry as a versioned prompt agent.
 5. **Protocol validation.** Every inter-agent message validates
    against a versioned JSON Schema before it is used. Invalid
    messages become typed failures, never surfaced content.
@@ -53,14 +56,14 @@ document.
   *.schema.json
 
 /.foundry/                     # Local, environment-specific Foundry bindings
-  agent-bindings.example.json  # Committed example (not real IDs)
-  agent-bindings.local.json    # Gitignored, produced by sync script
+  .env.example  # Committed example (not real IDs)
 
 /services/api/                 # Orchestration + FastAPI (no direct model calls)
   app/foundry_agents/          # ONLY place that imports azure-ai-agents
-    sdk_client.py              #   thin wrapper around AgentsClient
-    adapter.py                 #   FoundryRemoteAgentAdapter (role -> asst)
-    bindings.py                #   read/write .foundry/agent-bindings.local.json
+    maf_client.py              #   the only Agent Framework SDK import
+    maf_runtime.py             #   MafAgentRuntime (role -> Agent per call)
+    role_definitions.py        #   roles from agent.md + deployment env vars
+    error_mapping.py           #   provider errors -> app taxonomy
     prompt_envelope.py         #   compose_instructions() shared with sync script
     errors.py                  #   typed provider errors
   app/agents/{data_analyst,support_recommender,validator}/agent.py
@@ -72,7 +75,7 @@ document.
 /infra/                        # Terraform for Azure AI Foundry
 /docs/                         # Architecture, security, ADRs, GenAIOps
 /evals/                        # Synthetic evaluation cases
-/scripts/                      # sync_foundry_agents.py, populate-env.ps1, ...
+/scripts/                      # validate_agent_definitions.py, populate-env.ps1, ...
 ```
 
 ## Source-of-truth rules
@@ -84,9 +87,6 @@ document.
   response format).
 - **`/contracts/v1/*.schema.json`** — inter-agent protocol. Every
   message that crosses an agent boundary validates against these.
-- **`/.foundry/agent-bindings.local.json`** — the role → remote
-  assistant ID map. Environment-specific and gitignored. Produced by
-  `scripts/sync_foundry_agents.py --apply`.
 - **`/services/api/`** — the orchestration engine and Foundry adapter.
 
 ## Independence rules
@@ -97,17 +97,20 @@ document.
   each other and do not import API internals (`workflows/`, `main`,
   `models`, `plans_store`, `runtime_audit`).
 - The coordinator is the only place all three agents meet.
-- No file outside `app/foundry_agents/sdk_client.py` may import
+- No file outside `app/foundry_agents/maf_client.py` may import
   `azure.ai.agents`, `AzureOpenAI`, `openai.`, or reference
   `chat.completions`. This is asserted by
-  `tests/test_agents_config.py::test_no_direct_model_calls_outside_sdk_client`.
+  `tests/test_no_persisted_agents.py`, which also keeps publishing symbols
+  (`to_prompt_agent`, `create_version`) out of the request path - publishing
+  is a GenAIOps step, allowlisted to `scripts/publish_prompt_agents.py`, and
+  must never be triggered by a web request.
 
 ## Runtime execution
 
-### FoundryRemoteAgentAdapter
+### MafAgentRuntime
 
 Location:
-[`services/api/app/foundry_agents/adapter.py`](../services/api/app/foundry_agents/adapter.py).
+[`services/api/app/foundry_agents/maf_runtime.py`](../services/api/app/foundry_agents/maf_runtime.py).
 
 For a given role name (e.g. `data-analyst-agent`) and user message, the
 adapter:
@@ -115,10 +118,10 @@ adapter:
 1. Looks up the role in the loaded bindings map.
 2. Refuses to invoke if the binding was produced against a different
    Foundry project endpoint (`project_endpoint_hash` mismatch) — the
-   operator must re-run the sync script with `--rebind`.
-3. Delegates to `FoundryAgentClient.run_agent(...)`, which creates a
-   thread, adds the user message, creates a run bound to the
-   assistant, polls until a terminal status, reads the last assistant
+   operator must re-run the sync script with `--check-connectivity`.
+3. Delegates to `FoundryResponsesClientFactory.run_agent(...)`, which creates a
+   single-turn Responses call with `store=False` and a
+   `response_format` bound to the role's Pydantic contract, then reads
    message, and returns the raw text.
 4. Maps SDK-level failures into typed `FoundryProviderError` subclasses
    (`ConfigurationError`, `AuthError`, `ThrottledError`,
@@ -134,7 +137,7 @@ error.
 `DataAnalystAgent`, `SupportRecommendationAgent`, and `ValidatorAgent`
 are now thin role wrappers. Each:
 
-- Holds a reference to a `FoundryRemoteAgentAdapter`.
+- Holds a reference to a `MafAgentRuntime`.
 - Builds the role-specific user message (untrusted-data delimiters,
   sanitized concern text, prior-agent output as an untrusted block).
 - Calls `adapter.invoke(role=..., user_message=...)`.
@@ -192,31 +195,35 @@ can exercise with a fake client.
 - Validator LLM critique text is filtered through `enforce_code()` —
   only strings matching `^[A-Z][A-Z0-9_]{3,59}$` survive.
 - Trace metadata exposed to the UI contains only agent name, status,
-  provider (always `azure_foundry_agents`), latency, and enumerated
-  issue/warning codes. No prompts, completions, thread IDs, run IDs,
-  or assistant IDs are exposed.
+  provider (always `azure_foundry_responses`), latency, and enumerated
+  issue/warning codes. No prompts, completions, or provider identifiers
+  are exposed.
 
 ## Deployment / provisioning flow
+
+The DevOps and GenAIOps halves are deliberately separate: Terraform
+provisions infrastructure and never creates an agent, and there is no
+agent deployment step at all.
 
 1. `terraform apply` in `/infra` provisions the Foundry project and
    model deployments.
 2. `scripts/populate-env.ps1` copies the outputs into
    `services/api/.env` (including `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
    and the per-role `FOUNDRY_MODEL_DEPLOYMENT_*` names).
-3. `python scripts/sync_foundry_agents.py --apply` reads
-   `/agents/<id>/{agent.md, manifest.yaml}`, creates or updates one
-   remote assistant per role, and writes
-   `.foundry/agent-bindings.local.json` with the assistant IDs and
-   an `instructions_hash` for drift detection.
-4. Restart the backend. `/api/health/details` reports
-   `foundry_project_configured`, `foundry_agents_bound`, and
+3. Start the backend with `--env-file .env`. The app reads its
+   configuration from the process environment and does not load `.env`
+   implicitly.
+4. `/api/health/details` reports `foundry_project_configured`,
+   `agent_definitions_valid`, `model_deployments_configured`, and
    `service_side_remote_workflow_active`.
 
-Editing `/agents/<id>/agent.md` or `manifest.yaml` and re-running
-`--apply` updates the remote agent in place. The instructions hash
-guards against silent drift.
+Editing `/agents/<id>/agent.md` takes effect on the next request, because
+the instructions are composed per call. Rolling back is a revert commit,
+not a redeployment. `python scripts/validate_agent_definitions.py`
+validates the definitions offline and prints an `instructions_hash` per
+role so you can confirm a change landed.
 
-See [`adr/0002-agent-hosting-remote-foundry.md`](adr/0002-agent-hosting-remote-foundry.md) and
+See [`adr/0006-published-prompt-agents.md`](adr/0006-published-prompt-agents.md) and
 [`adr/0001-foundry-project.md`](adr/0001-foundry-project.md).
 
 ## District isolation, evidence retrieval, and human review
@@ -302,3 +309,4 @@ used as identifiers today.
 - [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md)
 - [`security-and-privacy.md`](security-and-privacy.md)
 - [`observability.md`](observability.md)
+

@@ -53,17 +53,17 @@ The three agents live under [`/agents`](../agents):
 
 Each agent folder contains only configuration:
 
-- `agent.md` — instructions the remote assistant sees (source of truth
+- `agent.md` — instructions the ephemeral agent sees (source of truth
   for prompts).
 - `manifest.yaml` — runtime metadata (agent name, response format,
   temperature, contract references).
 - `schemas/` — agent-local input/output shapes.
 
-The **runtime** for each role is a remote assistant hosted on Azure AI
+The **runtime** for each role is a ephemeral agent hosted on Azure AI
 Foundry Agent Service. The Python code in
 [`services/api/app/agents`](../services/api/app/agents) is a thin
-wrapper that builds the user message and calls the remote assistant
-through [`FoundryRemoteAgentAdapter`](../services/api/app/foundry_agents/adapter.py).
+wrapper that builds the user message and calls the ephemeral agent
+through [`MafAgentRuntime`](../services/api/app/foundry_agents/maf_runtime.py).
 There is no local language-model call in the recommendation path.
 
 ## What the coordinator is (and is not)
@@ -99,8 +99,8 @@ it:
   deployments, RBAC, and observability. This repo provisions one
   project as part of Terraform.
 - **Agent Service.** The hosted-agent surface. Each of the three
-  agents in this repo runs as a remote assistant here. The sync script
-  ([`scripts/sync_foundry_agents.py`](../scripts/sync_foundry_agents.py))
+  agents in this repo runs as a ephemeral agent here. The sync script
+  ([`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py))
   creates or updates those assistants from the on-disk `agent.md` and
   `manifest.yaml` files.
 
@@ -125,9 +125,12 @@ In this repo, that shows up as:
 - **Local quality gates.** `ruff`, `mypy`, `pytest`, `npm run build`,
   `npm run test`, `terraform fmt`, and `terraform validate` can be run
   by any developer before pushing.
+- **CI.** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs
+  all of those gates plus `validate_agent_definitions.py` on every
+  pull request. No Azure credentials are needed for any of them.
 
-Remaining gap: there is no CI workflow in this repo that runs those
-gates automatically. Adding one would be a natural next step.
+Remaining gap: CI proves the code is well-formed, not that agent output
+is good. Scoring agent versions against `/evals` is still manual.
 
 ## What MLOps means for this repo
 
@@ -146,7 +149,6 @@ model that Foundry hosts. The MLOps concerns that still apply are:
 Those choices live in [`/infra`](../infra) and in each agent's
 [`manifest.yaml`](../agents/data-analyst/manifest.yaml). Bindings from
 role to model deployment are recorded in
-`.foundry/agent-bindings.local.json` (gitignored).
 
 Remaining gap: this repo has no automated model-version canary or
 rollback. Deployment changes are manual via Terraform + sync script.
@@ -194,10 +196,11 @@ AI Foundry)**. In summary:
 2. `terraform apply` in [`/infra`](../infra).
 3. `./scripts/populate-env.ps1` to write `services/api/.env` from
    Terraform outputs.
-4. `python scripts/sync_foundry_agents.py --dry-run` to preview the
-   remote-agent plan, then `--apply` to create the assistants.
+4. `python scripts/validate_agent_definitions.py` to check the agent
+   definitions. There is nothing to deploy - agents are ephemeral.
 5. Start the backend: `uvicorn app.main:app --host 127.0.0.1
-   --port 8000 --reload`.
+   --port 8000 --reload --env-file .env`. The `--env-file` flag is
+   required; the app does not load `.env` by itself.
 6. Start the frontend: `npm run dev` in [`/apps/web`](../apps/web).
 7. Confirm `GET /api/health/details` reports
    `"customer_demo_ready": true`.

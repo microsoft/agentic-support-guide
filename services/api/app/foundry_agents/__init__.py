@@ -1,19 +1,14 @@
-"""Foundry Agent Service integration.
+"""Azure AI Foundry integration via Microsoft Agent Framework.
 
-This package isolates all Azure AI Foundry Agent Service SDK usage so
-that the rest of the app depends only on the stable internal interface.
-Every SDK import lives in `sdk_client.py`.
+Agents are *ephemeral*: each call assembles the agent in-process from
+`/agents/<id>/agent.md` and runs it against the Foundry project's Responses
+API. Nothing is persisted server-side, so there are no agent resources to
+create, migrate, or collide on.
+
+All Agent Framework SDK imports live in `maf_client.py`.
 """
 
-from .adapter import FoundryRemoteAgentAdapter, RemoteAgentResponse
-from .bindings import (
-    AgentBinding,
-    BindingFileError,
-    hash_endpoint,
-    hash_instructions,
-    load_bindings,
-    save_bindings,
-)
+from .error_mapping import map_provider_error
 from .errors import (
     AuthError,
     ConfigurationError,
@@ -24,6 +19,13 @@ from .errors import (
     RequiresActionError,
     ThrottledError,
 )
+from .maf_client import FoundryResponsesClientFactory, default_credential_factory
+from .maf_runtime import (
+    PROVIDER_ID,
+    MafAgentRuntime,
+    RoleDefinition,
+    RoleResponse,
+)
 from .prompt_envelope import (
     AGENTS_DIR,
     RUNTIME_ENVELOPE,
@@ -32,32 +34,39 @@ from .prompt_envelope import (
     instructions_hash,
     load_agent_assets,
 )
-from .sdk_client import FoundryAgentClient, FoundryAgentClientProtocol, RunResult
+from .role_definitions import (
+    REQUIRED_ROLES,
+    ROLE_DIRS,
+    load_role_definitions,
+    missing_model_deployments,
+    model_deployment_env_names,
+)
 
 __all__ = [
     "AGENTS_DIR",
+    "PROVIDER_ID",
+    "REQUIRED_ROLES",
+    "ROLE_DIRS",
+    "RUNTIME_ENVELOPE",
     "AgentAssets",
-    "AgentBinding",
     "AuthError",
-    "BindingFileError",
     "ConfigurationError",
     "ContentFilterError",
-    "FoundryAgentClient",
-    "FoundryAgentClientProtocol",
     "FoundryProviderError",
-    "FoundryRemoteAgentAdapter",
+    "FoundryResponsesClientFactory",
     "FoundryRunError",
     "FoundryTimeoutError",
-    "RUNTIME_ENVELOPE",
-    "RemoteAgentResponse",
+    "MafAgentRuntime",
     "RequiresActionError",
-    "RunResult",
+    "RoleDefinition",
+    "RoleResponse",
     "ThrottledError",
     "compose_instructions",
-    "hash_endpoint",
-    "hash_instructions",
+    "default_credential_factory",
     "instructions_hash",
     "load_agent_assets",
-    "load_bindings",
-    "save_bindings",
+    "load_role_definitions",
+    "map_provider_error",
+    "missing_model_deployments",
+    "model_deployment_env_names",
 ]

@@ -80,6 +80,42 @@ _DISTRICTS: dict[str, dict[str, list[Citation]]] = {
                 "Synthetic policy summary describing how targeted reading support is authorized.",
             ),
         ],
+        "attendance-support": [
+            _fixture(
+                "DIST-A",
+                "att-01",
+                CitationSourceType.POLICY,
+                "District A - Attendance Intervention Policy",
+                (
+                    "Synthetic policy summary describing the attendance thresholds that "
+                    "trigger a check-in routine."
+                ),
+            ),
+        ],
+        "math-acceleration": [
+            _fixture(
+                "DIST-A",
+                "math-01",
+                CitationSourceType.STRUCTURED_DATA,
+                "District A - Math Enrichment Benchmarks",
+                (
+                    "Synthetic benchmark points to enrichment planning for learners "
+                    "exceeding grade-level checks."
+                ),
+            ),
+        ],
+        "multi-domain": [
+            _fixture(
+                "DIST-A",
+                "md-01",
+                CitationSourceType.POLICY,
+                "District A - Multi-Domain Support Coordination Policy",
+                (
+                    "Synthetic policy summary describing how supports across literacy, "
+                    "math, and attendance are coordinated in one plan."
+                ),
+            ),
+        ],
     },
     "DIST-B": {
         "early-literacy": [
@@ -92,6 +128,42 @@ _DISTRICTS: dict[str, dict[str, list[Citation]]] = {
                     "Synthetic handbook excerpt describing the district's small-group "
                     "early literacy model."
                 ),
+            ),
+        ],
+        "reading-below-grade": [
+            _fixture(
+                "DIST-B",
+                "rbg-01",
+                CitationSourceType.DOCUMENT,
+                "District B - Reading Support Handbook",
+                "Synthetic handbook excerpt describing tiered reading support entry criteria.",
+            ),
+        ],
+        "attendance-support": [
+            _fixture(
+                "DIST-B",
+                "att-01",
+                CitationSourceType.DOCUMENT,
+                "District B - Attendance Handbook",
+                "Synthetic handbook excerpt describing the district's attendance outreach ladder.",
+            ),
+        ],
+        "math-acceleration": [
+            _fixture(
+                "DIST-B",
+                "math-01",
+                CitationSourceType.RESOURCE,
+                "District B - Approved Math Enrichment Catalog",
+                "Synthetic resource catalog entry describing allowed math enrichment routines.",
+            ),
+        ],
+        "multi-domain": [
+            _fixture(
+                "DIST-B",
+                "md-01",
+                CitationSourceType.DOCUMENT,
+                "District B - Coordinated Supports Handbook",
+                "Synthetic handbook excerpt describing coordinated multi-domain planning.",
             ),
         ],
     },
@@ -121,6 +193,33 @@ _DISTRICTS: dict[str, dict[str, list[Citation]]] = {
                 "Illustrative synthetic reference for tiered reading support.",
             ),
         ],
+        "attendance-support": [
+            _fixture(
+                "DIST-DEMO",
+                "att-01",
+                CitationSourceType.SYNTHETIC_FIXTURE,
+                "Demo district - Attendance Fixture",
+                "Illustrative synthetic reference for an attendance check-in routine.",
+            ),
+        ],
+        "math-acceleration": [
+            _fixture(
+                "DIST-DEMO",
+                "math-01",
+                CitationSourceType.SYNTHETIC_FIXTURE,
+                "Demo district - Math Enrichment Fixture",
+                "Illustrative synthetic reference for enrichment planning.",
+            ),
+        ],
+        "multi-domain": [
+            _fixture(
+                "DIST-DEMO",
+                "md-01",
+                CitationSourceType.SYNTHETIC_FIXTURE,
+                "Demo district - Coordinated Supports Fixture",
+                "Illustrative synthetic reference for coordinating supports across domains.",
+            ),
+        ],
     },
 }
 
@@ -138,7 +237,7 @@ class FixtureEvidenceRetriever:
     def has_district(self, district_id: str) -> bool:
         return district_id in self._catalog
 
-    def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
+    async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
         if not request.district_id:
             raise EvidenceRetrievalError(
                 "MISSING_DISTRICT_ID",
