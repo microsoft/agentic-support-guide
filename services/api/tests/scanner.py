@@ -45,7 +45,11 @@ GUID_REGEX = re.compile(
 # Azure Resource Manager IDs start with `/subscriptions/<guid>/`.
 ARM_ID_REGEX = re.compile(r"/subscriptions/[0-9a-fA-F-]{16,}", re.IGNORECASE)
 # Local absolute paths that point to real user home directories.
-LOCAL_HOME_PATH_REGEX = re.compile(r"(?:[A-Z]:\\Users\\[^\\/\s]+|/Users/[^/\s]+|/home/[^/\s]+)")
+# `/home/site` and `/home/LogFiles` are App Service system paths, not a user's
+# home, and appear in any Linux App Service startup command.
+LOCAL_HOME_PATH_REGEX = re.compile(
+    r"(?:[A-Z]:\\Users\\[^\\/\s]+|/Users/[^/\s]+|/home/(?!site\b|LogFiles\b)[^/\s]+)"
+)
 
 # Keyword markers that make a same-line GUID suspicious.
 _SENSITIVE_ID_KEYWORDS = (
@@ -185,7 +189,10 @@ def _load_denylist() -> list[str]:
 def _tracked_files() -> list[Path]:
     try:
         result = subprocess.run(
-            ["git", "ls-files"],
+            # `--others --exclude-standard` adds new, not-yet-committed files.
+            # Without them a new file is unscanned until it is already
+            # committed, which is exactly when a leak is hardest to undo.
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -234,6 +241,10 @@ def scan_text(name: str, text: str, denylist: list[str]) -> list[str]:
         host_lower = host.lower().rstrip(".")
         # Subdomains of example.invalid are also reserved fake hosts (RFC 2606).
         if host_lower in ALLOWED_HOSTS or host_lower.endswith(".example.invalid"):
+            continue
+        # `example.<anything>` is the placeholder convention used in tests and
+        # docs, e.g. example.search.windows.net. Reserved by RFC 2606.
+        if host_lower.startswith("example."):
             continue
         violations.append(f"{name}: disallowed URL host -> {host_lower}")
 

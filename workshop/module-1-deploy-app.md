@@ -170,16 +170,62 @@ profile, so there is no secret to leak or rotate.
 It is `workflow_dispatch` only. A workshop repo should not deploy to a
 shared subscription on every push.
 
-To enable it, set these repository variables from your Terraform outputs:
+### Wire it up
+
+Set five repository variables from your Terraform outputs:
 
 ```powershell
-terraform -chdir=infra output
-# AZURE_RESOURCE_GROUP, AZURE_API_APP_NAME, AZURE_WEB_APP_NAME,
-# AZURE_API_URL, AZURE_WEB_URL
+gh variable set AZURE_RESOURCE_GROUP --body (terraform -chdir=infra output -raw resource_group_name)
+gh variable set AZURE_API_APP_NAME   --body (terraform -chdir=infra output -raw api_app_name)
+gh variable set AZURE_WEB_APP_NAME   --body (terraform -chdir=infra output -raw web_app_name)
+gh variable set AZURE_API_URL        --body (terraform -chdir=infra output -raw api_url)
+gh variable set AZURE_WEB_URL        --body (terraform -chdir=infra output -raw web_url)
 ```
 
-and configure `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
-as secrets against a federated credential.
+Create an app registration with a federated credential, grant it
+**Contributor on the resource group only** — not the subscription — and put
+its coordinates in the `workshop` environment:
+
+```powershell
+az ad app create --display-name gh-asg-deploy
+az ad sp create --id <appId>
+az role assignment create --assignee-object-id <spObjectId> `
+    --assignee-principal-type ServicePrincipal --role Contributor `
+    --scope /subscriptions/<sub>/resourceGroups/<rg>
+
+gh secret set AZURE_CLIENT_ID       --env workshop --body <appId>
+gh secret set AZURE_TENANT_ID       --env workshop --body <tenantId>
+gh secret set AZURE_SUBSCRIPTION_ID --env workshop --body <subscriptionId>
+```
+
+### The subject claim is probably not what the docs say
+
+The federated credential matches on a *subject*. Every guide tells you it is:
+
+```
+repo:<org>/<repo>:environment:workshop
+```
+
+On a GitHub Enterprise org it may not be. Setting up this workshop, the
+first run failed with:
+
+```
+AADSTS700213: No matching federated identity record found for presented
+assertion subject
+'repo:microsoft@6154722/agentic-support-guide@1338618689:environment:workshop'
+```
+
+The enterprise injects numeric org and repo IDs. **Do not guess the
+subject — read it out of that error message and use it verbatim.** The
+failed run tells you the exact string it presented, which makes this a
+one-attempt fix rather than a guessing game.
+
+Run it:
+
+```powershell
+gh workflow run deploy.yml -f component=both -f expect_evidence=foundry_iq
+gh run watch --exit-status
+```
 
 Note the `concurrency` block. Two overlapping deploys to one App Service
 make the first fail to start — also learned the hard way.

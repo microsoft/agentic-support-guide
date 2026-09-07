@@ -71,6 +71,41 @@ On 2026-09-03 the `basic` Search SKU had no capacity in either `westus3` or
 `eastus2`, while `westus2` was fine. Cross-region only costs retrieval
 latency, so splitting them is a normal outcome, not a mistake.
 
+### Model capacity decides whether a cohort works
+
+`model_capacity` is in thousands of tokens per minute, and the default of
+`10` is sized for one person clicking. Every recommendation is **four model
+calls**, so a room multiplies it fast. Measured against the deployed app:
+
+| `model_capacity` | 15 concurrent | 30 concurrent |
+| --- | --- | --- |
+| 10 | 2/15 succeeded | 1/30 succeeded |
+| 300 | 15/15 | 30/30 |
+
+At 10, the rest fail with `AGENT_PROVIDER_THROTTLING`. The app handles it
+cleanly — no crash, a typed error — but nobody can complete a module.
+
+Check your headroom before raising it, because quota is per-region and
+per-SKU:
+
+```powershell
+az cognitiveservices usage list -l westus3 -o table
+```
+
+Then set all three, since Modules 5 and 8 use their own deployments:
+
+```hcl
+model_capacity  = 300   # the three coordinator agents
+judge_capacity  = 50    # Module 8 evaluation
+router_capacity = 100   # Module 5 routing
+```
+
+You can reproduce the measurement yourself once deployed:
+
+```powershell
+python scripts\load_test.py --waves 30
+```
+
 ## 3. Grant access to your learners
 
 By default every role goes only to whoever runs `apply`. For a shared

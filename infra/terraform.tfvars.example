@@ -37,7 +37,14 @@ model_version = "2025-04-14"
 model_sku_name = "DataZoneStandard"
 
 # Deployment capacity in thousands of tokens per minute. Requires quota.
+#
+# 10 suits a single developer. For a cohort raise it: each recommendation is
+# four model calls, and at 10 only 2 of 15 concurrent requests succeed - the
+# rest return AGENT_PROVIDER_THROTTLING. At 300, 30 of 30 succeed.
+# Check headroom first: az cognitiveservices usage list -l <region> -o table
 model_capacity = 10
+# judge_capacity  = 50    # Module 8 evaluation
+# router_capacity = 100   # Module 5 routing
 
 
 # ---- RBAC principal ---------------------------------------------------------

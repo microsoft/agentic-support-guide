@@ -89,11 +89,26 @@ Do not skip ahead. Each wall is the point.
 | `apps/web/` | React UI |
 | `infra/` | Terraform |
 | `evals/` | Synthetic cases and expected checks |
-| `scripts/` | Publish, validate, evaluate, provision, deploy, smoke test |
+| `scripts/` | Publish, validate, evaluate, provision, deploy, smoke test, load test |
 | `.github/workflows/` | CI on every push, deploy on demand |
 
 ## Facilitator notes
 
+- **Model capacity decides whether a cohort works.** The default
+  `model_capacity = 10` is enough for one person clicking and nothing more.
+  Measured against the deployed app, each request is four model calls:
+
+  | Capacity | 15 concurrent | 30 concurrent |
+  | --- | --- | --- |
+  | 10 | 2/15 succeeded | 1/30 succeeded |
+  | 300 | 15/15, 42s | 30/30, 33s |
+
+  Everything else fails with `AGENT_PROVIDER_THROTTLING`. Check headroom
+  with `az cognitiveservices usage list -l <region> -o table` before the
+  session, and reproduce with `python scripts/load_test.py --waves 30`.
+- **Warm the app before learners arrive.** The first burst after an idle
+  period is much slower and can time out — 170s wall clock cold versus 42s
+  warm for the same 15 requests. One request a few minutes early is enough.
 - **Search throughput.** One replica serves roughly three concurrent semantic
   requests plus a short queue. Thirty learners querying at once will throttle.
   Raise `search_replica_count` or run Module 3 in waves.
