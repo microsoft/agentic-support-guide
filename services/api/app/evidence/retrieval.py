@@ -55,6 +55,15 @@ class EvidenceRetriever(Protocol):
     be swapped in without touching the coordinator or the agents.
     """
 
+    #: Shown in the agent trace so a reader can tell grounded answers from
+    #: fixture answers. Hardcoding this made the trace claim "fixture" even
+    #: when Foundry IQ served the evidence.
+    provider_name: str
+
+    #: What actually produced the evidence: "synthetic" for fixtures, the
+    #: knowledge base name for Foundry IQ.
+    provider_model: str
+
     async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
         """Return a district-scoped evidence bundle.
 

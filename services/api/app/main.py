@@ -27,6 +27,7 @@ from . import behavior as behavior_mod
 from . import dashboard as dashboard_mod
 from . import learners as learners_mod
 from .agents.shared.contracts import ResourceRef
+from .build_info import current_build_id
 from .config import (
     BASE_TIMESTAMP,
     FOUNDRY_RUN_TIMEOUT_SECONDS,
@@ -88,6 +89,28 @@ def _allowed_origins() -> list[str]:
     raw = os.environ.get("ALLOWED_ORIGINS", "")
     configured = [o.strip() for o in raw.split(",") if o.strip()]
     return configured or list(DEFAULT_ALLOWED_ORIGINS)
+
+
+def _build_evidence_retriever() -> EvidenceRetriever:
+    """Fixtures or Foundry IQ, chosen by EVIDENCE_SOURCE.
+
+    Fixtures are the default so tests and CI stay offline and free. Setting
+    EVIDENCE_SOURCE=foundry_iq is what makes the app serve real retrieved
+    evidence instead of in-memory data.
+    """
+
+    source = os.environ.get("EVIDENCE_SOURCE", "fixtures").strip().lower()
+    if source in ("", "fixtures"):
+        return FixtureEvidenceRetriever()
+    if source == "foundry_iq":
+        from .evidence.foundry_iq import FoundryIQEvidenceRetriever
+
+        return FoundryIQEvidenceRetriever(
+            endpoint=os.environ.get("AZURE_SEARCH_ENDPOINT", ""),
+            knowledge_base=os.environ.get("FOUNDRY_IQ_KNOWLEDGE_BASE", ""),
+            index_name=os.environ.get("FOUNDRY_IQ_INDEX", ""),
+        )
+    raise ValueError(f"Unknown EVIDENCE_SOURCE {source!r}. Use 'fixtures' or 'foundry_iq'.")
 
 
 PROVIDER_DISPLAY_UNCONFIGURED = "unconfigured (Azure AI Foundry not set up)"
@@ -178,7 +201,7 @@ def create_app(
     if runtime is None:
         runtime = _build_runtime(settings, client_factory)
     if evidence_retriever is None:
-        evidence_retriever = FixtureEvidenceRetriever()
+        evidence_retriever = _build_evidence_retriever()
     contracts = load_registry()
 
     app.state.settings = settings
@@ -227,6 +250,7 @@ def create_app(
             banner=PROTOTYPE_BANNER,
             provider_configured=settings.configured,
             auth_mode=settings.auth_mode,
+            build_id=current_build_id(),
         )
 
     @router.get("/health/details", response_model=HealthDetailsResponse)

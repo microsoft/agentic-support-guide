@@ -138,6 +138,9 @@ async def test_coordinator_happy_path() -> None:
 
 async def test_coordinator_missing_evidence_returns_evidence_missing() -> None:
     class EmptyRetriever:
+        provider_name = "fixture"
+        provider_model = "synthetic"
+
         def has_district(self, district_id: str) -> bool:
             return False
 
@@ -161,6 +164,9 @@ async def test_coordinator_recommender_returns_empty_bundle_causes_validation_fa
     """
 
     class SparseRetriever:
+        provider_name = "fixture"
+        provider_model = "synthetic"
+
         def has_district(self, district_id: str) -> bool:
             return True
 

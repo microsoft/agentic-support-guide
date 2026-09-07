@@ -1,4 +1,4 @@
-# Module 5 — Hosted agents
+# Module 7 — Hosted agents
 
 **Time:** about 60 minutes.
 
@@ -22,7 +22,7 @@ build in CI. That surprises people.
 | You need | Prompt agent | Hosted agent |
 | --- | --- | --- |
 | Answer from instructions | Yes | Overkill |
-| Answer from a knowledge base | Yes (M2A) | Overkill |
+| Answer from a knowledge base | Yes (M3) | Overkill |
 | Custom Python dependencies | No | **Yes** |
 | Deterministic multi-step orchestration | No | **Yes** |
 | Its own identity for downstream RBAC | No | **Yes** |
@@ -66,7 +66,7 @@ Four things to notice before you deploy:
 - **Instructions and the sanitizer are not duplicated by hand.** The publish
   script composes instructions from the same
   [agents/support-explainer/agent.md](../agents/support-explainer/agent.md)
-  the Module 1 prompt agent uses, and bundles the *same*
+  the Module 2 prompt agent uses, and bundles the *same*
   `sanitization.py` the API uses. A test asserts the bundled copy matches
   byte-for-byte, so the two cannot drift.
 - **No credentials are passed in.** `DefaultAzureCredential` inside the
@@ -157,7 +157,7 @@ Reference numbers for this agent — one file, four dependencies:
 | Remote build | ~41s | ~41s |
 | **Change to live** | | **~49s** |
 
-Compare against Module 1. Editing a prompt agent's instructions and
+Compare against Module 2. Editing a prompt agent's instructions and
 republishing takes a couple of seconds. Editing hosted agent code takes ~49
 seconds — and this is a *small* app. More dependencies, longer build.
 
@@ -219,7 +219,7 @@ The same mechanism splits traffic to canary a change.
 
 ## 8. Notice what hosting did *not* fix
 
-Ask it the Module 2A question. You will get something like:
+Ask it the Module 3 question. You will get something like:
 
 > The district's knowledge does not provide specific guidance on supporting a
 > learner whose letter-sound fluency is behind pace...
@@ -235,7 +235,7 @@ chose to add it. Now try to make it overstep:
 ```
 
 The response is **withheld** by a deterministic check in your code — not by a
-platform guardrail. Module 4 measured that no content filter catches this.
+platform guardrail. Module 6 measured that no content filter catches this.
 
 But notice what is still missing: **no knowledge base is attached to this
 hosted agent.** It has no grounding. Depending on the model's mood it will
@@ -243,8 +243,8 @@ either admit it does not know, or invent a plausible-sounding source. Run the
 question a few times and see which you get.
 
 Hosting changes *where code runs* and gives you a place to enforce rules. It
-does nothing for grounding. Attach a knowledge base (M2A), validate citations
-in code (M2B), and measure it (M6).
+does nothing for grounding. Attach a knowledge base (M3), validate citations
+in code (M4), and measure it (M8).
 
 ## 9. Clean up
 
@@ -276,4 +276,4 @@ in code (M2B), and measure it (M6).
 - What a dedicated Entra identity buys you that a prompt agent cannot.
 - The specific trigger that would justify hosting for *your* workload.
 
-Next: [Module 6 — Evaluation](module-6-evaluation.md)
+Next: [Module 8 — Evaluation](module-8-evaluation.md)

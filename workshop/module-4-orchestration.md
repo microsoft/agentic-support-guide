@@ -1,4 +1,4 @@
-# Module 2B — From one agent to three
+# Module 4 — Orchestrate three agents
 
 **Time:** about 60 minutes.
 
@@ -9,7 +9,7 @@ understanding of why the coordination lives in code rather than in a prompt.
 
 ## The problem you are fixing
 
-Your Module 2A agent is grounded and cites sources. It still cannot promise:
+Your Module 3 agent is grounded and cites sources. It still cannot promise:
 
 - that a recommendation draws only on **one district's** evidence
 - that every claim carries a citation
@@ -48,7 +48,7 @@ make guarantees.
 
 ## 1. Publish all three roles
 
-Module 1 used `--workshop-only`. Drop it:
+Module 2 used `--workshop-only`. Drop it:
 
 ```powershell
 .\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --apply
@@ -84,16 +84,24 @@ Watch the agent trace: each step shows the agent, its status, the model that
 actually served it, latency, and token counts.
 
 > **Read this before you wonder where your knowledge base went.**
-> The backend uses `FixtureEvidenceRetriever` — the in-repo synthetic
-> evidence — **not** the Foundry IQ knowledge base you built in Module 2A.
-> There is no Foundry IQ retriever implementation in this repo yet.
+> Which retriever the backend uses depends on `EVIDENCE_SOURCE`. If you
+> completed Module 3 and applied the Terraform change, it is already
+> `foundry_iq` and this module runs on *your* knowledge base. If you skipped
+> that step, it is `FixtureEvidenceRetriever` — the in-repo synthetic
+> evidence.
 >
-> That is deliberate for a workshop: the fixtures are deterministic, run
-> offline, and keep CI independent of Azure. But it means Module 2B is
-> demonstrating *orchestration*, not *your* grounding. The
-> `EvidenceRetriever` protocol is async precisely so a Foundry IQ
-> implementation can be dropped in without touching the coordinator or the
-> agents — that swap is the natural exercise to take home.
+> Check rather than assume:
+>
+> ```powershell
+> (Invoke-RestMethod "$api/api/health/details").evidence_source
+> ```
+>
+> Either is fine here, because this module is about *orchestration*, not
+> grounding. Fixtures are deterministic, run offline and keep CI independent
+> of Azure, which is why they remain the default. The point is that
+> [services/api/app/evidence/retrieval.py](../services/api/app/evidence/retrieval.py)
+> defines a protocol both implementations satisfy, so the coordinator and
+> all three agents are identical either way. That seam is the design.
 
 ## 3. Read the guarantees in the code
 
@@ -187,4 +195,4 @@ usually gets this right," it belongs in code.
 - Why repair is capped at one attempt.
 - Why evidence retrieval happens before any model call.
 
-Next: [Module 3 — Model router](module-3-model-router.md)
+Next: [Module 5 — Model router](module-5-model-router.md)

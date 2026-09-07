@@ -187,6 +187,11 @@ class AgentCoordinator:
         sanitized_concern = sanitize_free_text(request.concern_text, max_len=CONCERN_TEXT_MAX_LEN)
 
         # 1) District-scoped evidence retrieval BEFORE any agent call.
+        # The provider and latency are read off the retriever rather than
+        # hardcoded, so the trace distinguishes fixture runs from grounded ones.
+        evidence_provider = getattr(self._evidence, "provider_name", "unknown")
+        evidence_model = getattr(self._evidence, "provider_model", "unknown")
+        evidence_started = time.monotonic()
         try:
             evidence = await self._evidence.retrieve(
                 EvidenceRequest(
@@ -200,9 +205,9 @@ class AgentCoordinator:
                 AgentTraceStep(
                     agent="evidence-retrieval",
                     status="evidence_missing",
-                    provider="fixture",
-                    model="synthetic",
-                    latency_ms=0,
+                    provider=evidence_provider,
+                    model=evidence_model,
+                    latency_ms=int((time.monotonic() - evidence_started) * 1000),
                     token_estimate=None,
                     issue_codes=[f"EVIDENCE_{exc.code}"],
                 )
@@ -230,9 +235,9 @@ class AgentCoordinator:
             AgentTraceStep(
                 agent="evidence-retrieval",
                 status="ok",
-                provider="fixture",
-                model="synthetic",
-                latency_ms=0,
+                provider=evidence_provider,
+                model=evidence_model,
+                latency_ms=int((time.monotonic() - evidence_started) * 1000),
                 token_estimate=None,
                 citation_count=len(evidence.citations),
             )

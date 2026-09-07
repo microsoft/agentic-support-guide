@@ -132,6 +132,42 @@ EOT
   }
 }
 
+# ---- App hosting (DevOps plane) ---------------------------------------------
+
+variable "enable_app_hosting" {
+  description = "Create the App Service plans and the API/web apps."
+  type        = bool
+  default     = true
+}
+
+variable "app_service_sku" {
+  description = "App Service Plan SKU. B1 is the cheapest tier with an always-on Linux worker; App Service does not scale to zero, so these bill continuously."
+  type        = string
+  default     = "B1"
+}
+
+variable "api_evidence_source" {
+  description = <<EOT
+Which evidence retriever the deployed API uses: `fixtures` or `foundry_iq`.
+
+Starts as fixtures so the app runs before Module 3 exists. Module 3 flips it
+to foundry_iq once the learner has provisioned a knowledge base.
+EOT
+  type        = string
+  default     = "fixtures"
+
+  validation {
+    condition     = contains(["fixtures", "foundry_iq"], var.api_evidence_source)
+    error_message = "api_evidence_source must be 'fixtures' or 'foundry_iq'."
+  }
+}
+
+variable "api_knowledge_base_name" {
+  description = "Foundry IQ knowledge base the deployed API queries. Set after Module 3 provisions it."
+  type        = string
+  default     = ""
+}
+
 variable "log_analytics_retention_days" {
   description = "Log Analytics workspace retention in days."
   type        = number
@@ -156,16 +192,16 @@ variable "knowledge_storage_public_access" {
   description = <<EOT
 Allow public network access to the knowledge storage account.
 
-Defaults to false because many enterprise tenants enforce this with Azure
-Policy. When it is false you cannot upload blobs from a laptop - the Search
-indexer still can, because the account allows trusted Azure services.
+Learners upload district documents from their own machines in Module 3, which
+needs this. Entra auth is still enforced because shared keys are disabled.
 
-Leave false unless you have confirmed your subscription permits public
-access; otherwise Terraform will fight the policy on every plan. Module 2A
-explains how to ingest documents either way.
+Many tenants force this off with Azure Policy. The `SecurityControl = Ignore`
+tag in var.tags exempts this workshop environment. If your tenant does not
+honour that tag, set this false and expect `terraform plan` to show no drift;
+Module 3 then documents the alternative ingestion paths.
 EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "search_location" {
@@ -312,5 +348,9 @@ variable "tags" {
   default = {
     project = "agentic-support-guide"
     tier    = "prototype"
+    # Exempts this throwaway workshop environment from the tenant security
+    # policy that otherwise forces storage public network access off, which
+    # blocks learners uploading district documents from their machines.
+    SecurityControl = "Ignore"
   }
 }

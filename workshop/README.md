@@ -20,43 +20,63 @@ and you will see it enforced in code.
 
 ## Modules
 
-| # | Module | Time | What you build |
-| --- | --- | --- | --- |
-| 0 | [Provision](module-0-provision.md) | 20 min | Foundry project, models, Search, storage |
-| 1 | [Your first prompt agent](module-1-prompt-agent.md) | 45 min | A versioned agent in the portal, no code |
-| 2A | [Ground it with Foundry IQ](module-2a-foundry-iq.md) | 60 min | Knowledge base + knowledge source |
-| 2B | [From one agent to three](module-2b-orchestration.md) | 60 min | Deterministic multi-agent coordination |
-| 3 | [Model router](module-3-model-router.md) | 45 min | Measured routing across models |
-| 4 | [Guardrails](module-4-guardrails.md) | 45 min | Measured map of what the platform stops |
-| 5 | [Hosted agents](module-5-hosted-agent.md) | 60 min | Deploy, break, fix and roll back your own agent |
-| 6 | [Evaluation](module-6-evaluation.md) | 60 min | Numeric grades and a regression gate |
+The order follows a real delivery lifecycle: stand up infrastructure, ship
+the app, then build the AI on top of something that already runs.
+
+| # | Module | Phase | Time | What you build |
+| --- | --- | --- | --- | --- |
+| 0 | [Provision infrastructure](module-0-provision.md) | DevOps | 20 min | Foundry project, models, Search, storage, App Service |
+| 1 | [Deploy the app to Azure](module-1-deploy-app.md) | DevOps | 45 min | API and UI live on App Service, with a build check |
+| 2 | [Your first prompt agent](module-2-prompt-agent.md) | GenAIOps | 45 min | A versioned agent in the portal, no code |
+| 3 | [Ground it with Foundry IQ](module-3-foundry-iq.md) | GenAIOps | 60 min | Knowledge base wired into the running app |
+| 4 | [Orchestrate three agents](module-4-orchestration.md) | GenAIOps | 60 min | Deterministic multi-agent coordination |
+| 5 | [Model router](module-5-model-router.md) | Optimize | 45 min | Measured routing across models |
+| 6 | [Guardrails](module-6-guardrails.md) | Secure | 45 min | Measured map of what the platform stops |
+| 7 | [Hosted agents](module-7-hosted-agent.md) | Deploy | 60 min | Deploy, break, fix and roll back your own agent |
+| 8 | [Evaluation](module-8-evaluation.md) | Measure | 60 min | Numeric grades and a regression gate |
+| 9 | [Operate](module-9-operate.md) | Operate | 75 min | Traces, a real outage, recovery, cost |
 
 Roughly two days with discussion, or one long day if you move quickly.
+
+Module 9 is the long one and most of it is waiting: the deliberate failure
+takes ten minutes to be declared dead, and the recovery deploy takes about
+as long again. That wait is the lesson, so do not skip it — but do start
+something else while it runs.
+
+Modules 0, 1 and 9 are the DevOps spine. Modules 2 through 8 are GenAIOps.
+They are interleaved on purpose: the AI work lands in an app that is already
+deployed, monitored and rollback-able, which is the only way any of it
+reaches production.
 
 ## The through-line
 
 Each module exists because the previous one hit a wall:
 
-1. **M1** — a prompt agent answers questions. But it confidently answers
+0. **M0** — Terraform gives you a Foundry project and somewhere to run.
+   But an empty App Service serves nobody.
+1. **M1** — deploying the app fixes that. But it answers from canned data.
+2. **M2** — a prompt agent answers questions. But it confidently answers
    things it has no knowledge of.
-2. **M2A** — grounding it in real district knowledge fixes that. But one
-   agent still cannot enforce a multi-step process.
-3. **M2B** — three coordinated agents can. But now you are paying a frontier
+3. **M3** — grounding it in district knowledge fixes that, and you point the
+   *running* app at it. But one agent cannot enforce a multi-step process.
+4. **M4** — three coordinated agents can. But now you are paying a frontier
    model for work a small model could do.
-4. **M3** — a router fixes the cost. But nothing stops harmful input or
+5. **M5** — a router fixes the cost. But nothing stops harmful input or
    output.
-5. **M4** — guardrails do. But your agent still cannot use custom
+6. **M6** — guardrails do. But your agent still cannot use custom
    dependencies or hold its own identity.
-6. **M5** — a hosted agent can. But you still have no idea whether any of it
+7. **M7** — a hosted agent can. But you still have no idea whether any of it
    is actually *good*.
-7. **M6** — evaluation tells you.
+8. **M8** — evaluation tells you. But none of it survives contact with a
+   Tuesday afternoon incident.
+9. **M9** — operating it does.
 
 Do not skip ahead. Each wall is the point.
 
 ## Prerequisites
 
 - An Azure subscription you can create resources in
-- `az` CLI, Terraform ≥ 1.9, Python 3.13, Node 20+
+- `az` CLI, Terraform ≥ 1.9, Python 3.13, Node 22+
 - `az login` completed
 
 ## Repo orientation
@@ -69,13 +89,14 @@ Do not skip ahead. Each wall is the point.
 | `apps/web/` | React UI |
 | `infra/` | Terraform |
 | `evals/` | Synthetic cases and expected checks |
-| `scripts/` | Publish, validate, evaluate, provision |
+| `scripts/` | Publish, validate, evaluate, provision, deploy, smoke test |
+| `.github/workflows/` | CI on every push, deploy on demand |
 
 ## Facilitator notes
 
 - **Search throughput.** One replica serves roughly three concurrent semantic
   requests plus a short queue. Thirty learners querying at once will throttle.
-  Raise `search_replica_count` or run Module 2A in waves.
+  Raise `search_replica_count` or run Module 3 in waves.
 - **Isolation.** `Search Service Contributor` covers the whole search
   service; Azure AI Search has no per-index RBAC. Index prefixes are a naming
   convention, not a security boundary. Acceptable in a throwaway subscription

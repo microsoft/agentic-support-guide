@@ -1,4 +1,4 @@
-# Module 3 — Model router
+# Module 5 — Model router
 
 **Time:** about 45 minutes.
 
@@ -134,7 +134,7 @@ fill in the same table.
   landed on the same model, the router is doing nothing for your workload.
 - Did total tokens go up? Routing adds overhead.
 - Did p95 latency change? Routing adds a decision step.
-- Did quality change? You cannot answer this yet — that is Module 6. Come
+- Did quality change? You cannot answer this yet — that is Module 8. Come
   back and re-run this comparison after you have graders.
 
 ## 6. Structured output — check, do not assume
@@ -176,4 +176,4 @@ Do not use a router when:
 - [ ] You checked for contract failures under the router.
 - [ ] You can state your router's effective context window and why.
 
-Next: [Module 4 — Guardrails](module-4-guardrails.md)
+Next: [Module 6 — Guardrails](module-6-guardrails.md)

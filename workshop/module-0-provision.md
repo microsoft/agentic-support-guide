@@ -104,14 +104,14 @@ Review the plan, then type `yes`.
 | Resource | Module that needs it |
 | --- | --- |
 | AI Services account + Foundry project | All |
-| `asg-chat` model deployment | M1, M2 |
-| Azure AI Search (`basic`, semantic ranker on) | M2 |
-| Storage account + `district-knowledge` container | M2 |
-| `asg-router` model router deployment | M3 |
-| `asg-judge` model deployment | M6 |
-| Log Analytics + Application Insights | M4, M6 |
+| `asg-chat` model deployment | M2-M4 |
+| Azure AI Search (`basic`, semantic ranker on) | M3 |
+| Storage account + `district-knowledge` container | M3 |
+| `asg-router` model router deployment | M5 |
+| `asg-judge` model deployment | M8 |
+| Log Analytics + Application Insights | M6, M8, M9 |
 
-Semantic ranking is not optional for M2 — agentic retrieval scores with it,
+Semantic ranking is not optional for M3 — agentic retrieval scores with it,
 so the Search `free` tier cannot be used.
 
 ### If apply fails partway
@@ -208,10 +208,10 @@ learner's index. That is fine in a throwaway workshop subscription and not
 fine anywhere else. Set `grant_search_control_plane = false` and pre-create
 indexes yourself for shared or long-lived environments.
 
-**Guardrails (Module 4) need more.** Configuring guardrails requires the
+**Guardrails (Module 6) need more.** Configuring guardrails requires the
 **Foundry Account Owner** role, which Terraform does not grant — it is a
 privileged role that should be a deliberate decision, not a side effect of
-`apply`. Either assign it to learners yourself, or run Module 4 as a
-facilitator-led demonstration. Module 4 says the same thing.
+`apply`. Either assign it to learners yourself, or run Module 6 as a
+facilitator-led demonstration. Module 6 says the same thing.
 
-Next: [Module 1 — Your first prompt agent](module-1-prompt-agent.md)
+Next: [Module 1 — Deploy the app to Azure](module-1-deploy-app.md)

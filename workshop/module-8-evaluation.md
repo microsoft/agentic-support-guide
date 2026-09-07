@@ -1,4 +1,4 @@
-# Module 6 — Evaluate the agents
+# Module 8 — Evaluate the agents
 
 **Time:** about 60 minutes.
 
@@ -65,7 +65,7 @@ The `tool_*` and `task_navigation_*` graders apply to multi-step, tool-calling
 agents. They will not tell you anything useful about a single-turn agent.
 
 The safety graders (`violence`, `self_harm`, `hate_unfairness`, `sexual`)
-overlap with the Module 4 guardrails. Guardrails *block* at runtime; these
+overlap with the Module 6 guardrails. Guardrails *block* at runtime; these
 *measure* after the fact. Use both, for different purposes.
 
 ## 3. Dry run
@@ -164,3 +164,5 @@ Read this before you quote scores to anyone.
 - Why prose assertions do not belong in an eval suite.
 - Why grading context must be the context the agent actually saw.
 - Why the graded suite does not belong on every commit.
+
+Next: [Module 9 — Operate what you built](module-9-operate.md)

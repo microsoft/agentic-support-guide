@@ -1,0 +1,144 @@
+name: Deploy
+
+# Module 1 automates the loop you ran by hand: package, deploy, then prove
+# the new build is actually serving. Deploys are manual by default so a
+# workshop repo cannot surprise a shared subscription on every push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: What to deploy
+        type: choice
+        options: [both, api, web]
+        default: both
+      expect_evidence:
+        description: Fail unless the app serves this evidence source
+        type: choice
+        options: ["", fixture, foundry_iq]
+        default: ""
+
+permissions:
+  contents: read
+  # Federated credentials instead of a stored publish profile or client secret.
+  id-token: write
+
+concurrency:
+  # Two overlapping deploys to one App Service make the first fail to start.
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  API_APP: ${{ vars.AZURE_API_APP_NAME }}
+  WEB_APP: ${{ vars.AZURE_WEB_APP_NAME }}
+  API_URL: ${{ vars.AZURE_API_URL }}
+  WEB_URL: ${{ vars.AZURE_WEB_URL }}
+
+jobs:
+  deploy:
+    name: Deploy to App Service
+    runs-on: ubuntu-latest
+    environment: workshop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail fast on missing configuration
+        run: |
+          missing=""
+          for v in RESOURCE_GROUP API_APP WEB_APP API_URL WEB_URL; do
+            if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing repository variables:$missing" >&2
+            echo "Set them from 'terraform output' before running this workflow." >&2
+            exit 1
+          fi
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Stamp the build
+        id: stamp
+        run: echo "build_id=${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+
+      # The zip keeps the repo layout: contracts_registry.py resolves
+      # contracts/ via parents[3] and prompt_envelope.py resolves agents/ via
+      # parents[4]. Flattening services/api breaks both at import time.
+      - name: Package API
+        if: inputs.component != 'web'
+        run: |
+          set -euo pipefail
+          rm -rf build/api && mkdir -p build/api/services/api
+          cp -r services/api/app build/api/services/api/app
+          cp services/api/requirements.txt services/api/denylist.txt build/api/services/api/
+          cp -r contracts build/api/contracts
+          cp -r agents build/api/agents
+          echo "-r services/api/requirements.txt" > build/api/requirements.txt
+          echo -n "${{ steps.stamp.outputs.build_id }}" > build/api/build_id.txt
+          find build/api -type d -name __pycache__ -prune -exec rm -rf {} +
+          find build/api -type d -name tests -prune -exec rm -rf {} +
+          (cd build/api && zip -qr ../api.zip .)
+
+      - name: Deploy API
+        if: inputs.component != 'web'
+        run: |
+          az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$API_APP" \
+            --src-path build/api.zip --type zip --async false
+
+      - uses: actions/setup-node@v4
+        if: inputs.component != 'api'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      # Vite inlines this at build time. The client falls back to a relative
+      # /api, which cannot work when the UI and API are separate hosts.
+      - name: Build UI
+        if: inputs.component != 'api'
+        working-directory: apps/web
+        env:
+          VITE_API_BASE_URL: ${{ vars.AZURE_API_URL }}/api
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy UI
+        if: inputs.component != 'api'
+        run: |
+          (cd apps/web/dist && zip -qr ../../../web.zip .)
+          az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$WEB_APP" \
+            --src-path web.zip --type zip --async false
+
+      # A green deploy step does not mean the new code is live: Oryx can skip
+      # the rebuild and the old worker can keep answering.
+      - name: Verify the new build is serving
+        if: inputs.component != 'web'
+        run: |
+          set -euo pipefail
+          expected="${{ steps.stamp.outputs.build_id }}"
+          for _ in $(seq 1 30); do
+            served=$(curl -fsS --max-time 20 "$API_URL/api/health" | jq -r '.build_id // empty' || true)
+            if [ "$served" = "$expected" ]; then
+              echo "build $expected is serving"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "expected build_id $expected, got '${served:-no response}'" >&2
+          exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Smoke test
+        run: |
+          python scripts/smoke_test.py \
+            --api-url "$API_URL" \
+            --web-url "$WEB_URL" \
+            ${{ inputs.expect_evidence && format('--expect-evidence {0}', inputs.expect_evidence) || '' }}

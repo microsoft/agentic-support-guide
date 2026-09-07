@@ -231,6 +231,9 @@ def list_available_districts() -> tuple[str, ...]:
 class FixtureEvidenceRetriever:
     """Synthetic-only retriever, keyed strictly by district_id."""
 
+    provider_name = "fixture"
+    provider_model = "synthetic"
+
     def __init__(self, catalog: dict[str, dict[str, list[Citation]]] | None = None) -> None:
         self._catalog = catalog if catalog is not None else _DISTRICTS
 

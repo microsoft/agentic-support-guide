@@ -81,3 +81,47 @@ resource "azurerm_role_assignment" "ai_services_reads_index" {
   role_definition_name = "Search Index Data Reader"
   principal_id         = azurerm_cognitive_account.ai_services.identity[0].principal_id
 }
+
+# ---- Deployed app identities ------------------------------------------------
+#
+# The API runs as itself in Azure, not as the learner who deployed it, so it
+# needs its own grants. Without these the deployed app returns 403 on the
+# first model call - a failure that only shows up after deployment.
+
+resource "azurerm_role_assignment" "api_calls_models" {
+  count = var.enable_app_hosting ? 1 : 0
+
+  scope                = azurerm_cognitive_account.ai_services.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azurerm_linux_web_app.api[0].identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "api_reads_index" {
+  count = var.enable_app_hosting && var.enable_knowledge_plane ? 1 : 0
+
+  scope                = azurerm_search_service.knowledge[0].id
+  role_definition_name = "Search Index Data Reader"
+  principal_id         = azurerm_linux_web_app.api[0].identity[0].principal_id
+}
+
+# Account-scope inference is not enough. The app reaches its agents through the
+# project endpoint, which is a separate RBAC scope; without this the deployed
+# app returns AGENT_PROVIDER_AUTH_DENIED on the first agent call even though
+# plain model calls succeed.
+resource "azurerm_role_assignment" "api_uses_project" {
+  count = var.enable_app_hosting ? 1 : 0
+
+  scope                = azurerm_cognitive_account_project.foundry_project.id
+  role_definition_name = var.project_role_definition_name
+  principal_id         = azurerm_linux_web_app.api[0].identity[0].principal_id
+}
+
+# Foundry IQ knowledge bases that include a web source reason with a model,
+# so the search service itself must be able to call it.
+resource "azurerm_role_assignment" "search_calls_models" {
+  count = var.enable_knowledge_plane ? 1 : 0
+
+  scope                = azurerm_cognitive_account.ai_services.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azurerm_search_service.knowledge[0].identity[0].principal_id
+}

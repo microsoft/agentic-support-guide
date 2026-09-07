@@ -43,6 +43,26 @@ output "log_analytics_workspace_name" {
   value       = azurerm_log_analytics_workspace.main.name
 }
 
+output "api_url" {
+  description = "Deployed API base URL. Empty when app hosting is disabled."
+  value       = local.api_url
+}
+
+output "web_url" {
+  description = "Deployed UI URL. Empty when app hosting is disabled."
+  value       = local.web_url
+}
+
+output "api_app_name" {
+  description = "App Service name for the API, used by scripts/deploy-app.ps1."
+  value       = var.enable_app_hosting ? azurerm_linux_web_app.api[0].name : ""
+}
+
+output "web_app_name" {
+  description = "App Service name for the UI, used by scripts/deploy-app.ps1."
+  value       = var.enable_app_hosting ? azurerm_linux_web_app.web[0].name : ""
+}
+
 output "router_deployment_name" {
   description = "Model router deployment name. Set as FOUNDRY_MODEL_DEPLOYMENT_ROUTER for Module 3. Empty when the router is disabled."
   value       = var.enable_model_router ? azurerm_cognitive_deployment.router[0].name : ""
@@ -66,6 +86,11 @@ output "search_endpoint" {
 output "knowledge_storage_account_name" {
   description = "Storage account holding district source documents for Foundry IQ."
   value       = var.enable_knowledge_plane ? azurerm_storage_account.knowledge[0].name : ""
+}
+
+output "knowledge_storage_account_id" {
+  description = "Resource id of the knowledge storage account. Foundry IQ blob sources authenticate with a managed identity using this, not a key."
+  value       = var.enable_knowledge_plane ? azurerm_storage_account.knowledge[0].id : ""
 }
 
 output "knowledge_container_name" {

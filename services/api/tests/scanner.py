@@ -93,6 +93,11 @@ ALLOWED_HOSTS = {
     "raw.githubusercontent.com",
     "opentelemetry.io",
     "json-schema.org",
+    # Public reference site used as the Module 3 Web IQ allow-list example.
+    # A web knowledge source needs a real, stable public domain to be worth
+    # demonstrating; this one is a well-known non-profit reference and
+    # carries no customer or personal data.
+    "dyslexiaida.org",
 }
 
 # Lines matching these substrings are treated as legitimate Microsoft/Azure

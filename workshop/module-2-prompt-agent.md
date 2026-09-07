@@ -1,4 +1,4 @@
-# Module 1 — Your first prompt agent
+# Module 2 — Your first prompt agent
 
 **Time:** about 45 minutes.
 
@@ -29,7 +29,7 @@ Compare the three ways to run an agent on Foundry:
 | Custom dependencies | No | Yes | Yes |
 | You operate it | No | No | Yes |
 
-Module 5 builds the hosted variant. Most people need this one.
+Module 7 builds the hosted variant. Most people need this one.
 
 ## 1. Read the agent before you publish it
 
@@ -88,7 +88,7 @@ publishing into one project would overwrite each other's agents and you would
 spend the afternoon debugging someone else's prompt.
 
 `--workshop-only` limits this to the standalone agent. Drop it later to also
-publish the three coordinator roles used in Module 2B.
+publish the three coordinator roles used in Module 4.
 
 ## 4. Look at it in the portal
 
@@ -106,7 +106,7 @@ Then try something the attached knowledge cannot answer:
 Right now it will answer from the model's own prior knowledge instead of
 saying "I don't know" — the `grounding_rules` say to prefer attached
 knowledge, but **there is no attached knowledge yet**. Instructions alone
-cannot make a model refuse to guess. That gap is the entire reason Module 2
+cannot make a model refuse to guess. That gap is the entire reason Module 3
 exists.
 
 ## 5. Version it
@@ -142,4 +142,4 @@ else's.
 - Why the instructions hash matters more than the prompt text you remember writing.
 - Why `grounding_rules` did not stop the model from guessing.
 
-Next: [Module 2A — Ground it with Foundry IQ](module-2a-foundry-iq.md)
+Next: [Module 3 — Ground it with Foundry IQ](module-3-foundry-iq.md)

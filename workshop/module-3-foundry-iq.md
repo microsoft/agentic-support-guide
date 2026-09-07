@@ -1,8 +1,8 @@
-# Module 2A — Ground it with Foundry IQ
+# Module 3 — Ground it with Foundry IQ
 
 **Time:** about 60 minutes.
 
-**You will have at the end:** the Module 1 agent answering from real district
+**You will have at the end:** the Module 2 agent answering from real district
 knowledge, with citations — and refusing to guess when the knowledge does not
 cover the question.
 
@@ -10,7 +10,7 @@ cover the question.
 
 ## The problem you are fixing
 
-At the end of Module 1 your agent answered a question about cafeteria peanut
+At the end of Module 2 your agent answered a question about cafeteria peanut
 allergies. Confidently. With nothing behind it.
 
 Its `grounding_rules` said to prefer attached knowledge. There was no
@@ -133,12 +133,113 @@ Same screen → new knowledge base over the source you just created. Name it
 Wait for indexing to finish before testing. Querying an empty index returns
 nothing and looks exactly like a broken configuration.
 
-## 5. Attach it to your agent
+## 5. Add a second source: an allow-listed public site
+
+District documents are not the only knowledge a support team uses. Some of
+it lives on public reference sites — and you want *specific* ones, not the
+open web.
+
+Add a web knowledge source restricted to a single allow-listed domain:
+
+```powershell
+python scripts\provision_foundry_iq.py --suffix <your-alias> --apply `
+    --web-domains "https://dyslexiaida.org/additional-resources/"
+```
+
+Two properties make this safe enough to show a customer:
+
+- **`allowed_domains` is an allow-list, not a filter.** Nothing outside the
+  listed domains is reachable, so this is not "the agent can browse the web."
+- The knowledge base decides which source answers which question. Your
+  district documents and the public site sit side by side, and every result
+  still carries a citation you can click.
+
+A web source needs a chat model configured on the knowledge base, because it
+summarises fetched pages. `provision_foundry_iq.py` sets that up. If
+retrieval fails with:
+
+```
+A model must be specified on the agent when using a Web knowledge source
+```
+
+the model is usually configured correctly and the **Search service's managed
+identity** simply has not finished getting `Cognitive Services OpenAI User`
+on the AI Services account. Role assignments take a few minutes to
+propagate. Wait, then retry before changing anything — this exact message
+cost real debugging time during development, and the configuration was
+right the whole while.
+
+Confirm all three sources are live:
+
+```powershell
+python scripts\provision_foundry_iq.py --suffix <your-alias> `
+    --query "what accommodations help students with dyslexia"
+```
+
+The activity breakdown tells you which source actually contributed:
+
+```
+searchIndex   source=asg-ks-<alias>       count=0
+web           source=asg-ks-web-<alias>   count=1
+azureBlob     source=asg-ks-blob-<alias>  count=0
+modelWebSummarization
+```
+
+Read that from the `activity` list, not from `references[].sourceName` —
+that field is empty on web results.
+
+## 6. Point the running app at it
+
+Everything so far has been the portal and a script. The app you deployed in
+Module 1 is still answering from in-memory fixtures.
+
+This is the step that matters, and it is two variables:
+
+```hcl
+# infra/terraform.tfvars
+api_evidence_source     = "foundry_iq"
+api_knowledge_base_name = "asg-kb-<your-alias>"
+```
+
+```powershell
+terraform -chdir=infra apply
+```
+
+The app reads `EVIDENCE_SOURCE` at startup and builds either
+`FixtureEvidenceRetriever` or `FoundryIQEvidenceRetriever`. Both satisfy the
+same `EvidenceRetriever` protocol, so the coordinator and the three agents
+are untouched by this change. That seam is the whole design:
+[services/api/app/evidence/retrieval.py](../services/api/app/evidence/retrieval.py).
+
+Verify the swap actually took effect:
+
+```powershell
+python scripts\smoke_test.py --expect-evidence foundry_iq
+```
+
+Look at two things in the output:
+
+```
+evidence_source=foundry_iq knowledge_base=asg-kb-demo
+evidence-retrieval   ok   provider=foundry_iq   5625ms
+```
+
+That latency is the tell. Fixtures return in 0 ms because they are a
+dictionary lookup. Real retrieval costs seconds. If you see `provider=fixture`
+or a 0 ms retrieval, the flip did not take — check `EVIDENCE_SOURCE` in the
+app settings.
+
+**Why the app reports this at all:** the trace originally hardcoded
+`provider="fixture"`, so a grounded run and a fixture run looked identical
+from the outside. A demo could claim grounding it was not doing. Any trace
+you build should report what actually ran, not what you intended to run.
+
+## 7. Attach it to your agent
 
 Open `asg-support-explainer-agent-<your-alias>` → attach your knowledge base
 → publish a new version.
 
-## 6. Re-run the Module 1 questions
+## 8. Re-run the Module 2 questions
 
 Ask the in-scope question again:
 
@@ -152,10 +253,10 @@ Then the out-of-scope one:
 > What is the district's policy on cafeteria peanut allergies?
 
 It should now say the attached knowledge does not cover it. Compare that
-directly against what Module 1 produced. Same instructions, different
+directly against what Module 2 produced. Same instructions, different
 behaviour — because the grounding is real.
 
-## 7. Probe the edges
+## 9. Probe the edges
 
 - Ask something **partially** covered. Does it answer the covered part and
   flag the rest, or blend them into one confident answer?
@@ -164,7 +265,7 @@ behaviour — because the grounding is real.
 - Raise `reasoning_effort` to `medium` and re-ask your hardest question.
   Measure latency. Was it worth it?
 
-## 8. Note what is still missing
+## 10. Note what is still missing
 
 Your agent is grounded and cites sources. It still cannot:
 
@@ -173,7 +274,7 @@ Your agent is grounded and cites sources. It still cannot:
 - Retry when it produces something invalid.
 
 Those are process guarantees, not knowledge problems. One agent cannot make
-them, no matter how good its retrieval is. That is Module 2B.
+them, no matter how good its retrieval is. That is Module 4.
 
 ---
 
@@ -196,4 +297,4 @@ API version and check the current docs — do not assume the feature is gone.
 - Why the source must exist before the base.
 - Why a naming convention is not an isolation boundary.
 
-Next: [Module 2B — From one agent to three](module-2b-orchestration.md)
+Next: [Module 4 — Orchestrate three agents](module-4-orchestration.md)

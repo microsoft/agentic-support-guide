@@ -17,6 +17,9 @@ class HealthResponse(BaseModel):
     banner: str
     provider_configured: bool
     auth_mode: str
+    # Proves which build is serving. A deploy can succeed and still leave the
+    # previous code running, which no other field here would reveal.
+    build_id: str
 
 
 class HealthCheckItem(BaseModel):
@@ -36,6 +39,10 @@ class HealthDetailsResponse(BaseModel):
     model_deployments_configured: bool
     service_side_remote_workflow_active: bool
     evidence_fixture_available: bool
+    # Which retriever is actually serving evidence. Without this, a Module 3
+    # misconfiguration looks identical to a working one from the outside.
+    evidence_source: str
+    evidence_knowledge_base: str
     district_isolation_enabled: bool
     customer_demo_ready: bool
     checks: list[HealthCheckItem]

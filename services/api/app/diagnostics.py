@@ -41,6 +41,8 @@ def build_health_details(
     evidence_available = evidence_retriever is not None and any(
         evidence_retriever.has_district(d) for d in ("DIST-A", "DIST-B", "DIST-DEMO")
     )
+    evidence_source = getattr(evidence_retriever, "provider_name", "none")
+    evidence_knowledge_base = getattr(evidence_retriever, "provider_model", "")
     district_isolation_enabled = True
 
     if project_configured and definitions_valid and deployments_configured and evidence_available:
@@ -165,6 +167,8 @@ def build_health_details(
         model_deployments_configured=deployments_configured,
         service_side_remote_workflow_active=service_side_remote_workflow_active,
         evidence_fixture_available=evidence_available,
+        evidence_source=evidence_source,
+        evidence_knowledge_base=evidence_knowledge_base,
         district_isolation_enabled=district_isolation_enabled,
         customer_demo_ready=customer_demo_ready,
         checks=checks,
