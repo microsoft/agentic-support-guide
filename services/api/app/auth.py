@@ -34,6 +34,10 @@ PRINCIPAL_NAME_HEADER = "x-ms-client-principal-name"
 AUTH_MODE_ENTRA = "entra"
 AUTH_MODE_DISABLED = "disabled"
 
+# Set by App Service on every worker. Its presence is the difference between
+# "a laptop" and "reachable from the internet".
+APP_SERVICE_MARKER = "WEBSITE_SITE_NAME"
+
 # Used only when auth is disabled for local development.
 LOCAL_DEV_PRINCIPAL_ID = "local-dev"
 
@@ -56,10 +60,22 @@ class Principal:
 
 
 def api_auth_mode() -> str:
-    """`entra` unless explicitly disabled. Terraform always sets `entra`."""
+    """`entra` unless explicitly disabled, and never disabled on App Service.
+
+    Disabling auth grants the caller facilitator rights over every district.
+    That is fine on a laptop and catastrophic on a public hostname, so the
+    App Service marker overrides the setting rather than trusting it. The
+    result is an API that refuses everyone if Easy Auth is off - unusable, but
+    not open. `/api/health/details` reports the effective mode so the cause is
+    visible from outside.
+    """
 
     mode = os.environ.get("API_AUTH_MODE", AUTH_MODE_ENTRA).strip().lower()
-    return AUTH_MODE_DISABLED if mode == AUTH_MODE_DISABLED else AUTH_MODE_ENTRA
+    if mode != AUTH_MODE_DISABLED:
+        return AUTH_MODE_ENTRA
+    if os.environ.get(APP_SERVICE_MARKER, "").strip():
+        return AUTH_MODE_ENTRA
+    return AUTH_MODE_DISABLED
 
 
 def _parse_assignments(raw: str) -> dict[str, frozenset[str]]:
@@ -158,6 +174,9 @@ def principal_from_request(request: Request) -> Principal:
 
     key = object_id.lower()
     facilitator = key in facilitator_ids()
+    # Facilitators are intentionally left with no explicit assignments: access
+    # comes from the flag, and `visible_districts` resolves the roster for
+    # them. Populating both would create two sources of truth that can drift.
     districts = district_assignments().get(key, frozenset())
 
     return Principal(

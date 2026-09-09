@@ -32,6 +32,9 @@ $webApp = Get-Output "web_app_name"
 $resourceGroup = Get-Output "resource_group_name"
 $apiUrl = Get-Output "api_url"
 $webUrl = Get-Output "web_url"
+$apiClientId = Get-Output "api_client_id"
+$apiScope = Get-Output "api_scope"
+$tenantId = (az account show --query tenantId -o tsv)
 
 if (-not $apiApp) {
     Write-Host "No app names in Terraform outputs. Is enable_app_hosting true and applied?" -ForegroundColor Red
@@ -90,10 +93,25 @@ function Deploy-Web {
         # the UI and API are separate App Service hosts.
         $env:VITE_API_BASE_URL = "$apiUrl/api"
         Write-Host "  VITE_API_BASE_URL = $env:VITE_API_BASE_URL"
+
+        # Also inlined. Without all three the UI ships without a sign-in
+        # screen and every call to the secured API returns 401.
+        $env:VITE_ENTRA_CLIENT_ID = $apiClientId
+        $env:VITE_ENTRA_TENANT_ID = $tenantId
+        $env:VITE_API_SCOPE = $apiScope
+        if (-not $apiClientId -or -not $tenantId -or -not $apiScope) {
+            Write-Host "  WARNING: sign-in not configured; the UI will not be able to call the API." -ForegroundColor Yellow
+        } else {
+            Write-Host "  VITE_API_SCOPE       = $apiScope"
+        }
+
         & npm run build
         if ($LASTEXITCODE -ne 0) { throw "UI build failed" }
     } finally {
         Remove-Item Env:\VITE_API_BASE_URL -ErrorAction SilentlyContinue
+        Remove-Item Env:\VITE_ENTRA_CLIENT_ID -ErrorAction SilentlyContinue
+        Remove-Item Env:\VITE_ENTRA_TENANT_ID -ErrorAction SilentlyContinue
+        Remove-Item Env:\VITE_API_SCOPE -ErrorAction SilentlyContinue
         Pop-Location
     }
 

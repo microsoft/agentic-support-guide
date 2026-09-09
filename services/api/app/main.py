@@ -40,6 +40,7 @@ from .config import (
 )
 from .contracts_registry import ContractsRegistry, load_registry
 from .diagnostics import build_health_details
+from .districts import KNOWN_DISTRICTS
 from .evidence import EvidenceRetriever, FixtureEvidenceRetriever
 from .foundry_agents import (
     FoundryResponsesClientFactory,
@@ -297,6 +298,7 @@ def create_app(
             display_name=principal.display_name,
             districts=sorted(principal.districts),
             is_facilitator=principal.is_facilitator,
+            available_districts=sorted(principal.visible_districts(frozenset(KNOWN_DISTRICTS))),
         )
 
     @router.post("/demo/reset", response_model=DemoResetResponse)
@@ -336,7 +338,18 @@ def create_app(
             audit_reset=audit_removed,
         )
 
-    @router.get("/dashboard/summary", response_model=DashboardSummary)
+    # The synthetic roster below has no district dimension: Learner,
+    # AssessmentRecord and BehaviorRecord carry no district_id, so these
+    # endpoints have nothing to filter on and every caller sees the same
+    # cohort. They still require a principal, declared on the route rather
+    # than as a parameter because the handler has no use for the value.
+    # Giving learners a district is a known gap, tracked in
+    # docs/security-and-privacy.md.
+    @router.get(
+        "/dashboard/summary",
+        response_model=DashboardSummary,
+        dependencies=[Depends(get_principal)],
+    )
     def get_dashboard(repos: Repositories = Depends(get_repos)) -> DashboardSummary:
         return dashboard_mod.build_summary(
             learners=repos.learners,
@@ -344,11 +357,19 @@ def create_app(
             behavior=repos.behavior,
         )
 
-    @router.get("/learners", response_model=LearnersResponse)
+    @router.get(
+        "/learners",
+        response_model=LearnersResponse,
+        dependencies=[Depends(get_principal)],
+    )
     def get_learners_ep(repos: Repositories = Depends(get_repos)) -> LearnersResponse:
         return learners_mod.list_learner_summaries(repos.learners)
 
-    @router.get("/assessments/summary", response_model=AssessmentsSummary)
+    @router.get(
+        "/assessments/summary",
+        response_model=AssessmentsSummary,
+        dependencies=[Depends(get_principal)],
+    )
     def get_assessments(
         school: str | None = Query(default=None),
         grade: str | None = Query(default=None),
@@ -364,11 +385,19 @@ def create_app(
             group=group,
         )
 
-    @router.get("/behavior/summary", response_model=BehaviorSummary)
+    @router.get(
+        "/behavior/summary",
+        response_model=BehaviorSummary,
+        dependencies=[Depends(get_principal)],
+    )
     def get_behavior(repos: Repositories = Depends(get_repos)) -> BehaviorSummary:
         return behavior_mod.summarize(repos.behavior)
 
-    @router.get("/supports/options", response_model=SupportOptions)
+    @router.get(
+        "/supports/options",
+        response_model=SupportOptions,
+        dependencies=[Depends(get_principal)],
+    )
     def get_support_options(repos: Repositories = Depends(get_repos)) -> SupportOptions:
         labels = [(learner.learner_id, learner.display_label) for learner in repos.learners]
         return build_support_options(labels)

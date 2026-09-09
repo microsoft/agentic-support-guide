@@ -96,14 +96,23 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      # Vite inlines this at build time. The client falls back to a relative
-      # /api, which cannot work when the UI and API are separate hosts.
+      # Vite inlines these at build time. VITE_API_BASE_URL: the client falls
+      # back to a relative /api, which cannot work when the UI and API are
+      # separate hosts. The Entra values: without all three the UI ships with
+      # no sign-in screen and every call to the secured API returns 401.
       - name: Build UI
         if: inputs.component != 'api'
         working-directory: apps/web
         env:
           VITE_API_BASE_URL: ${{ vars.AZURE_API_URL }}/api
+          VITE_ENTRA_CLIENT_ID: ${{ vars.AZURE_API_CLIENT_ID }}
+          VITE_ENTRA_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          VITE_API_SCOPE: api://${{ vars.AZURE_API_CLIENT_ID }}/access_as_user
         run: |
+          if [ -z "${VITE_ENTRA_CLIENT_ID}" ]; then
+            echo "AZURE_API_CLIENT_ID variable is not set; the UI would ship without sign-in." >&2
+            exit 1
+          fi
           npm ci
           npm run build
 
@@ -137,6 +146,8 @@ jobs:
           python-version: "3.13"
 
       - name: Smoke test
+        env:
+          API_CLIENT_ID: ${{ vars.AZURE_API_CLIENT_ID }}
         run: |
           python scripts/smoke_test.py \
             --api-url "$API_URL" \

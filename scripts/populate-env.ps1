@@ -62,6 +62,12 @@ WORKSHOP_LEARNER_SUFFIX=$suffix
 AZURE_AI_FOUNDRY_AUTH_MODE=entra
 APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsights
 DEMO_RESET_ENABLED=false
+
+# Caller authentication is enforced by App Service Easy Auth, which only exists
+# in front of the deployed API. A local uvicorn has nothing to inject the
+# principal header, so leaving this on `entra` makes every local request 401.
+# The deployed API always runs with `entra`.
+API_AUTH_MODE=disabled
 "@
 
 $content | Set-Content -Path $envPath -Encoding utf8

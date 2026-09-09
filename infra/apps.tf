@@ -131,7 +131,14 @@ resource "azurerm_linux_web_app" "api" {
       active_directory_v2 {
         client_id            = local.effective_api_client_id
         tenant_auth_endpoint = "https://login.microsoftonline.com/${data.azurerm_client_config.current.tenant_id}/v2.0"
-        allowed_audiences    = ["api://${local.effective_api_client_id}"]
+        # Both forms: v2.0 access tokens carry the bare app-ID GUID as `aud`,
+        # while the identifier URI is what callers request a scope against.
+        # Listing only the URI makes Easy Auth reject every valid token with a
+        # bodiless 403.
+        allowed_audiences = [
+          local.effective_api_client_id,
+          "api://${local.effective_api_client_id}",
+        ]
         # No client secret: the SPA signs in with PKCE and Easy Auth only
         # validates the presented token here.
         client_secret_setting_name = "OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID"

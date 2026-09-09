@@ -37,6 +37,29 @@ npm run test
 The client resolves the API root from `VITE_API_BASE_URL` (see
 [`.env.example`](./.env.example)). Default is `/api`.
 
+## Sign-in
+
+The deployed API requires an Entra token, so the UI signs in with MSAL
+before it renders anything. Three build-time variables configure it:
+
+| Variable | Source |
+| --- | --- |
+| `VITE_ENTRA_CLIENT_ID` | `terraform output -raw api_client_id` |
+| `VITE_ENTRA_TENANT_ID` | `az account show --query tenantId -o tsv` |
+| `VITE_API_SCOPE` | `terraform output -raw api_scope` |
+
+Vite inlines these at build time, so a rebuild is required to change
+them. `scripts/deploy-app.ps1` sets all three from Terraform outputs.
+
+If any is missing the UI builds **without** a sign-in screen and every
+call to a secured API returns 401. That is the intended shape for local
+development, where the backend runs with `API_AUTH_MODE=disabled` and
+there is no Easy Auth to inject a principal.
+
+The district shown in the plan builder comes from `/api/me`, never from
+a constant in the UI. A caller assigned more than one district gets a
+picker.
+
 ## Setup status and error states
 
 The UI reads `/api/health/details` for setup status. The Demo Guide and

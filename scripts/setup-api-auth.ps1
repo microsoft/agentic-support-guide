@@ -35,7 +35,7 @@ if (-not $DisplayName) {
 }
 
 Write-Host "App registration : $DisplayName" -ForegroundColor Cyan
-Write-Host "SPA redirect     : $WebUrl/" -ForegroundColor Cyan
+Write-Host "SPA redirect     : $WebUrl and $WebUrl/" -ForegroundColor Cyan
 
 $existing = az ad app list --display-name $DisplayName --query "[0].appId" -o tsv 2>$null
 if ($existing) {
@@ -74,7 +74,10 @@ $apiBody = @{
         )
     }
     identifierUris  = @("api://$appId")
-    spa             = @{ redirectUris = @("$WebUrl/") }
+    # Both spellings: Entra compares redirect URIs as exact strings, and MSAL
+    # sends window.location.origin, which has no trailing slash. Registering
+    # only the slashed form fails sign-in with AADSTS50011.
+    spa             = @{ redirectUris = @("$WebUrl", "$WebUrl/") }
 } | ConvertTo-Json -Depth 6 -Compress
 
 $tmp = New-TemporaryFile

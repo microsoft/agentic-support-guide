@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -91,6 +92,16 @@ def _require_http_url(url: str) -> str:
     return url.rstrip("/")
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Keeps a 302-to-login from being read as a successful API response."""
+
+    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+
+_NO_REDIRECT = urllib.request.build_opener(_NoRedirect)
+
+
 def get(url: str, timeout: int = 120) -> tuple[int, bytes]:
     headers = {"Accept": "*/*", **AUTH_HEADERS}
     req = urllib.request.Request(_require_http_url(url), headers=headers)
@@ -158,6 +169,28 @@ class Smoke:
             assert source == self.expect_evidence, (
                 f"expected evidence_source={self.expect_evidence}, got {source}"
             )
+
+    def auth_is_enforced(self) -> None:
+        """The deploy is only secure if this fails for an anonymous caller.
+
+        Everything else in this script runs with a token, so a completely
+        unauthenticated API would sail through every other check.
+        """
+
+        mode = (self.state.get("health") or {}).get("auth_mode")
+        print(f"        auth_mode={mode}")
+        assert mode == "entra", f"API reports auth_mode={mode}; it is not requiring sign-in"
+
+        for path in ("/api/me", "/api/supports/plans", "/api/learners"):
+            # No redirect following: a 302 to the login page returns 200 for
+            # the login HTML, which would read as a successful API response.
+            req = urllib.request.Request(f"{self.api}{path}")
+            try:
+                with _NO_REDIRECT.open(req, timeout=30) as resp:
+                    raise AssertionError(f"{path} answered {resp.status} without a token")
+            except urllib.error.HTTPError as exc:
+                assert exc.code in (401, 403), f"{path} returned {exc.code}, expected 401"
+        print("        anonymous callers are refused on 3 protected paths")
 
     def ui_serves(self) -> None:
         status, body = get(self.web)
@@ -250,6 +283,7 @@ class Smoke:
             print(f"expecting evidence_source={self.expect_evidence}")
         print()
         self.check("API health responds", self.health)
+        self.check("API refuses anonymous callers", self.auth_is_enforced)
         self.check("evidence source is as expected", self.evidence_source)
         self.check("UI serves index.html", self.ui_serves)
         self.check("UI deep link falls back to the SPA", self.ui_spa_fallback)
@@ -295,8 +329,13 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    # Every endpoint except health sits behind Easy Auth.
-    client_id = args.api_client_id or terraform_output("api_client_id")
+    # Every endpoint except health sits behind Easy Auth. CI has no Terraform
+    # state in the deploy job, so the client id also comes from the environment.
+    client_id = (
+        args.api_client_id
+        or os.environ.get("API_CLIENT_ID", "").strip()
+        or terraform_output("api_client_id")
+    )
     token = acquire_token(client_id)
     if token:
         AUTH_HEADERS["Authorization"] = f"Bearer {token}"

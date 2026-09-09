@@ -7,6 +7,7 @@ import type {
   HealthDetailsResponse,
   HealthResponse,
   LearnersResponse,
+  Principal,
   RecommendationEnvelope,
   SavedPlan,
   SavedPlansResponse,
@@ -33,10 +34,23 @@ export class ApiError extends Error {
   }
 }
 
+// A bare "Request failed: 403" reads as an outage. Authorization failures are
+// the one case a user can act on, so name them.
+function describeStatus(status: number): string {
+  if (status === 401) return "Your session expired. Sign in again.";
+  if (status === 403) return "You are not assigned to that district.";
+  return `Request failed: ${status}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const headers: Record<string, string> = { "content-type": "application/json" };
   const token = accessTokenProvider ? await accessTokenProvider() : null;
+  if (accessTokenProvider && !token) {
+    // Sending it anyway would return a 401 that reads like an outage. When a
+    // provider is configured, no token means the session is gone.
+    throw new ApiError(401, "Your session expired. Sign in again.");
+  }
   if (token) {
     headers.authorization = `Bearer ${token}`;
   }
@@ -50,13 +64,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(0, `Network error: ${(err as Error).message}`);
   }
   if (!response.ok) {
-    throw new ApiError(response.status, `Request failed: ${response.status}`);
+    throw new ApiError(response.status, describeStatus(response.status));
   }
   return (await response.json()) as T;
 }
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
+  me: () => request<Principal>("/me"),
   dashboardSummary: () => request<DashboardSummary>("/dashboard/summary"),
   learners: () => request<LearnersResponse>("/learners"),
   assessmentsSummary: (filters: {

@@ -154,9 +154,11 @@ prompt attacks and indirect attacks at input and output.
 Re-run the probe. Does the `strict` column diverge from `baseline`?
 
 Note what you needed to get here: **Foundry Account Owner**. Module 0 does
-not grant it, deliberately — it is privileged, and handing it to a room
-should be a decision, not a side effect of `terraform apply`. If the option
-is greyed out, that is why, and your facilitator should drive this step.
+not grant it, deliberately — it is privileged, and granting it should be a
+decision rather than a side effect of `terraform apply`. The account is
+yours, so assign the role to yourself; Module 0's closing note has the
+lookup, because the role name in this family varies between tenants. If the
+option is greyed out in the portal, that assignment is what is missing.
 
 > **A dead end worth knowing about.** You might expect to attach a custom
 > content-safety policy programmatically at publish time —

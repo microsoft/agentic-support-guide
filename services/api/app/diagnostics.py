@@ -11,6 +11,7 @@ from .agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
 from .agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
 from .auth import api_auth_mode
 from .config import AzureFoundrySettings
+from .districts import KNOWN_DISTRICTS
 from .evidence import EvidenceRetriever
 from .foundry_agents import PROVIDER_ID, MafAgentRuntime, missing_model_deployments
 from .models import HealthCheckItem, HealthDetailsResponse
@@ -40,7 +41,7 @@ def build_health_details(
     deployments_configured = not missing_deployments
     definitions_valid = runtime is not None and runtime.all_roles_available(REQUIRED_ROLES)
     evidence_available = evidence_retriever is not None and any(
-        evidence_retriever.has_district(d) for d in ("DIST-A", "DIST-B", "DIST-DEMO")
+        evidence_retriever.has_district(d) for d in KNOWN_DISTRICTS
     )
     evidence_source = getattr(evidence_retriever, "provider_name", "none")
     evidence_knowledge_base = getattr(evidence_retriever, "provider_model", "")

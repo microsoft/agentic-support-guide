@@ -167,8 +167,9 @@ sequence: package, deploy, confirm the `build_id`, smoke test. It
 authenticates with federated credentials rather than a stored publish
 profile, so there is no secret to leak or rotate.
 
-It is `workflow_dispatch` only. A workshop repo should not deploy to a
-shared subscription on every push.
+It is `workflow_dispatch` only. Deploying on every push would fight you
+later: Module 9 has you break the running app on purpose and time the
+outage, which is not a thing you want a merge to trigger.
 
 ### Wire it up
 

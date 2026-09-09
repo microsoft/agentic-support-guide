@@ -103,8 +103,10 @@ Two ways forward:
    from `evals/knowledge` directly in the Foundry portal when creating the
    knowledge source. This bypasses storage networking entirely. File sources
    are in preview.
-2. **Ask your subscription owner** for an exemption, or run the upload from a
-   VM inside a VNet that has a private endpoint to the account.
+2. **Ask whoever owns the policy** for an exemption — it is usually set above
+   your subscription, so this is not something you can turn off yourself — or
+   run the upload from a VM inside a VNet that has a private endpoint to the
+   account.
 
 Whichever you pick, the rest of this module is the same — the knowledge base
 does not care where its source came from.
@@ -118,12 +120,14 @@ The Search service reads blob content using its own managed identity — Module
 0 granted it `Storage Blob Data Reader`. No key is involved anywhere in this
 path.
 
-Name it with your learner suffix: `ks-<your-alias>`.
+Name it with your suffix: `ks-<your-alias>`.
 
-> **Shared-environment warning.** `Search Service Contributor` covers the
-> entire search service. Azure AI Search has no per-index RBAC, so your
-> suffix is a naming convention, not a boundary — anyone in this workshop can
-> delete your source. Fine here, not fine in production. See Module 0.
+> **Why the naming matters later.** `Search Service Contributor` covers the
+> entire search service, and Azure AI Search has no per-index RBAC. Here that
+> is harmless — the service is yours and you are the only person holding the
+> role. But your suffix is a naming *convention*, not a boundary, and that
+> distinction is the one people lose when they lift this pattern into an
+> environment with several teams or customers in it. See Module 0.
 
 ## 4. Create the knowledge base
 
@@ -220,7 +224,7 @@ python scripts\smoke_test.py --expect-evidence foundry_iq
 Look at two things in the output:
 
 ```
-evidence_source=foundry_iq knowledge_base=asg-kb-demo
+evidence_source=foundry_iq knowledge_base=asg-kb-<your-alias>
 evidence-retrieval   ok   provider=foundry_iq   5625ms
 ```
 

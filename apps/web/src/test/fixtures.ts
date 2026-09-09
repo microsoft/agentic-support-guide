@@ -17,6 +17,7 @@ export const healthFixture: HealthResponse = {
   banner: "Prototype",
   provider_configured: false,
   auth_mode: "entra",
+  build_id: "test-build",
 };
 
 export const healthDetailsNotReadyFixture: HealthDetailsResponse = {

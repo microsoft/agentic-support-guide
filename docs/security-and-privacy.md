@@ -228,11 +228,63 @@ the persistent banner in the frontend layout.
 - Not a medical, legal, disability, placement, or compliance
   determination system.
 
+## Caller authentication
+
+App Service Easy Auth sits in front of the API and validates the Entra
+token before a request reaches application code. Signature, issuer,
+audience and expiry are the platform's job; the app never parses a JWT
+or caches signing keys.
+
+- Unauthenticated requests get **401**, not a redirect. Every caller is
+  a SPA holding a bearer token or a script, and both break on a 302 to
+  a login page.
+- Only `/api/health` and `/api/health/details` are anonymous, so a
+  deploy can check which build is serving before anyone signs in.
+- `auth_settings_v2.allowed_audiences` lists **both** the bare app-ID
+  GUID and `api://<app-id>`. A v2.0 access token carries the GUID; if
+  only the URI is listed, Easy Auth rejects every valid token with a
+  bodiless 403.
+- Easy Auth changes need `az webapp restart`. Terraform state can show
+  `require_authentication = true` while the running worker still serves
+  anonymous traffic.
+
+The UI signs in with MSAL using the authorization-code flow with PKCE
+and no client secret, caching tokens in `sessionStorage` so a token
+does not outlive the browser session on a shared workshop machine.
+
+Local development runs with `API_AUTH_MODE=disabled`, because a local
+uvicorn has no Easy Auth in front of it to inject the principal header.
+That mode returns a development principal with facilitator rights over
+every district, so the app refuses to honour it whenever App Service is
+detected (`WEBSITE_SITE_NAME` is set). A deployed API with auth turned
+off therefore returns 401 to everyone rather than serving everyone -
+unusable, but not open. `/api/health/details` reports the effective mode.
+
+### The trust boundary
+
+The app does not verify the `x-ms-client-principal` header. Easy Auth
+strips any client-supplied copy and injects its own, so within the
+platform boundary the header is authoritative. This is a deliberate
+choice: owning JWKS caching and key rollover in application code would
+be a liability with no upside.
+
+The consequence is that anything able to reach the container directly,
+bypassing Easy Auth, could present any identity it liked. That is why
+the fail-closed check above exists, and why
+`test_a_forged_principal_header_is_honoured_documenting_the_trust_model`
+pins the behaviour: it is a recorded decision, not an oversight.
+
 ## District isolation
 
 Every request carries a `district_id` matching pattern
-`^[A-Z0-9][A-Z0-9\-]{1,31}$`. It is enforced at four layers:
+`^[A-Z0-9][A-Z0-9\-]{1,31}$`. It is enforced at five layers:
 
+- **Authorization** - `require_district` rejects any district not
+  assigned to the caller with a **403**, before any data access or
+  model call. This is the layer that matters: the four below faithfully
+  honour whatever district the caller asks for, so without it a caller
+  simply chose their own `district_id` and the rest of the stack
+  obliged.
 - **HTTP** - required by `SupportPlanRequest`.
 - **Contracts** - required in every JSON Schema in `/contracts/v1/`.
 - **Coordinator** - propagated to every agent context and stamped on
@@ -240,6 +292,36 @@ Every request carries a `district_id` matching pattern
 - **Validator Agent** - deterministic checks
   (`DRAFT_DISTRICT_MISMATCH`, `CROSS_DISTRICT_CITATION`,
   `UNKNOWN_CITATION_ID`) reject any drift.
+
+Assignments live in `district_assignments` in `terraform.tfvars`, keyed
+on Entra object ID because it is immutable and unique within the tenant,
+unlike a UPN which can be reassigned to a different person. An account
+with no assignment can sign in and sees nothing; a blanket default grant
+would hand every account in the tenant access to every district.
+
+`require_district` deliberately does not distinguish "no such district"
+from "not yours" - that difference would let a caller enumerate which
+districts exist.
+
+Reads are filtered rather than refused: saved plans and the audit feed
+return only the caller's districts, so a shared demo environment does
+not leak another learner's activity.
+
+### Known gap: the synthetic roster is not district-scoped
+
+`Learner`, `AssessmentRecord` and `BehaviorRecord` carry no
+`district_id`. Every caller sees the same synthetic cohort from
+`/api/learners`, `/api/dashboard/summary`, `/api/assessments/summary`,
+`/api/behavior/summary` and `/api/supports/options`. Those routes still
+require an authenticated principal, but they have nothing to filter on,
+and nothing stops a caller pairing any learner ID with any district they
+are assigned to.
+
+This is a property of the mock dataset, not of the authorization layer.
+It does not leak across districts today because there are no
+per-district learners to leak - but a real deployment must add
+`district_id` to these records and filter on it, exactly as the
+evidence layer already does for citations.
 
 The target production topology gives each district its own Microsoft
 Fabric workspace and lakehouse. This repo ships only synthetic

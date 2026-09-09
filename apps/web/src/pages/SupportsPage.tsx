@@ -13,6 +13,7 @@ import { AgentWorkflowPanel } from "../components/AgentWorkflowPanel";
 import { Card } from "../components/Card";
 import { SetupStatus } from "../components/SetupStatus";
 import { ApiUnavailable, LoadingState } from "../components/States";
+import { usePrincipal } from "../auth/AuthGate";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -38,6 +39,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function SupportsPage() {
+  const { districts } = usePrincipal();
+  const [district, setDistrict] = useState(districts[0] ?? "");
   const [options, setOptions] = useState<OptionsState>({ kind: "loading" });
   const [step, setStep] = useState<Step>(1);
   const [learnerId, setLearnerId] = useState("");
@@ -116,7 +119,7 @@ export function SupportsPage() {
         learner_id: learnerId,
         category,
         concern_text: concern,
-        district_id: "DIST-DEMO",
+        district_id: district,
       })
       .then((env) => {
         setEnvelope(env);
@@ -131,7 +134,7 @@ export function SupportsPage() {
           agent_trace: [],
           provider_model: "unknown",
           correlation_id: "",
-          district_id: "DIST-DEMO",
+          district_id: district,
         }),
       )
       .finally(() => setRecLoading(false));
@@ -148,7 +151,7 @@ export function SupportsPage() {
         selected_smart_goal: smartGoal,
         selected_strategies: strategies,
         recommendation: rec,
-        district_id: "DIST-DEMO",
+        district_id: district,
       })
       .then((plan) => {
         setSavedPlans((prev) => [...prev, plan]);
@@ -171,6 +174,29 @@ export function SupportsPage() {
       <AgentWorkflowPanel running={recLoading} trace={trace} />
 
       <Card title="Guided plan builder">
+        {districts.length > 1 && (
+          <div className="mb-4">
+            <label
+              htmlFor="district-select"
+              className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
+            >
+              District
+            </label>
+            <select
+              id="district-select"
+              aria-label="District"
+              value={district}
+              onChange={(e) => setDistrict(e.target.value)}
+              className="w-full max-w-md rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            >
+              {districts.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <ol className="space-y-4" aria-label="Plan builder steps">
           <StepRow n={1} current={step} title="Select learner">
             <select

@@ -179,11 +179,19 @@ variable "enable_api_auth" {
   description = <<EOT
 Require Entra sign-in on the deployed API.
 
+Setting this false does NOT produce an open API. The app refuses to honour
+`API_AUTH_MODE=disabled` whenever it detects App Service, because that mode
+grants the caller facilitator rights over every district. The result is an API
+that returns 401 to everyone, which is safe but useless.
+
+In other words there is no supported way to run the deployed API without
+authentication. Leave this true. Auth can only be disabled for local
+development, where there is no Easy Auth to inject a principal.
+
 Creating the app registration needs permission to register applications in
-the tenant, which not every learner has. Set false only when you cannot
-register an app - the API is internet-reachable, and with this off any caller
-can choose their own district_id, read every saved plan, and spend model
-quota.
+the tenant. If you lack it, run scripts/setup-api-auth.ps1 with an account
+that has it and pass the result as `api_client_id` rather than turning auth
+off.
 EOT
   type        = bool
   default     = true

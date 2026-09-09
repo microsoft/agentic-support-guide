@@ -110,6 +110,11 @@ Implemented now:
 - Deterministic coordinator, typed shared contracts, JSON Schema
   protocol validation at every hop, one-shot repair loop.
 - Keyless Azure AI Foundry auth via `DefaultAzureCredential`.
+- Entra sign-in on the UI (MSAL, PKCE, no client secret) and App Service
+  Easy Auth on the API, with per-caller district authorization. Each
+  learner only sees the districts assigned to them in
+  `district_assignments`. See
+  [docs/security-and-privacy.md](docs/security-and-privacy.md).
 - Terraform for AI Services account, Foundry project, model deployment,
   RBAC, Log Analytics + Application Insights.
 - Validation script
@@ -131,6 +136,15 @@ Remaining gaps (not implemented in this repo):
 - The AI Services account is reachable over the public internet
   (`public_network_access_enabled = true`); keyless Entra auth is the only
   control. No private endpoint or network ACLs.
+- No rate limiting. Authentication stops anonymous abuse, but an
+  authenticated learner can still exhaust the shared model quota.
+- The synthetic learner roster has no `district_id`, so the dashboard and
+  learner endpoints return the same cohort to everyone. Evidence and saved
+  plans are district-scoped; the roster is not. See
+  [docs/security-and-privacy.md](docs/security-and-privacy.md).
+- Workshop learners hold direct Foundry RBAC, so the API's district
+  authorization does not constrain what they can call the model with
+  outside the app.
 - Human review transitions exist in the API but are not driven from the
   web UI.
 

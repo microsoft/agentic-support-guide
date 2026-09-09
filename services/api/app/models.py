@@ -27,6 +27,10 @@ class PrincipalResponse(BaseModel):
     display_name: str
     districts: list[str]
     is_facilitator: bool
+    # What the caller may actually pick. A facilitator carries no explicit
+    # assignments, so `districts` alone would leave the UI with nothing to
+    # offer them.
+    available_districts: list[str]
 
 
 class HealthCheckItem(BaseModel):

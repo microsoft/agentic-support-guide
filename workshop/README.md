@@ -6,6 +6,17 @@ multi-agent system on Azure AI Foundry."
 Every module is something you *do*. Each one ends with a checklist and a set
 of questions you should be able to answer.
 
+**You build your own environment.** There is nothing shared here — no
+facilitator-owned subscription to join, no pre-created project waiting for
+you. You run `terraform apply` against a subscription you control, and every
+resource is created, owned and destroyed by you. Modules 1, 7 and 9 have you
+deploy broken code on purpose and watch a site go down; that only works when
+the environment is yours alone.
+
+Start with **[Prerequisites](prerequisites.md)** — permissions, quota and
+tooling. Several items there depend on your tenant admin, so check them
+before you begin rather than partway through Module 0.
+
 ## The domain
 
 A synthetic K-12 learner-support scenario. Districts hold evidence about
@@ -75,9 +86,17 @@ Do not skip ahead. Each wall is the point.
 
 ## Prerequisites
 
-- An Azure subscription you can create resources in
-- `az` CLI, Terraform ≥ 1.9, Python 3.13, Node 22+
+The short version:
+
+- An Azure subscription where you can create resources **and role
+  assignments** (`Owner`, or `Contributor` + `User Access Administrator`)
+- Permission to register an Entra application, or a fallback plan
+- Model quota in your chosen region
+- `az` CLI, Terraform ≥ 1.9, Python 3.13, Node 22 LTS, PowerShell 7
 - `az login` completed
+
+The full list, with the checks that catch each one early, is in
+[Prerequisites](prerequisites.md).
 
 ## Repo orientation
 
@@ -92,11 +111,16 @@ Do not skip ahead. Each wall is the point.
 | `scripts/` | Publish, validate, evaluate, provision, deploy, smoke test, load test |
 | `.github/workflows/` | CI on every push, deploy on demand |
 
-## Facilitator notes
+## Running your environment
 
-- **Model capacity decides whether a cohort works.** The default
-  `model_capacity = 10` is enough for one person clicking and nothing more.
-  Measured against the deployed app, each request is four model calls:
+You are the only user of everything you create here, which removes a lot of
+coordination problems and leaves a few real ones.
+
+- **Model capacity is the setting you will feel first.** The default
+  `model_capacity = 10` is enough for one person clicking through one request
+  at a time, and not enough the moment anything runs in parallel — every
+  recommendation is four model calls, and Module 8's evaluation and Module
+  5's load test both fan out. Measured against the deployed app:
 
   | Capacity | 15 concurrent | 30 concurrent |
   | --- | --- | --- |
@@ -104,19 +128,34 @@ Do not skip ahead. Each wall is the point.
   | 300 | 15/15, 42s | 30/30, 33s |
 
   Everything else fails with `AGENT_PROVIDER_THROTTLING`. Check headroom
-  with `az cognitiveservices usage list -l <region> -o table` before the
-  session, and reproduce with `python scripts/load_test.py --waves 30`.
-- **Warm the app before learners arrive.** The first burst after an idle
-  period is much slower and can time out — 170s wall clock cold versus 42s
-  warm for the same 15 requests. One request a few minutes early is enough.
+  with `az cognitiveservices usage list -l <region> -o table`, and reproduce
+  the measurement with `python scripts/load_test.py --waves 30`.
+- **Cold starts are slow.** The first burst after an idle period can time
+  out — 170s wall clock cold versus 42s warm for the same 15 requests. If you
+  come back to the environment after a break, send one request and wait
+  before you start timing anything.
 - **Search throughput.** One replica serves roughly three concurrent semantic
-  requests plus a short queue. Thirty learners querying at once will throttle.
-  Raise `search_replica_count` or run Module 3 in waves.
+  requests plus a short queue, which is ample for one person. Raise
+  `search_replica_count` only if you are load testing retrieval.
+- **Access.** Every role goes to whoever runs `terraform apply`, so
+  `additional_principal_ids`, `facilitator_object_ids` and
+  `district_assignments` can all stay empty — empty means you. Only fill them
+  in if you deliberately want to let a colleague into your subscription.
+- **Suffixes.** `WORKSHOP_LEARNER_SUFFIX` is mandatory for publishing. In
+  your own project it is what keeps a Module 6 variant addressable alongside
+  its twin, and what makes `--delete` remove exactly what you published.
 - **Isolation.** `Search Service Contributor` covers the whole search
-  service; Azure AI Search has no per-index RBAC. Index prefixes are a naming
-  convention, not a security boundary. Acceptable in a throwaway subscription
-  only — see the note at the end of Module 0.
-- **Suffixes.** `WORKSHOP_LEARNER_SUFFIX` is mandatory for publishing. It is
-  what stops learners overwriting each other's agents.
-- **Cost.** Tear down with `terraform -chdir=infra destroy` when finished. The
-  Search service is the largest line item.
+  service; Azure AI Search has no per-index RBAC. That costs you nothing here
+  — the service is yours — but index prefixes are a naming convention, not a
+  security boundary, and this is the pattern people carry into shared
+  environments. See the note at the end of Module 0.
+- **Easy Auth needs a restart.** Changing the auth settings leaves the
+  running worker on the old configuration, so Terraform can report success
+  while the API still serves anonymous traffic. Always follow with
+  `az webapp restart` and confirm with an unauthenticated `curl` that a
+  protected endpoint returns 401.
+- **Cost.** Tear down with `terraform -chdir=infra destroy` whenever you stop
+  for more than a day. The Search service and the two App Service plans bill
+  by the hour whether or not you use them. The API app registration created by
+  `scripts/setup-api-auth.ps1` survives teardown and must be deleted
+  separately.

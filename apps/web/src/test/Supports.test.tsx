@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
 import { SupportsPage } from "../pages/SupportsPage";
+import { PrincipalContext } from "../auth/AuthGate";
 import { api } from "../api/client";
 import {
   envelopeErrorFixture,
@@ -13,6 +15,16 @@ import {
   supportOptionsFixture,
 } from "./fixtures";
 
+function renderWithDistricts(districts: string[], children: ReactNode) {
+  return render(
+    <MemoryRouter>
+      <PrincipalContext.Provider value={{ principal: null, districts, signOut: () => {} }}>
+        {children}
+      </PrincipalContext.Provider>
+    </MemoryRouter>,
+  );
+}
+
 describe("SupportsPage", () => {
   it("advances through the guided plan builder and shows the agent workflow panel", async () => {
     vi.spyOn(api, "health").mockResolvedValue(healthFixture);
@@ -21,11 +33,7 @@ describe("SupportsPage", () => {
     vi.spyOn(api, "savedPlans").mockResolvedValue(savedPlansFixture);
     vi.spyOn(api, "recommendation").mockResolvedValue(envelopeOkFixture);
 
-    render(
-      <MemoryRouter>
-        <SupportsPage />
-      </MemoryRouter>,
-    );
+    renderWithDistricts(["DIST-A"], <SupportsPage />);
 
     await waitFor(() => expect(screen.getByLabelText(/learner/i)).toBeInTheDocument());
     expect(screen.getByTestId("agent-workflow")).toBeInTheDocument();
@@ -56,11 +64,7 @@ describe("SupportsPage", () => {
     vi.spyOn(api, "savedPlans").mockResolvedValue(savedPlansFixture);
     vi.spyOn(api, "recommendation").mockResolvedValue(envelopeErrorFixture);
 
-    render(
-      <MemoryRouter>
-        <SupportsPage />
-      </MemoryRouter>,
-    );
+    renderWithDistricts(["DIST-A"], <SupportsPage />);
 
     await waitFor(() => expect(screen.getByLabelText(/learner/i)).toBeInTheDocument());
     await userEvent.selectOptions(screen.getByLabelText(/learner/i), "LRN-0001");
@@ -74,5 +78,29 @@ describe("SupportsPage", () => {
     const alert = await screen.findByTestId("recommendation-error");
     expect(alert).toHaveTextContent(/blocked by content-safety/i);
     expect(screen.queryByTestId("completeness")).not.toBeInTheDocument();
+  });
+
+  it("sends the principal's district rather than a hardcoded one", async () => {
+    vi.spyOn(api, "health").mockResolvedValue(healthFixture);
+    vi.spyOn(api, "healthDetails").mockResolvedValue(healthDetailsReadyFixture);
+    vi.spyOn(api, "supportOptions").mockResolvedValue(supportOptionsFixture);
+    vi.spyOn(api, "savedPlans").mockResolvedValue(savedPlansFixture);
+    const recommendation = vi
+      .spyOn(api, "recommendation")
+      .mockResolvedValue(envelopeOkFixture);
+
+    renderWithDistricts(["DIST-B"], <SupportsPage />);
+
+    await waitFor(() => expect(screen.getByLabelText(/learner/i)).toBeInTheDocument());
+    await userEvent.selectOptions(screen.getByLabelText(/learner/i), "LRN-0001");
+    await userEvent.selectOptions(screen.getByLabelText(/category/i), "early-literacy");
+    await userEvent.type(
+      screen.getByLabelText(/concern text/i),
+      "Letter-sound fluency behind pace.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /generate recommendation/i }));
+
+    await waitFor(() => expect(recommendation).toHaveBeenCalled());
+    expect(recommendation.mock.calls[0][0]).toMatchObject({ district_id: "DIST-B" });
   });
 });

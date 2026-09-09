@@ -83,9 +83,12 @@ Then publish:
 ```
 
 `--suffix` is required, not optional. Your agent is published as
-`asg-support-explainer-agent-<your-alias>`. Without it, thirty learners
-publishing into one project would overwrite each other's agents and you would
-spend the afternoon debugging someone else's prompt.
+`asg-support-explainer-agent-<your-alias>`. The project is yours, so nobody
+else is going to overwrite it — the suffix earns its place for two other
+reasons. Module 6 publishes two variants of this same definition and needs
+them separately addressable, and the cleanup in step 6 matches on the suffix,
+so it removes exactly what you published rather than every agent in the
+project.
 
 `--workshop-only` limits this to the standalone agent. Drop it later to also
 publish the three coordinator roles used in Module 4.
@@ -124,8 +127,9 @@ answerable.
 .\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --delete
 ```
 
-This only deletes agents ending in your suffix. It will not touch anyone
-else's.
+This matches the suffix exactly — not as a prefix — so an agent published
+under a different suffix survives. That precision is deliberate: a prefix
+match here once deleted more than it was asked to.
 
 ---
 

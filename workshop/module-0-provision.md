@@ -1,17 +1,24 @@
 # Module 0 — Provision your environment
 
-**Who runs this:** the facilitator, once, before the workshop. Learners can
-also run it solo against their own subscription.
+**Who runs this:** you, in your own subscription. Nothing in this workshop is
+shared — there is no facilitator-owned environment to join, and every
+resource below belongs to you.
 
 **Time:** about 20 minutes, mostly waiting.
 
 **You will have at the end:** a Foundry project, three model deployments, a
-search service, and a blob container — all named with a random suffix so a
-whole room can deploy into one subscription without colliding.
+search service, and a blob container — all in your own resource group, named
+with a random suffix so that a redeploy after `destroy` does not collide with
+Azure's soft-delete tombstones or with globally-unique names someone else
+already took.
 
 ---
 
 ## Before you start
+
+Work through [Prerequisites](prerequisites.md) first. Permissions, quota and
+resource-provider registration are the three things that fail this module,
+and all three are cheaper to check now than to discover mid-apply.
 
 ```powershell
 az login
@@ -36,7 +43,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 cd ..\..
 
-# Frontend: Node 20+
+# Frontend: Node 22 LTS
 cd apps\web
 npm install
 cd ..\..
@@ -82,11 +89,16 @@ On 2026-09-03 the `basic` Search SKU had no capacity in either `westus3` or
 `eastus2`, while `westus2` was fine. Cross-region only costs retrieval
 latency, so splitting them is a normal outcome, not a mistake.
 
-### Model capacity decides whether a cohort works
+### Model capacity is the setting you will feel first
 
 `model_capacity` is in thousands of tokens per minute, and the default of
-`10` is sized for one person clicking. Every recommendation is **four model
-calls**, so a room multiplies it fast. Measured against the deployed app:
+`10` is sized for one person clicking one request at a time. That is enough
+for Modules 2, 3 and 4, where you submit a request and read the answer.
+
+It stops being enough the moment anything runs in parallel. Every
+recommendation is **four model calls**, so Module 8's graded evaluation — six
+cases, each answered and then graded — and the load test in Module 5 both fan
+out fast. Measured against the deployed app:
 
 | `model_capacity` | 15 concurrent | 30 concurrent |
 | --- | --- | --- |
@@ -94,7 +106,7 @@ calls**, so a room multiplies it fast. Measured against the deployed app:
 | 300 | 15/15 | 30/30 |
 
 At 10, the rest fail with `AGENT_PROVIDER_THROTTLING`. The app handles it
-cleanly — no crash, a typed error — but nobody can complete a module.
+cleanly — no crash, a typed error — but the run does not complete.
 
 Check your headroom before raising it, because quota is per-region and
 per-SKU:
@@ -103,7 +115,8 @@ per-SKU:
 az cognitiveservices usage list -l westus3 -o table
 ```
 
-Then set all three, since Modules 5 and 8 use their own deployments:
+Then set all three, up to whatever your quota allows, since Modules 5 and 8
+use their own deployments:
 
 ```hcl
 model_capacity  = 300   # the three coordinator agents
@@ -117,26 +130,13 @@ You can reproduce the measurement yourself once deployed:
 python scripts\load_test.py --waves 30
 ```
 
-## 3. Grant access to your learners
+## 3. Apply
 
-By default every role goes only to whoever runs `apply`. For a shared
-workshop, add everyone else in `infra/terraform.tfvars`:
-
-```hcl
-additional_principal_ids = [
-  "00000000-0000-0000-0000-000000000001",
-]
-```
-
-Above roughly ten people, use one Entra **group** object ID instead —
-membership changes then need no re-apply:
-
-```powershell
-az ad group show --group "ASG Workshop" --query id -o tsv
-az ad user show --id someone@example.invalid --query id -o tsv
-```
-
-## 4. Apply
+There is no access list to fill in. Every role this stack creates goes to
+whoever runs `apply`, so `additional_principal_ids`, `facilitator_object_ids`
+and `district_assignments` can all stay empty — empty means you, and you are
+the only identity that needs to reach this environment. Set them only if you
+deliberately want to let a colleague into your subscription.
 
 ```powershell
 terraform -chdir=infra init
@@ -176,7 +176,7 @@ Terraform is idempotent; re-run `apply`. Three failures are common:
   `storage_use_azuread = true` to match. If you see this, you have local edits
   to `infra/providers.tf`.
 
-## 5. Generate your `.env`
+## 4. Generate your `.env`
 
 ```powershell
 .\scripts\populate-env.ps1
@@ -185,8 +185,10 @@ Terraform is idempotent; re-run `apply`. Three failures are common:
 This writes `services/api/.env` from the Terraform outputs. Nothing in this
 repo loads `.env` implicitly, so this step is required, not optional.
 
-Then set your own learner suffix — this is what keeps your agents separate
-from everyone else's in a shared project:
+Then set your suffix. `publish_prompt_agents.py` requires it, and inside your
+own project it earns its keep twice: Module 6 publishes two variants of one
+agent and needs them separately addressable, and `--delete` matches on the
+suffix so it removes exactly what you published and nothing else.
 
 ```powershell
 # Replace the placeholder rather than appending: populate-env.ps1 already
@@ -199,7 +201,7 @@ Select-String -Path $envPath -Pattern '^WORKSHOP_LEARNER_SUFFIX='
 
 Use lowercase letters, digits, or `-`, 24 characters max.
 
-## 6. Verify
+## 5. Verify
 
 First the offline checks — no backend needed:
 
@@ -251,18 +253,30 @@ colliding with the tombstone, so do not remove it from the naming.
 
 ---
 
-**A note on isolation, if you are the facilitator.**
-`Search Service Contributor` is scoped to the entire search service. Azure AI
-Search has no per-index RBAC, so index name prefixes are a naming convention,
-not a security boundary — any learner holding that role can delete any other
-learner's index. That is fine in a throwaway workshop subscription and not
-fine anywhere else. Set `grant_search_control_plane = false` and pre-create
-indexes yourself for shared or long-lived environments.
+**A note on isolation.** `Search Service Contributor` is scoped to the entire
+search service, because Azure AI Search has no per-index RBAC. In this
+workshop that costs you nothing — the service is yours and nobody else holds
+the role. It matters the moment this pattern is reused somewhere with more
+than one team, tenant or customer in it: index name prefixes are a naming
+convention, not a security boundary, and anyone holding that role can delete
+any index on the service. Set `grant_search_control_plane = false` and
+pre-create indexes out of band for shared or long-lived environments. Module
+3 makes the same point at the place you would feel it.
 
-**Guardrails (Module 6) need more.** Configuring guardrails requires the
-**Foundry Account Owner** role, which Terraform does not grant — it is a
-privileged role that should be a deliberate decision, not a side effect of
-`apply`. Either assign it to learners yourself, or run Module 6 as a
-facilitator-led demonstration. Module 6 says the same thing.
+**Guardrails (Module 6) need one more role.** Configuring agent guardrails in
+the portal requires the **Foundry Account Owner** role, which Terraform does
+not grant — it is privileged, and granting it should be a deliberate decision
+rather than a side effect of `apply`. The account is yours, so assign it to
+yourself when you reach Module 6. Role names in this family differ between
+tenants, so list what yours actually has instead of guessing:
+
+```powershell
+az role definition list --query "[?contains(roleName, 'AI')].roleName" -o tsv
+terraform -chdir=infra output -raw ai_services_account_id
+```
+
+Then assign the account-owner role at that scope. This needs `Owner` or
+`User Access Administrator`, which is on the prerequisites list for exactly
+this reason.
 
 Next: [Module 1 — Deploy the app to Azure](module-1-deploy-app.md)

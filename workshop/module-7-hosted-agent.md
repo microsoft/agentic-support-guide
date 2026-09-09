@@ -254,13 +254,14 @@ in code (M4), and measure it (M8).
 
 ---
 
-## Facilitator notes
+## Notes on timing
 
-- Deploys are ~49s each, so this module is comfortably hands-on.
-  **Concurrency at 30 learners has not been measured.** If the room deploys
-  simultaneously and builds queue, stagger step 3 in waves of about ten.
-- Step 6 needs someone who can create role assignments on the AI Services
-  account. Either pre-grant, or run that one command per learner.
+- Deploys are ~49s each, so the edit-deploy-test loop in this module is
+  comfortably hands-on.
+- Step 6 needs permission to create a role assignment on your AI Services
+  account. You already have it if you ran Module 0 as `Owner` or
+  `User Access Administrator`, which is why that is on the
+  [prerequisites](prerequisites.md) list.
 
 ## Check yourself
 

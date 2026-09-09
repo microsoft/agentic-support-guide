@@ -65,3 +65,47 @@ model_capacity = 10
 #   Service principal:  az ad sp show --id <app-id> --query id -o tsv
 
 principal_id = ""
+
+
+# ---- API authentication -----------------------------------------------------
+# The API sits behind App Service Easy Auth. Every endpoint except /api/health
+# requires an Entra token, and each caller only sees the districts assigned to
+# them here.
+#
+# Leave this true. Setting it false does not give you an open API for demos:
+# the app refuses to run unauthenticated on App Service and returns 401 to
+# everyone. If you cannot register an app yourself, run
+# scripts/setup-api-auth.ps1 as someone who can and set api_client_id below.
+
+enable_api_auth = true
+
+# App registration for the API. Leave "" to let Terraform create one.
+#
+# Set this when the azuread provider fails to create it - a tenant with
+# Continuous Access Evaluation returns `InvalidAuthenticationToken` on the
+# provider's token but not on the CLI's. In that case run:
+#   .\scripts\setup-api-auth.ps1
+# and paste the client id it prints here.
+api_client_id = ""
+
+# Object IDs that may use every district and run the demo reset.
+# Empty defaults to whoever runs `terraform apply`.
+#
+# Add the CI service principal here too, otherwise the post-deploy smoke test
+# authenticates successfully and then gets 403 on every district:
+#   az ad sp show --id <deploy-app-client-id> --query id -o tsv
+facilitator_object_ids = []
+
+# Which districts each learner may use. Districts are DIST-A, DIST-B and
+# DIST-DEMO. An unlisted account can sign in but sees nothing, which is the
+# intended default - a blanket grant would hand every account in the tenant
+# access to every district.
+#
+#   district_assignments = {
+#     "00000000-0000-0000-0000-000000000000" = ["DIST-A"]
+#     "11111111-1111-1111-1111-111111111111" = ["DIST-A", "DIST-B"]
+#   }
+#
+# Look up a learner's Object ID:
+#   az ad user show --id someone@example.invalid --query id -o tsv
+district_assignments = {}

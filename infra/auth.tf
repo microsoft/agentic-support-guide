@@ -52,8 +52,11 @@ resource "azuread_application" "api" {
   }
 
   # The SPA runs on its own App Service host and signs in with MSAL.
+  # Both spellings: Entra compares redirect URIs as exact strings, and MSAL
+  # sends `window.location.origin`, which carries no trailing slash.
+  # Registering only the slashed form fails sign-in with AADSTS50011.
   single_page_application {
-    redirect_uris = ["${local.web_url}/"]
+    redirect_uris = [local.web_url, "${local.web_url}/"]
   }
 }
 
