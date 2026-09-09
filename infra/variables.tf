@@ -162,6 +162,58 @@ EOT
   }
 }
 
+variable "api_client_id" {
+  description = <<EOT
+Entra application (client) ID for the API.
+
+Leave empty to have Terraform create the registration. Set it to a client ID
+from `scripts/setup-api-auth.ps1` when Terraform cannot: Continuous Access
+Evaluation can reject the azuread provider's token even when `az` works, and
+registering an application needs tenant permission a learner may not have.
+EOT
+  type        = string
+  default     = ""
+}
+
+variable "enable_api_auth" {
+  description = <<EOT
+Require Entra sign-in on the deployed API.
+
+Creating the app registration needs permission to register applications in
+the tenant, which not every learner has. Set false only when you cannot
+register an app - the API is internet-reachable, and with this off any caller
+can choose their own district_id, read every saved plan, and spend model
+quota.
+EOT
+  type        = bool
+  default     = true
+}
+
+variable "facilitator_object_ids" {
+  description = <<EOT
+Entra object IDs that may act on every district and run the demo reset.
+Leave empty to grant it to whoever runs `terraform apply`.
+EOT
+  type        = list(string)
+  default     = []
+}
+
+variable "district_assignments" {
+  description = <<EOT
+Entra object ID to the districts that identity may use.
+
+  district_assignments = {
+    "00000000-0000-0000-0000-000000000000" = ["DIST-A"]
+  }
+
+An identity that is not listed gets NO districts. There is deliberately no
+default grant: one would hand every account in the tenant access to a
+district's data.
+EOT
+  type        = map(list(string))
+  default     = {}
+}
+
 variable "api_knowledge_base_name" {
   description = "Foundry IQ knowledge base the deployed API queries. Set after Module 3 provisions it."
   type        = string

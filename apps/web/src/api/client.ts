@@ -15,6 +15,14 @@ import type {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "");
 
+// Set once by the auth provider at startup. The client stays free of MSAL so
+// it can still be used from tests and from an unauthenticated local run.
+let accessTokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setAccessTokenProvider(provider: (() => Promise<string | null>) | null): void {
+  accessTokenProvider = provider;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -27,11 +35,16 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const token = accessTokenProvider ? await accessTokenProvider() : null;
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { "content-type": "application/json" },
       ...init,
+      headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
     });
   } catch (err) {
     throw new ApiError(0, `Network error: ${(err as Error).message}`);

@@ -22,6 +22,13 @@ class HealthResponse(BaseModel):
     build_id: str
 
 
+class PrincipalResponse(BaseModel):
+    object_id: str
+    display_name: str
+    districts: list[str]
+    is_facilitator: bool
+
+
 class HealthCheckItem(BaseModel):
     name: str
     label: str
@@ -46,6 +53,9 @@ class HealthDetailsResponse(BaseModel):
     # False for a remote knowledge base: readiness is a configuration check and
     # cannot prove a remote source holds anything without a network call.
     evidence_verified: bool
+    # `entra` or `disabled`. Surfaced so an unauthenticated deployment is
+    # visible from outside rather than only in app settings.
+    api_auth_mode: str
     district_isolation_enabled: bool
     customer_demo_ready: bool
     checks: list[HealthCheckItem]

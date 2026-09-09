@@ -27,6 +27,7 @@ from . import behavior as behavior_mod
 from . import dashboard as dashboard_mod
 from . import learners as learners_mod
 from .agents.shared.contracts import ResourceRef
+from .auth import Principal, principal_from_request, require_district
 from .build_info import current_build_id
 from .config import (
     BASE_TIMESTAMP,
@@ -62,6 +63,7 @@ from .models import (
     HealthDetailsResponse,
     HealthResponse,
     LearnersResponse,
+    PrincipalResponse,
     RecommendationEnvelope,
     ReviewTransitionRequest,
     SavedPlan,
@@ -248,6 +250,9 @@ def create_app(
     def get_evidence(request: Request) -> EvidenceRetriever:
         return request.app.state.evidence_retriever  # type: ignore[no-any-return]
 
+    def get_principal(request: Request) -> Principal:
+        return principal_from_request(request)
+
     router = APIRouter(prefix="/api")
 
     @router.get("/health", response_model=HealthResponse)
@@ -278,6 +283,22 @@ def create_app(
             version=SERVICE_VERSION,
         )
 
+    @router.get("/me", response_model=PrincipalResponse)
+    def get_me(principal: Principal = Depends(get_principal)) -> PrincipalResponse:
+        """Who the caller is and which districts they may use.
+
+        Entra does not carry district membership, so the UI cannot derive this
+        from the token. Without it the UI would have to guess - which is how
+        three hardcoded DIST-DEMO values ended up in it.
+        """
+
+        return PrincipalResponse(
+            object_id=principal.object_id,
+            display_name=principal.display_name,
+            districts=sorted(principal.districts),
+            is_facilitator=principal.is_facilitator,
+        )
+
     @router.post("/demo/reset", response_model=DemoResetResponse)
     def post_demo_reset(
         settings: AzureFoundrySettings = Depends(get_settings_dep),
@@ -285,7 +306,12 @@ def create_app(
         audit: RuntimeAuditLog = Depends(get_audit),
         repos: Repositories = Depends(get_repos),
         telemetry: TelemetryRecorder = Depends(get_telemetry),
+        principal: Principal = Depends(get_principal),
     ) -> DemoResetResponse:
+        # Wipes everyone's plans and audit rows, so it is facilitator-only
+        # even when the feature flag is on.
+        if not principal.is_facilitator:
+            raise HTTPException(status_code=403, detail="Demo reset is facilitator-only.")
         if not settings.demo_reset_enabled:
             raise HTTPException(
                 status_code=403,
@@ -359,7 +385,11 @@ def create_app(
         audit: RuntimeAuditLog = Depends(get_audit),
         contracts: ContractsRegistry = Depends(get_contracts),
         evidence: EvidenceRetriever = Depends(get_evidence),
+        principal: Principal = Depends(get_principal),
     ) -> RecommendationEnvelope:
+        # Authorize before anything else: this is the endpoint that spends
+        # model quota, four calls at a time.
+        require_district(principal, payload.district_id)
         learner = next(
             (learner for learner in repos.learners if learner.learner_id == payload.learner_id),
             None,
@@ -452,15 +482,21 @@ def create_app(
         )
 
     @router.get("/supports/plans", response_model=SavedPlansResponse)
-    def get_saved_plans(plans: SavedPlansStore = Depends(get_plans)) -> SavedPlansResponse:
-        rows = plans.list()
+    def get_saved_plans(
+        plans: SavedPlansStore = Depends(get_plans),
+        principal: Principal = Depends(get_principal),
+    ) -> SavedPlansResponse:
+        # Previously returned every district's plans, including concern text.
+        rows = [p for p in plans.list() if principal.may_access(p.district_id)]
         return SavedPlansResponse(plans=rows, total=len(rows))
 
     @router.post("/supports/plans", response_model=SavedPlan)
     def post_saved_plan(
         payload: SavePlanRequest,
         plans: SavedPlansStore = Depends(get_plans),
+        principal: Principal = Depends(get_principal),
     ) -> SavedPlan:
+        require_district(principal, payload.district_id)
         plan = SavedPlan(
             plan_id=plans.next_plan_id(),
             learner_id=payload.learner_id,
@@ -481,10 +517,15 @@ def create_app(
         payload: ReviewTransitionRequest,
         plans: SavedPlansStore = Depends(get_plans),
         audit: RuntimeAuditLog = Depends(get_audit),
+        principal: Principal = Depends(get_principal),
     ) -> SavedPlan:
         plan = plans.get(plan_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="Unknown plan_id")
+        # The request body carries no district, so authorization has to come
+        # from the STORED plan. Trusting the body here would leave any plan
+        # transitionable by id.
+        require_district(principal, plan.district_id)
         try:
             new_state = transition(
                 HumanReviewState(plan.human_review_state),
@@ -499,7 +540,9 @@ def create_app(
             ReviewTransitionAuditEntry(
                 correlation_id=plan_id,
                 district_id=plan.district_id,
-                user_label=payload.user_label,
+                # Reviewer identity comes from the token, never the body: a
+                # caller-supplied label lets anyone forge attribution.
+                user_label=principal.display_name,
                 timestamp=_utc_now_iso(),
                 previous_state=plan.human_review_state,
                 new_state=new_state.value,
@@ -513,10 +556,15 @@ def create_app(
     def get_audit_events(
         repos: Repositories = Depends(get_repos),
         audit: RuntimeAuditLog = Depends(get_audit),
+        principal: Principal = Depends(get_principal),
     ) -> AuditResponse:
         seeded = audit_mod.list_events(repos.audit).events
         runtime_rows: list[AuditEvent] = audit.snapshot()
-        combined = seeded + runtime_rows
+        combined = [
+            row
+            for row in seeded + runtime_rows
+            if principal.may_access(getattr(row, "district_id", "") or "")
+        ]
         return AuditResponse(
             events=combined,
             total=len(combined),

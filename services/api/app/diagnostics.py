@@ -9,6 +9,7 @@ from __future__ import annotations
 from .agents.data_analyst.agent import AGENT_NAME as DATA_ANALYST_NAME
 from .agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
 from .agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
+from .auth import api_auth_mode
 from .config import AzureFoundrySettings
 from .evidence import EvidenceRetriever
 from .foundry_agents import PROVIDER_ID, MafAgentRuntime, missing_model_deployments
@@ -186,6 +187,7 @@ def build_health_details(
         evidence_fixture_available=evidence_available,
         evidence_source=evidence_source,
         evidence_verified=evidence_verified,
+        api_auth_mode=api_auth_mode(),
         evidence_knowledge_base=evidence_knowledge_base,
         district_isolation_enabled=district_isolation_enabled,
         customer_demo_ready=customer_demo_ready,

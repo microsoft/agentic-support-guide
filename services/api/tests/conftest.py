@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import json
+import os
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -150,6 +153,49 @@ def evidence_retriever() -> FixtureEvidenceRetriever:
     return FixtureEvidenceRetriever()
 
 
+TEST_PRINCIPAL_OID = "11111111-1111-1111-1111-111111111111"
+# All-zero placeholder: the privacy scanner rejects realistic-looking GUIDs
+# next to identity keywords, which is the behaviour we want everywhere else.
+TEST_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+TEST_DISTRICTS = ("DIST-A", "DIST-B", "DIST-DEMO")
+
+
+def principal_header(
+    *,
+    object_id: str = TEST_PRINCIPAL_OID,
+    name: str = "Test Educator",
+    tenant_id: str = TEST_TENANT_ID,
+) -> dict[str, str]:
+    """Build the header App Service Easy Auth injects on a validated request.
+
+    Tests send this rather than disabling auth, so the real header parsing and
+    authorization path runs. Turning auth off in tests would make every
+    endpoint test silently blind to authorization.
+    """
+
+    payload = {
+        "auth_typ": "aad",
+        "claims": [
+            {"typ": "oid", "val": object_id},
+            {"typ": "tid", "val": tenant_id},
+            {"typ": "name", "val": name},
+        ],
+    }
+    encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
+    return {"x-ms-client-principal": encoded}
+
+
+def _apply_test_identity(
+    monkeypatch: pytest.MonkeyPatch | None = None,
+    *,
+    districts: tuple[str, ...] = TEST_DISTRICTS,
+    facilitator: bool = True,
+) -> None:
+    assignment = "|".join(districts)
+    os.environ["DISTRICT_ASSIGNMENTS"] = f"{TEST_PRINCIPAL_OID}={assignment}"
+    os.environ["FACILITATOR_OBJECT_IDS"] = TEST_PRINCIPAL_OID if facilitator else ""
+
+
 @pytest.fixture()
 def make_client() -> Callable[..., TestClient]:
     def _factory(
@@ -168,7 +214,8 @@ def make_client() -> Callable[..., TestClient]:
             demo_reset_enabled=demo_reset_enabled,
         )
         app.state.runtime = runtime
-        return TestClient(app)
+        _apply_test_identity()
+        return TestClient(app, headers=principal_header())
 
     return _factory
 
@@ -183,4 +230,5 @@ def make_default_client(*, demo_reset_enabled: bool = False) -> TestClient:
         demo_reset_enabled=demo_reset_enabled,
     )
     app.state.runtime = runtime
-    return TestClient(app)
+    _apply_test_identity()
+    return TestClient(app, headers=principal_header())

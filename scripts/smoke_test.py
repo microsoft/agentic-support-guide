@@ -41,6 +41,43 @@ def terraform_output(name: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def acquire_token(client_id: str) -> str:
+    """Bearer token for the API, or "" when auth is off.
+
+    The API sits behind Easy Auth, so every call except health needs one.
+    Uses the signed-in az identity so the script works the same locally and
+    in CI, where the federated service principal signs in the same way.
+    """
+
+    if not client_id:
+        return ""
+    try:
+        result = subprocess.run(
+            [
+                "az",
+                "account",
+                "get-access-token",
+                "--resource",
+                f"api://{client_id}",
+                "--query",
+                "accessToken",
+                "-o",
+                "tsv",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+            shell=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+AUTH_HEADERS: dict[str, str] = {}
+
+
 def _require_http_url(url: str) -> str:
     """Reject anything that is not a plain http(s) URL.
 
@@ -55,7 +92,8 @@ def _require_http_url(url: str) -> str:
 
 
 def get(url: str, timeout: int = 120) -> tuple[int, bytes]:
-    req = urllib.request.Request(_require_http_url(url), headers={"Accept": "*/*"})
+    headers = {"Accept": "*/*", **AUTH_HEADERS}
+    req = urllib.request.Request(_require_http_url(url), headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.status, resp.read()
 
@@ -64,7 +102,7 @@ def post(url: str, payload: dict, timeout: int = 240) -> tuple[int, dict]:
     req = urllib.request.Request(
         _require_http_url(url),
         data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **AUTH_HEADERS},
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.status, json.loads(resp.read())
@@ -241,6 +279,11 @@ def main() -> int:
         choices=["", "fixture", "foundry_iq"],
         help="Fail if the app is not serving evidence from this provider.",
     )
+    parser.add_argument(
+        "--api-client-id",
+        default="",
+        help="Entra client ID of the API. Defaults to the terraform output.",
+    )
     args = parser.parse_args()
 
     api = args.api_url or terraform_output("api_url")
@@ -252,6 +295,18 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    # Every endpoint except health sits behind Easy Auth.
+    client_id = args.api_client_id or terraform_output("api_client_id")
+    token = acquire_token(client_id)
+    if token:
+        AUTH_HEADERS["Authorization"] = f"Bearer {token}"
+        print("authenticated with the signed-in az identity")
+    elif client_id:
+        print(
+            "could not acquire a token; run `az login`. Authenticated checks will fail with 401.",
+            file=sys.stderr,
+        )
+
     return Smoke(api, web, args.expect_evidence).run()
 
 
