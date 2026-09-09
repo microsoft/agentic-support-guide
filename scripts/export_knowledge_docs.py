@@ -1,6 +1,6 @@
 """Export the district evidence fixtures as documents for Foundry IQ.
 
-Module 2A needs real files in blob storage to index. The in-repo fixtures
+Module 3 needs real files in blob storage to index. The in-repo fixtures
 are the same evidence the agents already use, so grounding the agent on
 these exports means the knowledge base and the coordinator see the same
 facts.

@@ -1,4 +1,4 @@
-"""Module 4: compare two agents that differ only in content-safety policy.
+"""Module 6: compare two agents that differ only in content-safety policy.
 
 Sends the same fixed probe set to both and prints a side-by-side table, so
 the question "what does the platform stop, and what must I still build?"

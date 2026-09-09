@@ -168,16 +168,27 @@ variable "api_knowledge_base_name" {
   default     = ""
 }
 
+variable "api_knowledge_source_name" {
+  description = <<EOT
+Knowledge source the API scopes retrieval to. Leave empty to derive it from
+the knowledge base name by swapping the `kb` segment for `ks`, which matches
+both `asg-kb-<suffix>` and a portal-created `kb-<suffix>`. Set it explicitly
+when the source does not follow that convention.
+EOT
+  type        = string
+  default     = ""
+}
+
 variable "log_analytics_retention_days" {
   description = "Log Analytics workspace retention in days."
   type        = number
   default     = 30
 }
 
-# ---- Knowledge plane (Foundry IQ, Module 2) --------------------------------
+# ---- Knowledge plane (Foundry IQ, Module 3) --------------------------------
 
 variable "enable_knowledge_plane" {
-  description = "Create the Azure AI Search service and blob container that back Foundry IQ. Set false to skip Module 2 infrastructure."
+  description = "Create the Azure AI Search service and blob container that back Foundry IQ. Set false to skip Module 3 infrastructure."
   type        = bool
   default     = true
 }
@@ -243,10 +254,10 @@ EOT
   }
 }
 
-# ---- Model router (Module 3) ------------------------------------------------
+# ---- Model router (Module 5) ------------------------------------------------
 
 variable "enable_model_router" {
-  description = "Deploy the model-router deployment used by Module 3. Availability is region-dependent."
+  description = "Deploy the model-router deployment used by Module 5. Availability is region-dependent."
   type        = bool
   default     = true
 }
@@ -275,10 +286,10 @@ variable "router_capacity" {
   default     = 10
 }
 
-# ---- Judge model (Module 6 evaluations) -------------------------------------
+# ---- Judge model (Module 8 evaluations) -------------------------------------
 
 variable "enable_judge_deployment" {
-  description = "Deploy a separate model used only to grade agent output in Module 6."
+  description = "Deploy a separate model used only to grade agent output in Module 8."
   type        = bool
   default     = true
 }

@@ -106,19 +106,77 @@ def test_unconfigured_retriever_fails_fast() -> None:
         FoundryIQEvidenceRetriever(endpoint="", knowledge_base="", index_name="")
 
 
+@pytest.mark.parametrize(
+    ("knowledge_base", "expected"),
+    [
+        ("asg-kb-demo", "asg-ks-demo"),
+        # The portal walkthrough produces this name. A plain
+        # .replace("-kb-", "-ks-") no-ops here, leaving the retriever querying
+        # a source that does not exist.
+        ("kb-alias", "ks-alias"),
+        ("team-kb", "team-ks"),
+    ],
+)
+def test_source_name_derived_from_knowledge_base(knowledge_base: str, expected: str) -> None:
+    from app.evidence.foundry_iq import _derive_source_name
+
+    assert _derive_source_name(knowledge_base) == expected
+
+
+def test_explicit_knowledge_source_wins_over_derivation() -> None:
+    retriever = FoundryIQEvidenceRetriever(
+        endpoint="https://example.search.windows.net",
+        knowledge_base="kb-alias",
+        knowledge_source="totally-different-source",
+    )
+    assert retriever._knowledge_source == "totally-different-source"
+
+
 def test_unknown_source_type_falls_back_rather_than_crashing() -> None:
     citation = _to_citation(
-        {"citation_id": "X", "source_type": "not-a-real-type", "evidence_summary": "text"},
+        {
+            "citation_id": "X",
+            "district_id": "DIST-A",
+            "source_type": "not-a-real-type",
+            "evidence_summary": "text",
+        },
         "DIST-A",
     )
     assert citation is not None
     assert citation.district_id == "DIST-A"
 
 
+def test_untagged_documents_are_dropped_not_relabelled() -> None:
+    """The live failure this guards against.
+
+    A knowledge base holds blob and web sources next to the index, and those
+    carry no district_id. Verified against a live knowledge base: scoping the
+    request to the index source does NOT stop the blob source contributing.
+    `_to_citation` previously defaulted the district to the caller's, turning
+    unscoped content into an apparently district-owned citation that passed
+    every downstream isolation check.
+    """
+
+    untagged = {
+        "citation_id": "BLOB-1",
+        "evidence_summary": "Text from a blob document with no district field.",
+    }
+    assert _to_citation(untagged, "DIST-A") is None
+
+
+def test_to_citation_drops_foreign_district_documents() -> None:
+    foreign = {
+        "citation_id": "B-1",
+        "district_id": "DIST-B",
+        "evidence_summary": "Evidence belonging to another district.",
+    }
+    assert _to_citation(foreign, "DIST-A") is None
+
+
 def test_partial_documents_are_dropped_not_raised() -> None:
     """A document missing required text must not abort the whole retrieval."""
 
-    assert _to_citation({"citation_id": "X"}, "DIST-A") is None
+    assert _to_citation({"citation_id": "X", "district_id": "DIST-A"}, "DIST-A") is None
 
 
 @pytest.mark.parametrize(

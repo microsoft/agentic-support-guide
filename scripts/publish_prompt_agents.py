@@ -27,6 +27,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "services" / "api"))
 
+from app.foundry_agents.maf_client import aclose_foundry_client
 from app.foundry_agents.maf_runtime import RoleDefinition
 from app.foundry_agents.role_definitions import (
     ALL_AGENT_DIRS,
@@ -86,15 +87,18 @@ async def _publish_role(
 
     agent_name = _agent_name(definition.role, suffix, variant)
     credential = AsyncCredential()
+    client = None
     try:
         client = FoundryChatClient(
             project_endpoint=endpoint,
             model=definition.model_deployment,
             credential=credential,
         )
-        options = {"temperature": definition.temperature} if definition.temperature else {}
-        # Built inside its own context so a failure in to_prompt_agent still
-        # releases the client's HTTP session.
+        # `is not None`, not truthiness: temperature 0 is a deliberate setting
+        # and the falsy check silently dropped it.
+        options = (
+            {"temperature": definition.temperature} if definition.temperature is not None else {}
+        )
         async with Agent(
             client=client,
             name=agent_name,
@@ -103,6 +107,11 @@ async def _publish_role(
         ) as agent:
             prompt_agent = to_prompt_agent(agent)
     finally:
+        # Exiting the Agent context does NOT close FoundryChatClient's own
+        # HTTP sessions, so this has to be explicit or the script leaks a
+        # socket per role published.
+        if client is not None:
+            await aclose_foundry_client(client)
         await _aclose(credential)
 
     if not apply:
@@ -144,21 +153,37 @@ async def _aclose(obj: object) -> None:
         await result
 
 
-def _delete_agents(endpoint: str, suffix: str) -> int:
-    """Delete only this learner's agents, never anyone else's."""
+def _delete_agents(endpoint: str, suffix: str, variants: tuple[str, ...] = ()) -> int:
+    """Delete only this learner's agents, never anyone else's.
+
+    Names are `<prefix><role>-<suffix>[-<variant>]`, all single-dash, so
+    `asg-explainer-ann-smith` is genuinely ambiguous: it could be suffix
+    `ann` + variant `smith`, or suffix `ann-smith` with no variant. No prefix
+    match can resolve that, and the previous `startswith(base + "-")` meant
+    learner `ann` deleted learner `ann-smith`'s agents.
+
+    So: delete exact names only. Variants must be named explicitly with
+    `--variant`, which is how they were created in the first place.
+    """
 
     from azure.ai.projects import AIProjectClient
     from azure.identity import DefaultAzureCredential
 
     project = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
-    # Exact base names plus this learner's variants. The trailing "-" makes
-    # suffix "demo" match "…-demo-strict" but never "…-demo2-strict".
-    bases = {_agent_name(role, suffix) for role in ALL_AGENT_DIRS.values()}
-    prefixes = tuple(f"{base}-" for base in bases)
+    targets = {_agent_name(role, suffix) for role in ALL_AGENT_DIRS.values()}
+    for variant in variants:
+        targets |= {_agent_name(role, suffix, variant) for role in ALL_AGENT_DIRS.values()}
+
     present = {str(getattr(a, "name", "") or "") for a in project.agents.list()}
-    mine = sorted(n for n in present if n in bases or n.startswith(prefixes))
+    mine = sorted(present & targets)
     if not mine:
         print(f"No agents found for suffix {suffix!r}. Nothing to delete.")
+        skipped = sorted(n for n in present if n.startswith(f"{AGENT_NAME_PREFIX}"))
+        if skipped:
+            print("Present but not deleted (not an exact match for this suffix):")
+            for name in skipped:
+                print(f"  {name}")
+            print("Pass --variant <name> to delete a variant.")
         return 0
     for name in mine:
         project.agents.delete(name)
@@ -304,7 +329,8 @@ def main() -> int:
         if not endpoint:
             print("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.", file=sys.stderr)
             return 2
-        return _delete_agents(endpoint, suffix)
+        requested = (args.variant.strip().lower(),) if args.variant.strip() else ()
+        return _delete_agents(endpoint, suffix, requested)
 
     variant = args.variant.strip().lower()
     if variant and not re.fullmatch(r"[a-z0-9-]{1,16}", variant):

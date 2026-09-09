@@ -43,6 +43,14 @@ def build_health_details(
     )
     evidence_source = getattr(evidence_retriever, "provider_name", "none")
     evidence_knowledge_base = getattr(evidence_retriever, "provider_model", "")
+    # A remote retriever cannot confirm evidence exists without a network call,
+    # and this endpoint is polled on every page load. So report configuration
+    # and verification as two different things instead of conflating them:
+    # `customer_demo_ready` stays a configuration signal, and this says whether
+    # anything actually proved evidence is reachable.
+    evidence_verified = evidence_available and getattr(
+        evidence_retriever, "evidence_verifiable", True
+    )
     district_isolation_enabled = True
 
     if project_configured and definitions_valid and deployments_configured and evidence_available:
@@ -92,10 +100,19 @@ def build_health_details(
         ),
         HealthCheckItem(
             name="evidence_fixture",
-            label="Synthetic evidence fixture available",
+            label=(
+                "Synthetic evidence fixture available"
+                if evidence_verified
+                else "Evidence source configured (not verified)"
+            ),
             ok=evidence_available,
             detail=(
                 "At least one district-scoped fixture is present."
+                if evidence_verified
+                else (
+                    f"Configured against {evidence_source!r}. Presence of evidence "
+                    "is not checked here; run a real request to confirm."
+                )
                 if evidence_available
                 else "No district-scoped fixtures loaded."
             ),
@@ -168,6 +185,7 @@ def build_health_details(
         service_side_remote_workflow_active=service_side_remote_workflow_active,
         evidence_fixture_available=evidence_available,
         evidence_source=evidence_source,
+        evidence_verified=evidence_verified,
         evidence_knowledge_base=evidence_knowledge_base,
         district_isolation_enabled=district_isolation_enabled,
         customer_demo_ready=customer_demo_ready,

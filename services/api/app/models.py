@@ -43,6 +43,9 @@ class HealthDetailsResponse(BaseModel):
     # misconfiguration looks identical to a working one from the outside.
     evidence_source: str
     evidence_knowledge_base: str
+    # False for a remote knowledge base: readiness is a configuration check and
+    # cannot prove a remote source holds anything without a network call.
+    evidence_verified: bool
     district_isolation_enabled: bool
     customer_demo_ready: bool
     checks: list[HealthCheckItem]

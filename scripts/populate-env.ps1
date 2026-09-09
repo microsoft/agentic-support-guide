@@ -47,11 +47,11 @@ FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER=$deployment
 FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR=$deployment
 FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER=$deployment
 
-# Module 3 (router) and Module 6 (evaluation judge).
+# Module 5 (router) and Module 8 (evaluation judge).
 FOUNDRY_MODEL_DEPLOYMENT_ROUTER=$router
 FOUNDRY_MODEL_DEPLOYMENT_JUDGE=$judge
 
-# Module 2 (Foundry IQ knowledge plane).
+# Module 3 (Foundry IQ knowledge plane).
 AZURE_SEARCH_ENDPOINT=$searchEndpoint
 KNOWLEDGE_STORAGE_ACCOUNT=$knowledgeStore
 KNOWLEDGE_CONTAINER=$knowledgeBlob
@@ -64,7 +64,7 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsights
 DEMO_RESET_ENABLED=false
 "@
 
-$content | Set-Content -Path $envPath -Encoding utf8 -NoNewline
+$content | Set-Content -Path $envPath -Encoding utf8
 Write-Host "Wrote $envPath" -ForegroundColor Green
 Write-Host "  Project endpoint   : (written to .env)"
 Write-Host "  Model deployment   : $deployment"

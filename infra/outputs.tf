@@ -8,6 +8,13 @@ output "ai_services_account_name" {
   value       = azurerm_cognitive_account.ai_services.name
 }
 
+# Module 7 needs this as the --scope for its role assignment. Without it the
+# learner has to hand-assemble the ARM resource ID.
+output "ai_services_account_id" {
+  description = "Azure AI Services account resource ID, used as an RBAC scope."
+  value       = azurerm_cognitive_account.ai_services.id
+}
+
 output "ai_services_endpoint" {
   description = "AI Services account endpoint (base). Not used directly by the backend."
   value       = azurerm_cognitive_account.ai_services.endpoint
@@ -64,12 +71,12 @@ output "web_app_name" {
 }
 
 output "router_deployment_name" {
-  description = "Model router deployment name. Set as FOUNDRY_MODEL_DEPLOYMENT_ROUTER for Module 3. Empty when the router is disabled."
+  description = "Model router deployment name. Set as FOUNDRY_MODEL_DEPLOYMENT_ROUTER for Module 5. Empty when the router is disabled."
   value       = var.enable_model_router ? azurerm_cognitive_deployment.router[0].name : ""
 }
 
 output "judge_deployment_name" {
-  description = "Judge model deployment used by Module 6 evaluations. Set as FOUNDRY_MODEL_DEPLOYMENT_JUDGE. Empty when disabled."
+  description = "Judge model deployment used by Module 8 evaluations. Set as FOUNDRY_MODEL_DEPLOYMENT_JUDGE. Empty when disabled."
   value       = var.enable_judge_deployment ? azurerm_cognitive_deployment.judge[0].name : ""
 }
 
@@ -79,7 +86,7 @@ output "search_service_name" {
 }
 
 output "search_endpoint" {
-  description = "Search endpoint. Set as AZURE_SEARCH_ENDPOINT for Module 2."
+  description = "Search endpoint. Set as AZURE_SEARCH_ENDPOINT for Module 3."
   value       = var.enable_knowledge_plane ? "https://${azurerm_search_service.knowledge[0].name}.search.windows.net" : ""
 }
 

@@ -108,7 +108,7 @@ def _build_evidence_retriever() -> EvidenceRetriever:
         return FoundryIQEvidenceRetriever(
             endpoint=os.environ.get("AZURE_SEARCH_ENDPOINT", ""),
             knowledge_base=os.environ.get("FOUNDRY_IQ_KNOWLEDGE_BASE", ""),
-            index_name=os.environ.get("FOUNDRY_IQ_INDEX", ""),
+            knowledge_source=os.environ.get("FOUNDRY_IQ_KNOWLEDGE_SOURCE", ""),
         )
     raise ValueError(f"Unknown EVIDENCE_SOURCE {source!r}. Use 'fixtures' or 'foundry_iq'.")
 
@@ -119,6 +119,17 @@ PROVIDER_DISPLAY_UNCONFIGURED = "unconfigured (Azure AI Foundry not set up)"
 def _next_iso(offset_seconds: int) -> str:
     base = datetime.strptime(BASE_TIMESTAMP, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     return (base + timedelta(seconds=offset_seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _utc_now_iso() -> str:
+    """Wall-clock time for events that actually happen now.
+
+    Seeded demo rows use `_next_iso` so they stay deterministic. Real saves and
+    review transitions must not: dating them from BASE_TIMESTAMP put live audit
+    rows in January 2026 and gave two plans the same timestamp after a reset.
+    """
+
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _build_runtime(
@@ -458,7 +469,7 @@ def create_app(
             concern_text=payload.concern_text,
             selected_smart_goal=payload.selected_smart_goal,
             selected_strategies=payload.selected_strategies,
-            created_at=_next_iso(offset_seconds=len(plans.list()) * 47),
+            created_at=_utc_now_iso(),
             recommendation=payload.recommendation,
             human_review_state=HumanReviewState.PENDING_REVIEW.value,
         )
@@ -489,7 +500,7 @@ def create_app(
                 correlation_id=plan_id,
                 district_id=plan.district_id,
                 user_label=payload.user_label,
-                timestamp=_next_iso(offset_seconds=len(plans.list()) * 47),
+                timestamp=_utc_now_iso(),
                 previous_state=plan.human_review_state,
                 new_state=new_state.value,
                 validator_verdict="post-hoc",

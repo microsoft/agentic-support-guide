@@ -1,4 +1,4 @@
-# Knowledge plane for Foundry IQ (Module 2).
+# Knowledge plane for Foundry IQ (Module 3).
 #
 # Foundry IQ builds a knowledge base over an Azure AI Search index. The
 # blob container holds the district source documents that get indexed.

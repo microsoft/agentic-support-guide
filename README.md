@@ -133,11 +133,6 @@ Remaining gaps (not implemented in this repo):
   control. No private endpoint or network ACLs.
 - Human review transitions exist in the API but are not driven from the
   web UI.
-- The AI Services account is reachable over the public internet
-  (`public_network_access_enabled = true`); keyless Entra auth is the only
-  control. No private endpoint or network ACLs.
-- Human review transitions exist in the API but are not driven from the
-  web UI.
 
 Broader roadmap notes live in
 [docs/future-azure-architecture.md](docs/future-azure-architecture.md).
@@ -521,15 +516,27 @@ need Azure credentials.
   `foundry_project_endpoint`.
 
 ### Foundry agents not bound
-- `/api/health/details` reports `"agent_definitions_valid": false`. Run
-  `python scripts/validate_agent_definitions.py` to create the remote
+- `/api/health/details` reports `"agent_definitions_valid": false`. That
+  means a role's definition failed to load or its
+  `FOUNDRY_MODEL_DEPLOYMENT_*` variable is unset — it is not about remote
+  agents, which the runtime builds per call.
+- Run `python scripts/validate_agent_definitions.py` to see which definition
+  is malformed, and check `services/api/.env` for the missing deployment
+  name.
 
 ### `terraform apply` fails on a soft-deleted resource
 - `FlagMustBeSetForRestore ... has been soft-deleted` (AI Services
   account) or `Soft-deleted workspace exists` (the workspace behind the
   Foundry project). Azure keeps a tombstone that reserves the old name.
-- Fix by taking a new random suffix, which renames everything:
-  `terraform apply -replace="random_string.suffix"`.
+- **Try purging first.** It is the targeted fix and keeps everything else
+  in place:
+  `az cognitiveservices account purge -l <location> -g <rg> -n <name>`.
+- Rotating the suffix (`terraform apply -replace="random_string.suffix"`)
+  also works, but read the blast radius before you run it: it renames the
+  resource group, AI Services account, Foundry project, search service,
+  storage account and **both web apps**. That is a full recreate, it
+  changes every URL, and it invalidates the GitHub repository variables and
+  the federated-credential scope set up in Module 1.
 - Details and the purge-based alternative are in
   [`infra/README.md`](infra/README.md#troubleshooting-soft-delete).
 
@@ -573,9 +580,24 @@ need Azure credentials.
 
 - `scripts/populate-env.ps1` — read `terraform output` and write
   `services/api/.env` (overwrites).
-- `scripts/validate_agent_definitions.py` — create/update remote Foundry
-  agents from `/agents/<id>/agent.md` + `manifest.yaml`. Supports
-  `--dry-run`, `--apply`, `--check-connectivity`, and `--check-connectivity`.
+- `scripts/validate_agent_definitions.py` — validate `/agents/<id>/agent.md`
+  and `manifest.yaml` for structure and consistency. Offline by default;
+  `--check-connectivity` additionally verifies the project endpoint and
+  credential. It does not create or update anything — publishing agents is
+  `scripts/publish_prompt_agents.py`.
+- `scripts/publish_prompt_agents.py` — publish the prompt agents to Foundry.
+  `--suffix` is required, `--variant` gives Module 4 two comparable agents,
+  `--delete` removes exactly this learner's agents.
+- `scripts/provision_foundry_iq.py` — build the Module 3 index, knowledge
+  sources and knowledge base.
+- `scripts/deploy-app.ps1` — package and deploy the API and UI, then confirm
+  the new `build_id` is actually serving.
+- `scripts/smoke_test.py` — end-to-end checks against a deployment.
+- `scripts/load_test.py` — measure behaviour under concurrent load.
+- `scripts/publish_hosted_agent.py` / `scripts/invoke_hosted_agent.py` —
+  Module 7 hosted agent.
+- `scripts/run_agent_evals.py` — Module 8 graded evaluations.
+- `scripts/check_workshop_links.py` — verify every relative markdown link.
 - `scripts/run-backend.ps1` — activate the venv and start uvicorn.
 - `scripts/run-frontend.ps1` — start the Vite dev server.
 - `scripts/verify-demo.ps1` — call `/api/health/details` and print

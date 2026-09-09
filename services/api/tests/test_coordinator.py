@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import uuid
 from typing import Any
 
 from app.agents.shared.contracts import ResourceRef
@@ -140,6 +140,7 @@ async def test_coordinator_missing_evidence_returns_evidence_missing() -> None:
     class EmptyRetriever:
         provider_name = "fixture"
         provider_model = "synthetic"
+        evidence_verifiable = True
 
         def has_district(self, district_id: str) -> bool:
             return False
@@ -154,18 +155,19 @@ async def test_coordinator_missing_evidence_returns_evidence_missing() -> None:
     assert result.recommendation is None
 
 
-async def test_coordinator_recommender_returns_empty_bundle_causes_validation_failure() -> None:
-    """When no citations end up on the draft, the flow refuses the recommendation.
+async def test_empty_evidence_bundle_fails_before_any_model_call() -> None:
+    """No evidence must fail immediately, not after spending model calls.
 
-    Concretely, protocol validation on `support-recommendation-result` requires
-    at least one citation, so an empty-bundle draft is rejected at the protocol
-    layer before it reaches the Validator Agent. Either way, no recommendation
-    is surfaced.
+    Previously an empty bundle was recorded as a successful retrieval, the run
+    continued through the analyst and recommender, and only died at protocol
+    validation as `invalid_model_json` - blaming the model for missing
+    evidence and burning two paid calls per request to do it.
     """
 
     class SparseRetriever:
         provider_name = "fixture"
         provider_model = "synthetic"
+        evidence_verifiable = True
 
         def has_district(self, district_id: str) -> bool:
             return True
@@ -173,10 +175,15 @@ async def test_coordinator_recommender_returns_empty_bundle_causes_validation_fa
         async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
             return EvidenceBundle(district_id=request.district_id, citations=())
 
-    coord, _ = _make_coord(evidence_retriever=SparseRetriever())
+    coord, client = _make_coord(evidence_retriever=SparseRetriever())
     result = await coord.run(_request())
-    assert result.status in ("validation_failed", "invalid_model_json")
+
+    assert result.status == "evidence_missing"
+    assert result.error_code == "EVIDENCE_MISSING"
     assert result.recommendation is None
+    # The point of the guard: nothing was sent to a model.
+    assert client.calls() == [], f"model was called despite no evidence: {client.calls()}"
+    assert [step.agent for step in result.agent_trace] == ["evidence-retrieval"]
 
 
 async def test_coordinator_repair_succeeds() -> None:
@@ -266,10 +273,56 @@ async def test_coordinator_trace_contains_no_prompt_or_completion_text() -> None
         assert "ignore all previous instructions" not in text
 
 
-async def test_coordinator_correlation_id_propagated_through_trace() -> None:
+async def test_every_agent_step_emits_telemetry() -> None:
+    """A step that appears in the trace must also appear in telemetry.
+
+    The validator runs outside `_call`, so it showed up in the response trace
+    but never in Application Insights. Module 9's per-agent latency query
+    therefore omitted the one step that decides whether an answer ships.
+    """
+
     coord, _ = _make_coord()
     result = await coord.run(_request())
-    assert result.correlation_id
-    # correlation_id is a UUID string; must not appear in trace steps as a
-    # standalone field, but must show up on the envelope response.
-    _ = result.correlation_id, json  # silence unused
+
+    traced_agents = {step.agent for step in result.agent_trace}
+    telemetry_agents = {
+        event.properties["agent"]
+        for event in coord._telemetry.events
+        if "agent" in event.properties
+    }
+    # evidence-retrieval reports under its own event name, not `agent`.
+    traced_agents.discard("evidence-retrieval")
+    missing = traced_agents - telemetry_agents
+    assert not missing, f"trace steps with no telemetry event: {sorted(missing)}"
+
+
+async def test_coordinator_correlation_id_is_a_uuid_and_unique_per_run() -> None:
+    """The previous version of this test asserted nothing.
+
+    It ended in `_ = result.correlation_id, json  # silence unused`, so it
+    passed with correlation entirely removed. Correlation is what ties a
+    response back to its telemetry, so assert the properties that matter:
+    it is a real UUID, it differs per run, and it is never leaked into a
+    trace step (privacy is covered separately, this is the identity half).
+    """
+
+    coord, _ = _make_coord()
+    first = await coord.run(_request())
+    second = await coord.run(_request())
+
+    uuid.UUID(first.correlation_id)
+    assert first.correlation_id != second.correlation_id
+
+    # Every telemetry event for a run must carry that run's id, otherwise
+    # Module 9's "find this request by correlation_id" cannot work.
+    recorded = {
+        event.properties.get("correlation_id")
+        for event in coord._telemetry.events
+        if "correlation_id" in event.properties
+    }
+    assert recorded, "no telemetry event carried a correlation_id"
+    assert recorded <= {first.correlation_id, second.correlation_id}
+
+    # The id belongs on the envelope, not inside individual trace steps.
+    for step in first.agent_trace:
+        assert "correlation_id" not in step.model_dump()

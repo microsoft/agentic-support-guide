@@ -4,7 +4,7 @@
 # every deployment chains off the previous one. Parallel creates return
 # 409 RequestConflict.
 
-# Module 3: one deployment that routes across several underlying models.
+# Module 5: one deployment that routes across several underlying models.
 # NOTE: the router's effective context window is capped by the SMALLEST
 # model behind it, not the largest.
 resource "azurerm_cognitive_deployment" "router" {
@@ -27,7 +27,7 @@ resource "azurerm_cognitive_deployment" "router" {
   }
 }
 
-# Module 6: the judge model that grades agent output. Kept separate from
+# Module 8: the judge model that grades agent output. Kept separate from
 # the agents' own deployment so grading load never starves the agents and
 # so learners can see the judge is a different model.
 resource "azurerm_cognitive_deployment" "judge" {

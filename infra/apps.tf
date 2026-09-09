@@ -94,6 +94,9 @@ resource "azurerm_linux_web_app" "api" {
     # Module 3 flips this to foundry_iq once a knowledge base exists.
     EVIDENCE_SOURCE           = var.api_evidence_source
     FOUNDRY_IQ_KNOWLEDGE_BASE = var.api_knowledge_base_name
+    # Set this when the source name is not <kb name with kb->ks>, which is
+    # what the portal walkthrough produces.
+    FOUNDRY_IQ_KNOWLEDGE_SOURCE = var.api_knowledge_source_name
 
     ALLOWED_ORIGINS = local.web_url
   }

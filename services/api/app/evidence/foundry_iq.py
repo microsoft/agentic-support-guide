@@ -12,6 +12,7 @@ impossible here, not merely discouraged.
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,17 +24,31 @@ DEFAULT_REASONING_EFFORT = "minimal"
 MAX_RUNTIME_SECONDS = 30
 
 
+def _derive_source_name(knowledge_base: str) -> str:
+    """Map a knowledge base name to its conventional knowledge source name.
+
+    Handles `asg-kb-demo` -> `asg-ks-demo` and a portal-created `kb-demo` ->
+    `ks-demo`. Anchoring on a `kb` segment rather than the substring `-kb-`
+    is what makes the second case work.
+    """
+
+    return re.sub(r"(^|-)kb(-|$)", r"\1ks\2", knowledge_base)
+
+
 class FoundryIQEvidenceRetriever:
     """Retrieves district-scoped evidence from a Foundry IQ knowledge base."""
 
     provider_name = "foundry_iq"
+    # has_district cannot prove anything about a remote knowledge base without
+    # a network call, so readiness must not be reported as verified.
+    evidence_verifiable = False
 
     def __init__(
         self,
         *,
         endpoint: str,
         knowledge_base: str,
-        index_name: str,
+        index_name: str = "",
         knowledge_source: str = "",
         credential_factory: Any = None,
     ) -> None:
@@ -44,14 +59,20 @@ class FoundryIQEvidenceRetriever:
             )
         self._endpoint = endpoint
         self._knowledge_base = knowledge_base
-        self._index_name = index_name
         self.provider_model = knowledge_base
-        # Provisioning names the source ks-<suffix> alongside kb-<suffix>.
-        self._knowledge_source = knowledge_source or knowledge_base.replace("-kb-", "-ks-")
+        # Prefer an explicit source name. The fallback rewrites the LAST -kb-
+        # segment so a portal-created `kb-alias` still resolves to `ks-alias`;
+        # a plain .replace("-kb-", "-ks-") silently no-ops on that name and
+        # leaves the retriever querying a source that does not exist.
+        self._knowledge_source = knowledge_source or _derive_source_name(knowledge_base)
         self._credential_factory = credential_factory or _default_credential
 
     def has_district(self, district_id: str) -> bool:
-        # Cheap and non-authoritative: retrieve() is what actually filters.
+        # Local check only. This retriever talks to a remote service, so it
+        # cannot answer "is there evidence" without network I/O, and
+        # /api/health/details is polled on every page load. Reporting True
+        # here would make readiness green with a deleted knowledge base, so
+        # callers must treat it as "configured", not "verified".
         return bool(district_id)
 
     async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
@@ -150,6 +171,15 @@ def _to_citation(doc: dict[str, Any], district_id: str) -> Citation | None:
     # rather than allowed to raise a ValidationError mid-retrieval.
     if not citation_id or not summary:
         return None
+    # A knowledge base can hold blob and web sources alongside the index, and
+    # those carry no district_id. Scoping the request to the index source does
+    # NOT stop them contributing - verified against a live knowledge base.
+    # Defaulting to the caller's district here would relabel unscoped content
+    # as theirs, which is exactly the cross-district citation this class claims
+    # to make impossible. Ownership must be proven, not assumed.
+    doc_district = str(doc.get("district_id") or "").strip()
+    if doc_district != district_id:
+        return None
     raw_type = str(doc.get("source_type") or "").strip()
     try:
         source_type = CitationSourceType(raw_type)
@@ -157,7 +187,7 @@ def _to_citation(doc: dict[str, Any], district_id: str) -> Citation | None:
         source_type = CitationSourceType.STRUCTURED_DATA
     return Citation(
         citation_id=citation_id,
-        district_id=str(doc.get("district_id") or district_id),
+        district_id=doc_district,
         source_type=source_type,
         source_title=str(doc.get("source_title") or "Untitled source"),
         section_or_page=str(doc.get("section_or_page") or "section 1"),

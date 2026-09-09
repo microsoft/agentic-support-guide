@@ -64,6 +64,12 @@ class EvidenceRetriever(Protocol):
     #: knowledge base name for Foundry IQ.
     provider_model: str
 
+    #: True when `has_district` is authoritative. Fixtures hold their data in
+    #: memory and can answer honestly. A remote retriever cannot, without
+    #: network I/O on an endpoint the UI polls on every page load, so it must
+    #: not be treated as proof that evidence exists.
+    evidence_verifiable: bool
+
     async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
         """Return a district-scoped evidence bundle.
 

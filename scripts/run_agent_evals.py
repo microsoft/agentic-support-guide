@@ -1,4 +1,4 @@
-"""Module 6: grade the agents instead of guessing whether they are good.
+"""Module 8: grade the agents instead of guessing whether they are good.
 
 `scripts/run_evals.py` answers "is the output structurally valid and safe?"
 with deterministic checks. That is necessary but it cannot tell you whether

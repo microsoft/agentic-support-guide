@@ -102,7 +102,21 @@ ALLOWED_HOSTS = {
     # demonstrating; this one is a well-known non-profit reference and
     # carries no customer or personal data.
     "dyslexiaida.org",
+    # Rendering service called by scripts/render-architecture-diagram.ps1.
+    "plantuml.com",
+    "www.plantuml.com",
 }
+
+# Secret shapes that the AZURE_-prefixed heuristic below does not catch.
+# Anchored and length-bounded so ordinary prose cannot trip them: an
+# unbounded `sk-\w+` matches "Task-local" in a comment.
+SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("storage account key", re.compile(r"AccountKey\s*=\s*[A-Za-z0-9+/]{40,}={0,2}")),
+    ("shared access signature", re.compile(r"[?&]sig=[A-Za-z0-9%+/]{20,}")),
+    ("private key block", re.compile(r"-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----")),
+    ("openai-style token", re.compile(r"\bsk-[A-Za-z0-9]{32,}\b")),
+    ("bearer token literal", re.compile(r"\bBearer\s+ey[A-Za-z0-9_-]{20,}\.")),
+)
 
 # Lines matching these substrings are treated as legitimate Microsoft/Azure
 # platform context and are allowed to mention org suffixes such as
@@ -128,6 +142,7 @@ TEXT_SUFFIXES = {
     ".js",
     ".jsx",
     ".json",
+    ".jsonl",
     ".md",
     ".txt",
     ".css",
@@ -138,9 +153,14 @@ TEXT_SUFFIXES = {
     ".cfg",
     ".ini",
     ".tf",
-    ".tfvars.example",
     ".hcl",
-    ".env.example",
+    # Scripts were unscanned, and they are the files most likely to carry a
+    # subscription ID, an endpoint, or a pasted key.
+    ".ps1",
+    ".sh",
+    ".bat",
+    ".cmd",
+    ".dsl",
 }
 
 EXCLUDED_DIR_PARTS = {
@@ -169,6 +189,8 @@ EXCLUDED_FILE_NAMES = {
     "terraform.tfstate.backup",
     ".terraform.lock.hcl",
     "scanner.py",  # this scanner itself, so its own patterns don't self-flag
+    # Holds deliberately secret-shaped fixtures that prove the rules fire.
+    "test_scanner_rules.py",
     "test_no_sensitive_content.py",  # scanner tests contain intentional negative fixtures
 }
 
@@ -198,8 +220,13 @@ def _tracked_files() -> list[Path]:
             text=True,
             check=True,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return []
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        # Returning [] here made the whole privacy test pass vacuously on any
+        # machine or container without git. A guard that silently disables
+        # itself is worse than no guard.
+        raise RuntimeError(
+            "privacy scanner needs git to enumerate files; refusing to pass vacuously"
+        ) from exc
     paths: list[Path] = []
     for rel in result.stdout.splitlines():
         rel = rel.strip()
@@ -250,6 +277,10 @@ def scan_text(name: str, text: str, denylist: list[str]) -> list[str]:
 
     for match in PHONE_REGEX.findall(text):
         violations.append(f"{name}: US-style phone number -> {match}")
+
+    for label, pattern in SECRET_PATTERNS:
+        if pattern.search(text):
+            violations.append(f"{name}: possible {label}")
 
     for line_no, line in enumerate(text.splitlines(), start=1):
         if ORG_SUFFIX_REGEX.search(line) and not _line_is_platform_context(line):

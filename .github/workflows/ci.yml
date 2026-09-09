@@ -48,6 +48,12 @@ jobs:
       - name: Test
         run: pytest
 
+      # Broken cross-references were previously only caught by hand, and only
+      # under workshop/. This covers docs/, the ADRs and the root README too.
+      - name: Check markdown links
+        working-directory: .
+        run: python scripts/check_workshop_links.py
+
   frontend:
     name: Frontend (React + Vite)
     runs-on: ubuntu-latest
@@ -59,7 +65,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Match the App Service runtime (NODE:22-lts). Building on 20 while
+          # production runs 22 means CI cannot catch a runtime break.
+          node-version: "22"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 

@@ -56,6 +56,10 @@ class FoundryResponsesClientFactory:
         from agent_framework.foundry import FoundryChatClient
 
         credential = self._credential_factory()
+        # Pre-assigned so the finally block cannot raise UnboundLocalError and
+        # replace a real construction failure with a confusing one, which also
+        # skipped the credential close.
+        client: Any = None
         try:
             client = FoundryChatClient(
                 project_endpoint=self._project_endpoint,
@@ -75,7 +79,9 @@ class FoundryResponsesClientFactory:
             ) as agent:
                 response = await agent.run(user_message, options=options)
         finally:
-            await aclose_foundry_client(client)
+            # Each close is independent: one failing must not strand the other.
+            if client is not None:
+                await aclose_foundry_client(client)
             await _aclose(credential)
 
         text = str(getattr(response, "text", "") or "")

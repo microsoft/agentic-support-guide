@@ -37,7 +37,7 @@ directly and does not fall back to a local runtime.
   validated by
   [`services/api/app/contracts_registry.py`](../../services/api/app/contracts_registry.py).
 - Remote agents are created/updated by
-  [`scripts/sync_foundry_agents.py`](../../scripts/sync_foundry_agents.py),
+  `scripts/sync_foundry_agents.py` (since removed),
   which composes runtime instructions = `agent.md` body + a fixed
   generic envelope and writes assistant IDs to
   `.foundry/agent-bindings.local.json` (gitignored). A committed
@@ -45,7 +45,7 @@ directly and does not fall back to a local runtime.
 - The three Python role classes (`DataAnalystAgent`,
   `SupportRecommendationAgent`, `ValidatorAgent`) invoke the remote
   agents through
-  [`FoundryRemoteAgentAdapter`](../../services/api/app/foundry_agents/adapter.py).
+  `FoundryRemoteAgentAdapter` (since removed).
   The role-specific input construction (untrusted-data delimiters,
   sanitization) stays in Python; the model behavior is entirely
   configured on the remote agent.

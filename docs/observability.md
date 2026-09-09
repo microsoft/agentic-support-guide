@@ -153,17 +153,22 @@ and drops anything else.
 
 ## Correlation IDs and district context
 
-The coordinator generates a `correlation_id` (a random 32-character
-identifier) per recommendation request and stamps it on:
+The coordinator generates a `correlation_id` (a uuid4 string) per
+recommendation request and stamps it on:
 
 - The `RecommendationEnvelope`.
-- Every trace step (`data-analyst-call`, `evidence-retrieval`,
-  `support-recommender-call`, `validator-call`, `contract-validation`,
-  `agent-hop-start`, `agent-hop-end`).
 - Every runtime audit row.
 - Every telemetry event.
 - Every `review_transition` audit row raised by
   `POST /api/supports/plans/{plan_id}/review`.
+
+It is deliberately **not** stamped on individual trace steps: the envelope
+already carries it, and repeating it per step widens the surface for no gain.
+`AgentTraceStep` has no `correlation_id` field, and a test asserts that.
+
+The trace step names are `evidence-retrieval`, `data-analyst-agent`,
+`support-recommendation-agent`, `validator-agent`, plus a `…:repair` suffix
+when a step is retried.
 
 Alongside `correlation_id`, the following fields are safe to log and
 are emitted at each hop:
@@ -197,11 +202,9 @@ Suggested targets for a production deployment:
 
 ## Remaining gaps
 
-- No dashboards, workbooks, or KQL queries are checked into this
-  repo. Building them is straightforward on top of the shape above
-  but is not implemented here.
-- No OpenTelemetry integration is wired. Adding it would preserve
-  the current schema and the current denylist.
+- No dashboards or workbooks are checked into this repo. Module 9 does
+  check in the KQL queries the workshop uses; building saved workbooks on
+  top of them is straightforward but is not implemented here.
 - Prompt / completion capture for consented evaluation traffic is
   intentionally not implemented. If needed later, do it as an
   explicit opt-in feature with a separate telemetry sink and a

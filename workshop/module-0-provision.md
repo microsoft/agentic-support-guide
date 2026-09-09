@@ -56,7 +56,18 @@ anything.
 
 ## 2. Pick your region
 
-Open `infra/terraform.tfvars` and set `location`.
+`terraform.tfvars` is gitignored, so a fresh clone does not have one. Create
+it from the tracked example first — without this, `location` has no default,
+`terraform apply` drops to an interactive prompt, and every tfvars edit in
+this module lands in a file Terraform never reads:
+
+```powershell
+if (-not (Test-Path infra\terraform.tfvars)) {
+    Copy-Item infra\terraform.tfvars.example infra\terraform.tfvars
+}
+```
+
+Now open `infra/terraform.tfvars` and set `location`.
 
 Two independent capacity constraints bite here, and they are the most common
 reason this module fails:
@@ -178,7 +189,12 @@ Then set your own learner suffix — this is what keeps your agents separate
 from everyone else's in a shared project:
 
 ```powershell
-Add-Content services\api\.env "WORKSHOP_LEARNER_SUFFIX=<your-alias>"
+# Replace the placeholder rather than appending: populate-env.ps1 already
+# writes an empty WORKSHOP_LEARNER_SUFFIX=, and the first value wins.
+$envPath = "services\api\.env"
+(Get-Content $envPath) -replace '^WORKSHOP_LEARNER_SUFFIX=.*$', 'WORKSHOP_LEARNER_SUFFIX=<your-alias>' |
+    Set-Content $envPath
+Select-String -Path $envPath -Pattern '^WORKSHOP_LEARNER_SUFFIX='
 ```
 
 Use lowercase letters, digits, or `-`, 24 characters max.

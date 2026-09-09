@@ -31,7 +31,7 @@ when the SDK stabilizes:
   validated by a central registry in
   [`services/api/app/contracts_registry.py`](../../services/api/app/contracts_registry.py).
 - The generic runtime engine is
-  [`services/api/app/agents/adapter.py`](../../services/api/app/agents/adapter.py).
+  `services/api/app/agents/adapter.py` (since removed).
 - The three Python classes (`DataAnalystAgent`,
   `SupportRecommendationAgent`, `ValidatorAgent`) are thin wrappers
   that delegate to `LocalManifestAgentAdapter`.
@@ -64,7 +64,7 @@ when the SDK stabilizes:
 ## Consequences
 
 - The Foundry-hosted-agent path is documented but not implemented.
-  [`scripts/sync_foundry_agents.py`](../../scripts/sync_foundry_agents.py)
+  `scripts/sync_foundry_agents.py` (since removed)
   is a dry-run validator that verifies manifests and (optionally)
   connects with `DefaultAzureCredential` to prove the sub is reachable.
 - Runtime observability includes `spec_version` per agent step, so

@@ -100,24 +100,28 @@ class SavedPlansStore:
     ) -> None:
         del assessments, behavior, resources
         learners_by_id = {learner.learner_id: learner for learner in learners}
-        for spec in specs:
-            if spec.learner_id not in learners_by_id:
-                continue
-            self._plans.append(
-                SavedPlan(
-                    plan_id=spec.plan_id,
-                    learner_id=spec.learner_id,
-                    district_id=_STUB_DISTRICT,
-                    category=spec.category,
-                    concern_text=spec.concern_text,
-                    selected_smart_goal=spec.selected_smart_goal_id,
-                    selected_strategies=list(spec.selected_strategy_ids),
-                    created_at=spec.created_at,
-                    recommendation=_stub_recommendation(spec.category),
-                    human_review_state=HumanReviewState.PENDING_REVIEW.value,
+        # Every other mutator takes the lock. `demo/reset` calls this while
+        # other requests are reading and appending, so without it the list and
+        # the id counter can diverge.
+        with self._lock:
+            for spec in specs:
+                if spec.learner_id not in learners_by_id:
+                    continue
+                self._plans.append(
+                    SavedPlan(
+                        plan_id=spec.plan_id,
+                        learner_id=spec.learner_id,
+                        district_id=_STUB_DISTRICT,
+                        category=spec.category,
+                        concern_text=spec.concern_text,
+                        selected_smart_goal=spec.selected_smart_goal_id,
+                        selected_strategies=list(spec.selected_strategy_ids),
+                        created_at=spec.created_at,
+                        recommendation=_stub_recommendation(spec.category),
+                        human_review_state=HumanReviewState.PENDING_REVIEW.value,
+                    )
                 )
-            )
-            self._counter += 1
+                self._counter += 1
 
     def list(self) -> list[SavedPlan]:
         with self._lock:

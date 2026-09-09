@@ -105,8 +105,17 @@ class Smoke:
         data = json.loads(body)
         source = data.get("evidence_source")
         kb = data.get("evidence_knowledge_base")
-        print(f"        evidence_source={source} knowledge_base={kb}")
-        assert data.get("customer_demo_ready"), "customer_demo_ready is false"
+        ready = data.get("customer_demo_ready")
+        verified = data.get("evidence_verified")
+        print(
+            f"        evidence_source={source} knowledge_base={kb} "
+            f"demo_ready={ready} evidence_verified={verified}"
+        )
+        assert ready, "customer_demo_ready is false; the app is not configured"
+        # `evidence_verified` is False for a remote source because the API
+        # cannot prove a knowledge base holds anything without a network call.
+        # The real proof is the live request below, which is why this script
+        # exists rather than trusting a health flag.
         if self.expect_evidence:
             assert source == self.expect_evidence, (
                 f"expected evidence_source={self.expect_evidence}, got {source}"

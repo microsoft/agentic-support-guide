@@ -233,6 +233,7 @@ class FixtureEvidenceRetriever:
 
     provider_name = "fixture"
     provider_model = "synthetic"
+    evidence_verifiable = True
 
     def __init__(self, catalog: dict[str, dict[str, list[Citation]]] | None = None) -> None:
         self._catalog = catalog if catalog is not None else _DISTRICTS

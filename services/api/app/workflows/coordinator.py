@@ -16,12 +16,15 @@ Nothing here talks to a language model directly.
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, TypeVar
+
+from pydantic import ValidationError
 
 from ..agents.data_analyst import DataAnalystAgent, DataAnalystContext
 from ..agents.data_analyst.agent import AGENT_NAME as DATA_ANALYST_NAME
@@ -226,6 +229,43 @@ class AgentCoordinator:
                 status="evidence_missing",
                 error_code="EVIDENCE_MISSING",
                 error_message=exc.safe_message,
+                evidence_count=0,
+                citation_count=0,
+                validator_status="",
+            )
+
+        # An empty bundle is not a successful retrieval. Without this guard the
+        # run continued, spent two model calls, and then failed at recommender
+        # validation as "invalid_model_json" - blaming the model for missing
+        # evidence. `EvidenceBundle.is_empty()` existed for this and had no
+        # callers.
+        if evidence.is_empty():
+            state.trace.append(
+                AgentTraceStep(
+                    agent="evidence-retrieval",
+                    status="evidence_missing",
+                    provider=evidence_provider,
+                    model=evidence_model,
+                    latency_ms=int((time.monotonic() - evidence_started) * 1000),
+                    token_estimate=None,
+                    issue_codes=["EVIDENCE_EMPTY"],
+                    citation_count=0,
+                )
+            )
+            self._telemetry.record(
+                "evidence_retrieval",
+                {
+                    "correlation_id": correlation_id,
+                    "district_id": request.district_id,
+                    "status": "empty",
+                    "citation_count": 0,
+                },
+            )
+            return self._finalize_failure(
+                state,
+                status="evidence_missing",
+                error_code="EVIDENCE_MISSING",
+                error_message="No district-scoped evidence was found for this request.",
                 evidence_count=0,
                 citation_count=0,
                 validator_status="",
@@ -637,7 +677,10 @@ class AgentCoordinator:
             )
         except ValueError as exc:
             latency = int((time.monotonic() - started) * 1000)
-            code = str(exc) or "invalid_model_json"
+            # Never put exception text in an issue code. Pydantic quotes the
+            # offending value, which is model output derived from a district's
+            # evidence, and issue codes travel to the response and telemetry.
+            code = _invalid_json_code(exc)
             state.trace.append(
                 AgentTraceStep(
                     agent=agent_name,
@@ -646,7 +689,7 @@ class AgentCoordinator:
                     model=state.provider_model,
                     latency_ms=latency,
                     token_estimate=None,
-                    issue_codes=[f"AGENT_INVALID_JSON:{code}"],
+                    issue_codes=[code],
                 )
             )
             return self._finalize_failure(
@@ -738,6 +781,22 @@ class AgentCoordinator:
                 citation_count=len(draft.citations),
             )
         )
+        # The validator runs outside `_call`, so without this it appeared in
+        # the response trace but never in telemetry - and Module 9's
+        # per-agent latency query silently omitted the one step that decides
+        # whether an answer ships.
+        self._telemetry.record(
+            "agent_call",
+            {
+                "correlation_id": state.correlation_id,
+                "district_id": state.district_id,
+                "agent": VALIDATOR_NAME,
+                "status": "passed" if report.passed else "failed",
+                "latency_ms": latency,
+                "model": served_model or LOCAL_STEP_MODEL,
+                "citation_count": len(draft.citations),
+            },
+        )
         return report
 
 
@@ -766,6 +825,24 @@ _SAFE_MESSAGES = {
 
 def _safe_message(status: str) -> str:
     return _SAFE_MESSAGES.get(status, "Unknown remote agent error.")
+
+
+# Bounded set. An issue code reaches the API response and telemetry, so it
+# must never be built from exception text. The trace contract restricts codes
+# to ^[A-Z][A-Z0-9_]{3,59}$, so no colons or lowercase.
+_INVALID_JSON_SCHEMA = "AGENT_INVALID_JSON_SCHEMA_MISMATCH"
+_INVALID_JSON_DECODE = "AGENT_INVALID_JSON_NOT_JSON"
+_INVALID_JSON_OTHER = "AGENT_INVALID_JSON_UNPARSEABLE"
+
+
+def _invalid_json_code(exc: Exception) -> str:
+    """Classify a parse failure without echoing its message."""
+
+    if isinstance(exc, json.JSONDecodeError):
+        return _INVALID_JSON_DECODE
+    if isinstance(exc, ValidationError):
+        return _INVALID_JSON_SCHEMA
+    return _INVALID_JSON_OTHER
 
 
 def _sanitize_repair(text: str) -> str:

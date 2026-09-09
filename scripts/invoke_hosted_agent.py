@@ -1,7 +1,7 @@
 """Invoke a deployed hosted agent over the Responses protocol.
 
-Module 5 uses this to prove the hosted agent works, and to compare it
-against the Module 1 prompt agent. Auth is Entra: the managed endpoint
+Module 7 uses this to prove the hosted agent works, and to compare it
+against the Module 2 prompt agent. Auth is Entra: the managed endpoint
 accepts a token for the Foundry scope, so no key is involved.
 
 Usage:
@@ -86,7 +86,7 @@ def main() -> int:
             if isinstance(identity, dict)
             else getattr(identity, "principal_id", None)
         )
-        # Module 5 step 6: this principal is the agent's own, not the caller's.
+        # Module 7 step 6: this principal is the agent's own, not the caller's.
         print(f"Identity : {principal or '(none reported)'}")
     except Exception as exc:  # noqa: BLE001 - informational only
         print(f"Identity : unavailable ({type(exc).__name__})")
