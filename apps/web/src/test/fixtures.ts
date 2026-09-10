@@ -16,7 +16,7 @@ export const healthFixture: HealthResponse = {
   version: "0.3.0",
   banner: "Prototype",
   provider_configured: false,
-  auth_mode: "entra",
+  foundry_auth_mode: "entra",
   build_id: "test-build",
 };
 
@@ -138,6 +138,7 @@ export const assessmentsFixture: AssessmentsSummary = {
 };
 
 export const supportOptionsFixture: SupportOptions = {
+  districts: ["DIST-DEMO"],
   learners: [
     { id: "LRN-0001", label: "Learner 0001" },
     { id: "LRN-0002", label: "Learner 0002" },

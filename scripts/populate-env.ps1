@@ -63,11 +63,10 @@ AZURE_AI_FOUNDRY_AUTH_MODE=entra
 APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsights
 DEMO_RESET_ENABLED=false
 
-# Caller authentication is enforced by App Service Easy Auth, which only exists
-# in front of the deployed API. A local uvicorn has nothing to inject the
-# principal header, so leaving this on `entra` makes every local request 401.
-# The deployed API always runs with `entra`.
-API_AUTH_MODE=disabled
+# API_SHARED_KEY is deliberately unset. Locally the Vite dev server proxies
+# /api to this uvicorn, so nothing sits in front to attach a key. The API only
+# insists on one when it detects App Service, where it is reachable from the
+# internet.
 "@
 
 $content | Set-Content -Path $envPath -Encoding utf8

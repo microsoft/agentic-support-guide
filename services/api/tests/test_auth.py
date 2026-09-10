@@ -1,29 +1,26 @@
-"""Authentication and district authorization.
+"""Caller authentication.
 
-Before this existed, any caller chose their own `district_id` in the request
-body, so district scoping was a suggestion. Retrieval-layer filtering cannot
-fix that: it faithfully returns whichever district the caller asked for.
+The API is reachable on a public hostname, so the shared key is what stops it
+being called directly. These tests send real headers rather than disabling the
+check, so the comparison path actually runs.
 
-These tests send real Easy Auth principal headers rather than disabling
-auth, so the header parsing and authorization path actually runs.
+There is deliberately no per-user authorization to test: the web tier attaches
+the key for whoever asks, so anyone who can reach the UI can reach the API
+through it. That is a property of the design, recorded here so it stays a
+decision rather than an assumption.
 """
 
 from __future__ import annotations
 
-import base64
-import json
 import os
 from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth import APP_SERVICE_MARKER, api_auth_mode
-from app.districts import KNOWN_DISTRICTS
+from app.auth import API_KEY_HEADER, APP_SERVICE_MARKER, api_auth_mode
 
-from .conftest import TEST_PRINCIPAL_OID, make_default_client, principal_header
-
-OTHER_OID = "99999999-9999-9999-9999-999999999999"
+from .conftest import TEST_API_KEY, make_default_client
 
 RECOMMENDATION_BODY = {
     "district_id": "DIST-A",
@@ -31,6 +28,11 @@ RECOMMENDATION_BODY = {
     "category": "early-literacy",
     "concern_text": "Letter-sound fluency below expected pace.",
 }
+
+# Reachable without a key by design: deploy-app.ps1 and CI poll this to find
+# out which build is serving, before the web tier is up. Adding a route here
+# is a deliberate act.
+ANONYMOUS_PATHS = {"/api/health"}
 
 
 @pytest.fixture()
@@ -40,35 +42,19 @@ def client() -> Iterator[TestClient]:
     c.close()
 
 
-def _restrict_to(districts: str, *, facilitator: bool = False) -> None:
-    os.environ["DISTRICT_ASSIGNMENTS"] = f"{TEST_PRINCIPAL_OID}={districts}"
-    os.environ["FACILITATOR_OBJECT_IDS"] = TEST_PRINCIPAL_OID if facilitator else ""
-
-
-# --- authentication ---------------------------------------------------
-
-
-# Reachable without a principal by design: the deploy polls these to find out
-# which build is serving, before anyone has signed in. Adding a route here is
-# a deliberate act.
-ANONYMOUS_PATHS = {"/api/health", "/api/health/details"}
-
-
-def _requires_principal(dependant: object) -> bool:
-    """True when `get_principal` appears anywhere in a route's dependency tree."""
-
+def _requires_key(dependant: object) -> bool:
     stack = [dependant]
     while stack:
         current = stack.pop()
         call = getattr(current, "call", None)
-        if getattr(call, "__name__", "") == "get_principal":
+        if getattr(call, "__name__", "") == "require_api_key":
             return True
         stack.extend(getattr(current, "dependencies", []))
     return False
 
 
-def test_every_route_requires_a_principal_or_is_explicitly_anonymous() -> None:
-    """Catches a new route added without an authorization check.
+def test_every_route_requires_the_key_or_is_explicitly_anonymous() -> None:
+    """Catches a new route added without the key check.
 
     Asserted against the dependency tree rather than by calling each endpoint:
     a request with no body returns 422 before authentication, which would make
@@ -79,10 +65,9 @@ def test_every_route_requires_a_principal_or_is_explicitly_anonymous() -> None:
 
     from app.main import create_app
 
-    # Built directly rather than via TestClient.app, which exposes the wrapped
-    # ASGI callable. FastAPI stores included routers as `_IncludedRouter`
-    # wrappers, so the endpoints are not in `app.routes` and have to be reached
-    # through `original_router`.
+    # FastAPI stores included routers as `_IncludedRouter` wrappers, so the
+    # endpoints are not in `app.routes` and have to be reached through
+    # `original_router`.
     app = create_app()
     api_routes: list[APIRoute] = []
     pending: list[object] = list(app.routes)
@@ -101,212 +86,97 @@ def test_every_route_requires_a_principal_or_is_explicitly_anonymous() -> None:
     unprotected = sorted(
         f"{sorted(route.methods or [])} {route.path}"
         for route in api_routes
-        if route.path not in ANONYMOUS_PATHS and not _requires_principal(route.dependant)
+        if route.path not in ANONYMOUS_PATHS and not _requires_key(route.dependant)
     )
-    assert unprotected == [], f"routes missing an authenticated principal: {unprotected}"
+    assert unprotected == [], f"routes missing the API key check: {unprotected}"
 
 
-def test_request_without_principal_is_rejected(client: TestClient) -> None:
+def test_no_unguarded_non_api_routes_are_served_on_app_service() -> None:
+    """The docs routes are not APIRoutes, so the check above cannot see them.
+
+    FastAPI mounts /api/openapi.json and /api/docs as plain Starlette routes,
+    outside the router that carries the key dependency. On App Service they
+    served the entire schema to anyone; this pins them shut.
+    """
+
+    from app.main import create_app
+
+    os.environ[APP_SERVICE_MARKER] = "app-asg-api-example"
+    try:
+        paths = {getattr(r, "path", "") for r in create_app().routes}
+    finally:
+        os.environ.pop(APP_SERVICE_MARKER, None)
+
+    assert "/api/openapi.json" not in paths, "OpenAPI schema is exposed on App Service"
+    assert "/api/docs" not in paths, "Swagger UI is exposed on App Service"
+
+    # Still available on a laptop, which is where learners read them.
+    local_paths = {getattr(r, "path", "") for r in create_app().routes}
+    assert "/api/docs" in local_paths
+
+
+def test_request_without_a_key_is_rejected(client: TestClient) -> None:
     response = client.post(
         "/api/recommendations/support-plan",
         json=RECOMMENDATION_BODY,
-        headers={"x-ms-client-principal": ""},
+        headers={API_KEY_HEADER: ""},
     )
     assert response.status_code == 401
 
 
-def test_malformed_principal_header_is_rejected(client: TestClient) -> None:
-    response = client.get("/api/me", headers={"x-ms-client-principal": "not-base64!!"})
+def test_wrong_key_is_rejected(client: TestClient) -> None:
+    response = client.get("/api/supports/plans", headers={API_KEY_HEADER: "not-the-key"})
     assert response.status_code == 401
 
 
-def test_principal_without_object_id_is_rejected(client: TestClient) -> None:
-    payload = {"auth_typ": "aad", "claims": [{"typ": "name", "val": "No Oid"}]}
-    encoded = base64.b64encode(json.dumps(payload).encode()).decode()
-    response = client.get("/api/me", headers={"x-ms-client-principal": encoded})
-    assert response.status_code == 401
+def test_correct_key_is_accepted(client: TestClient) -> None:
+    response = client.get("/api/supports/plans", headers={API_KEY_HEADER: TEST_API_KEY})
+    assert response.status_code == 200
 
 
 def test_health_stays_anonymous(client: TestClient) -> None:
-    """deploy-app.ps1 polls health to detect stale builds before login exists."""
+    """deploy-app.ps1 polls health to detect stale builds before the UI is up."""
 
-    response = client.get("/api/health", headers={"x-ms-client-principal": ""})
+    response = client.get("/api/health", headers={API_KEY_HEADER: ""})
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
 
-def test_auth_cannot_be_disabled_on_app_service() -> None:
-    """Disabling auth grants facilitator rights over every district.
+def test_health_details_needs_the_key(client: TestClient) -> None:
+    """It reports evidence source, knowledge base and readiness flags.
 
-    Harmless on a laptop, catastrophic on a public hostname, so the App
-    Service marker has to win over the setting. Failing closed makes the API
-    refuse everyone rather than serve everyone.
+    That is reconnaissance for anyone choosing what to attack, and unlike
+    `/api/health` nothing in the deploy path needs it anonymously.
     """
 
-    # Built first: the client factory resets the identity environment.
-    c = make_default_client()
-    os.environ["API_AUTH_MODE"] = "disabled"
-    os.environ.pop(APP_SERVICE_MARKER, None)
-    assert api_auth_mode() == "disabled"
+    assert client.get("/api/health/details", headers={API_KEY_HEADER: ""}).status_code == 401
 
-    os.environ[APP_SERVICE_MARKER] = "app-asg-api-example"
+
+def test_api_refuses_to_serve_unauthenticated_on_app_service() -> None:
+    """Forgetting the setting must not be the same as turning auth off.
+
+    Locally a missing key means "uvicorn behind the Vite dev proxy". On App
+    Service it means the API is open on a public hostname, so it fails closed.
+    """
+
+    c = make_default_client()
+    os.environ.pop("API_SHARED_KEY", None)
+    os.environ.pop(APP_SERVICE_MARKER, None)
     try:
-        assert api_auth_mode() == "entra"
-        assert c.get("/api/me", headers={"x-ms-client-principal": ""}).status_code == 401
+        assert api_auth_mode() == "unprotected"
+        assert c.get("/api/supports/plans").status_code == 200
+
+        os.environ[APP_SERVICE_MARKER] = "app-asg-api-example"
+        assert api_auth_mode() == "misconfigured"
+        assert c.get("/api/supports/plans").status_code == 503
     finally:
         os.environ.pop(APP_SERVICE_MARKER, None)
-        os.environ["API_AUTH_MODE"] = "entra"
+        os.environ["API_SHARED_KEY"] = TEST_API_KEY
         c.close()
 
 
-def test_local_dev_mode_yields_a_usable_set_of_districts() -> None:
-    """The local loop must work without hand-editing DISTRICT_ASSIGNMENTS.
+def test_districts_come_from_the_api_not_the_bundle(client: TestClient) -> None:
+    """The UI has no identity, so the roster has to be served to it."""
 
-    populate-env.ps1 writes `API_AUTH_MODE=disabled` and nothing else, so the
-    development principal has no explicit assignments. It is a facilitator, so
-    `available_districts` still resolves to the roster - which is what the UI
-    renders a picker from. If that ever stops being true, `npm run dev` lands
-    on "No districts assigned" with no way forward.
-    """
-
-    c = make_default_client()
-    os.environ["API_AUTH_MODE"] = "disabled"
-    os.environ["DISTRICT_ASSIGNMENTS"] = ""
-    os.environ["FACILITATOR_OBJECT_IDS"] = ""
-    os.environ.pop(APP_SERVICE_MARKER, None)
-    try:
-        body = c.get("/api/me").json()
-        assert body["is_facilitator"] is True
-        assert body["available_districts"] == sorted(KNOWN_DISTRICTS)
-    finally:
-        os.environ["API_AUTH_MODE"] = "entra"
-        c.close()
-
-
-def test_a_forged_principal_header_is_honoured_documenting_the_trust_model() -> None:
-    """Pins the boundary this design depends on.
-
-    The app does not verify the principal header, because Easy Auth strips any
-    client-supplied copy and injects its own. This test exists so that the
-    trust is a recorded decision rather than an assumption: if the header ever
-    stops being platform-guaranteed, this is the behaviour that becomes a
-    vulnerability.
-    """
-
-    c = make_default_client()
-    os.environ["API_AUTH_MODE"] = "entra"
-    os.environ["DISTRICT_ASSIGNMENTS"] = f"{OTHER_OID}=DIST-A"
-    os.environ["FACILITATOR_OBJECT_IDS"] = ""
-
-    response = c.get("/api/me", headers=principal_header(object_id=OTHER_OID))
-    assert response.status_code == 200
-    assert response.json()["districts"] == ["DIST-A"]
-    c.close()
-
-
-# --- authorization ----------------------------------------------------
-
-
-def test_unassigned_identity_gets_no_districts(client: TestClient) -> None:
-    """An unknown caller must get nothing, never a default district."""
-
-    os.environ["DISTRICT_ASSIGNMENTS"] = ""
-    os.environ["FACILITATOR_OBJECT_IDS"] = ""
-    response = client.get("/api/me", headers=principal_header(object_id=OTHER_OID))
-    assert response.status_code == 200
-    body = response.json()
-    assert body["districts"] == []
-    assert body["is_facilitator"] is False
-    # The UI offers exactly this list, so a stray entry here is a data leak.
-    assert body["available_districts"] == []
-
-
-def test_available_districts_is_the_assignment_not_the_roster(client: TestClient) -> None:
-    _restrict_to("DIST-A")
-    body = client.get("/api/me").json()
-    assert body["available_districts"] == ["DIST-A"]
-
-
-def test_facilitator_available_districts_covers_the_roster(client: TestClient) -> None:
-    """A facilitator has no explicit assignment, so the UI needs the roster."""
-
-    os.environ["DISTRICT_ASSIGNMENTS"] = ""
-    os.environ["FACILITATOR_OBJECT_IDS"] = TEST_PRINCIPAL_OID
-    body = client.get("/api/me").json()
-    assert body["districts"] == []
-    assert body["available_districts"] == sorted(KNOWN_DISTRICTS)
-
-
-def test_recommendation_for_unassigned_district_is_forbidden(client: TestClient) -> None:
-    """This is the endpoint that spends model quota, so it must fail first."""
-
-    _restrict_to("DIST-B")
-    response = client.post("/api/recommendations/support-plan", json=RECOMMENDATION_BODY)
-    assert response.status_code == 403
-
-
-def test_recommendation_for_assigned_district_is_allowed(client: TestClient) -> None:
-    _restrict_to("DIST-A")
-    response = client.post("/api/recommendations/support-plan", json=RECOMMENDATION_BODY)
-    assert response.status_code == 200
-
-
-def test_saving_a_plan_for_another_district_is_forbidden(client: TestClient) -> None:
-    # Build a fully valid save request while authorized, so the only thing
-    # that changes between allowed and denied is the caller's assignment.
-    _restrict_to("DIST-A|DIST-B|DIST-DEMO", facilitator=True)
-    recommendation = client.post(
-        "/api/recommendations/support-plan",
-        json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
-        },
-    ).json()["recommendation"]
-
-    save_body = {
-        "learner_id": "LRN-0001",
-        "district_id": "DIST-DEMO",
-        "category": "early-literacy",
-        "concern_text": "Letter-sound fluency below expected pace.",
-        "selected_smart_goal": "SG-early-literacy-1",
-        "selected_strategies": ["ST-early-literacy-1"],
-        "recommendation": recommendation,
-    }
-    assert client.post("/api/supports/plans", json=save_body).status_code == 200
-
-    _restrict_to("DIST-B")
-    assert client.post("/api/supports/plans", json=save_body).status_code == 403
-
-
-def test_saved_plans_are_filtered_to_the_callers_districts(client: TestClient) -> None:
-    _restrict_to("DIST-A|DIST-B|DIST-DEMO", facilitator=True)
-    everything = client.get("/api/supports/plans").json()["plans"]
-    districts_present = {p["district_id"] for p in everything}
-
-    _restrict_to("DIST-A")
-    scoped = client.get("/api/supports/plans").json()["plans"]
-    scoped_districts = {p["district_id"] for p in scoped}
-
-    assert scoped_districts <= {"DIST-A"}
-    if districts_present - {"DIST-A"}:
-        assert len(scoped) < len(everything), "filtering had no effect"
-
-
-def test_audit_events_are_filtered_to_the_callers_districts(client: TestClient) -> None:
-    _restrict_to("DIST-A")
-    rows = client.get("/api/audit/events").json()["events"]
-    assert all(r.get("district_id") in ("DIST-A", "", None) for r in rows)
-
-
-def test_demo_reset_is_facilitator_only() -> None:
-    c = make_default_client(demo_reset_enabled=True)
-    try:
-        _restrict_to("DIST-A", facilitator=False)
-        assert c.post("/api/demo/reset").status_code == 403
-
-        _restrict_to("DIST-A", facilitator=True)
-        assert c.post("/api/demo/reset").status_code == 200
-    finally:
-        c.close()
+    body = client.get("/api/supports/options", headers={API_KEY_HEADER: TEST_API_KEY}).json()
+    assert body["districts"] == ["DIST-A", "DIST-B", "DIST-DEMO"]

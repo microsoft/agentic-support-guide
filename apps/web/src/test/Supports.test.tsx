@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { SupportsPage } from "../pages/SupportsPage";
-import { PrincipalContext } from "../auth/AuthGate";
 import { api } from "../api/client";
 import {
   envelopeErrorFixture,
@@ -16,13 +15,11 @@ import {
 } from "./fixtures";
 
 function renderWithDistricts(districts: string[], children: ReactNode) {
-  return render(
-    <MemoryRouter>
-      <PrincipalContext.Provider value={{ principal: null, districts, signOut: () => {} }}>
-        {children}
-      </PrincipalContext.Provider>
-    </MemoryRouter>,
-  );
+  vi.spyOn(api, "supportOptions").mockResolvedValue({
+    ...supportOptionsFixture,
+    districts,
+  });
+  return render(<MemoryRouter>{children}</MemoryRouter>);
 }
 
 describe("SupportsPage", () => {
@@ -80,7 +77,7 @@ describe("SupportsPage", () => {
     expect(screen.queryByTestId("completeness")).not.toBeInTheDocument();
   });
 
-  it("sends the principal's district rather than a hardcoded one", async () => {
+  it("sends the district the API offered rather than a hardcoded one", async () => {
     vi.spyOn(api, "health").mockResolvedValue(healthFixture);
     vi.spyOn(api, "healthDetails").mockResolvedValue(healthDetailsReadyFixture);
     vi.spyOn(api, "supportOptions").mockResolvedValue(supportOptionsFixture);

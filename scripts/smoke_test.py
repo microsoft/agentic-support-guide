@@ -42,40 +42,8 @@ def terraform_output(name: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def acquire_token(client_id: str) -> str:
-    """Bearer token for the API, or "" when auth is off.
-
-    The API sits behind Easy Auth, so every call except health needs one.
-    Uses the signed-in az identity so the script works the same locally and
-    in CI, where the federated service principal signs in the same way.
-    """
-
-    if not client_id:
-        return ""
-    try:
-        result = subprocess.run(
-            [
-                "az",
-                "account",
-                "get-access-token",
-                "--resource",
-                f"api://{client_id}",
-                "--query",
-                "accessToken",
-                "-o",
-                "tsv",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-            shell=True,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return result.stdout.strip() if result.returncode == 0 else ""
-
-
+# Populated from the terraform output. Scripts talk to the API directly, so
+# they need the key the web tier would otherwise attach for them.
 AUTH_HEADERS: dict[str, str] = {}
 
 
@@ -171,26 +139,35 @@ class Smoke:
             )
 
     def auth_is_enforced(self) -> None:
-        """The deploy is only secure if this fails for an anonymous caller.
+        """The deploy is only secure if this fails for a caller without the key.
 
-        Everything else in this script runs with a token, so a completely
+        Everything else in this script sends the key, so a completely
         unauthenticated API would sail through every other check.
         """
 
-        mode = (self.state.get("health") or {}).get("auth_mode")
-        print(f"        auth_mode={mode}")
-        assert mode == "entra", f"API reports auth_mode={mode}; it is not requiring sign-in"
-
-        for path in ("/api/me", "/api/supports/plans", "/api/learners"):
-            # No redirect following: a 302 to the login page returns 200 for
-            # the login HTML, which would read as a successful API response.
+        for path in ("/api/supports/plans", "/api/learners", "/api/health/details"):
+            # No redirect following: a 302 to a login page returns 200 for the
+            # login HTML, which would read as a successful API response.
             req = urllib.request.Request(f"{self.api}{path}")
             try:
                 with _NO_REDIRECT.open(req, timeout=30) as resp:
-                    raise AssertionError(f"{path} answered {resp.status} without a token")
+                    raise AssertionError(f"{path} answered {resp.status} without the key")
             except urllib.error.HTTPError as exc:
-                assert exc.code in (401, 403), f"{path} returned {exc.code}, expected 401"
-        print("        anonymous callers are refused on 3 protected paths")
+                assert exc.code == 401, f"{path} returned {exc.code}, expected 401"
+        print("        direct calls without the key are refused on 3 paths")
+
+    def ui_reaches_api_through_proxy(self) -> None:
+        """The real access path: browser -> web tier -> API.
+
+        The browser holds no credential, so this is what actually has to work.
+        Testing only the direct API path would pass while the UI was broken.
+        """
+
+        req = urllib.request.Request(f"{self.web}/api/health/details")
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+        print(f"        proxied auth_mode={data.get('api_auth_mode')}")
+        assert data.get("customer_demo_ready"), "proxied health says the app is not configured"
 
     def ui_serves(self) -> None:
         status, body = get(self.web)
@@ -202,25 +179,26 @@ class Smoke:
         assert status == 200, status
         assert b'id="root"' in body, "SPA fallback is not rewriting deep links"
 
-    def ui_targets_api(self) -> None:
+    def bundle_carries_no_secret(self) -> None:
+        """The whole design rests on the browser never receiving the key.
+
+        If the key or the API hostname ends up inlined in the bundle, the
+        proxy has been bypassed and the key is public.
+        """
+
         _, body = get(self.web)
         text = body.decode("utf-8", "replace")
         match = re.search(r"[\"'](/assets/[^\"']+\.js)[\"']", text)
         assert match, "no JS bundle referenced in index.html"
         _, js = get(f"{self.web}{match.group(1)}")
-        host = self.api.split("//", 1)[-1]
-        assert host.encode() in js, f"UI bundle does not reference {host}"
 
-    def cors(self) -> None:
-        req = urllib.request.Request(
-            f"{self.api}/api/health",
-            method="OPTIONS",
-            headers={"Origin": self.web, "Access-Control-Request-Method": "POST"},
+        key = AUTH_HEADERS.get("x-api-key", "")
+        assert not (key and key.encode() in js), "the shared key is inlined in the UI bundle"
+        host = self.api.split("//", 1)[-1]
+        assert host.encode() not in js, (
+            f"bundle calls {host} directly, bypassing the proxy that holds the key"
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            allow = resp.headers.get("Access-Control-Allow-Origin")
-        print(f"        Access-Control-Allow-Origin: {allow}")
-        assert allow in (self.web, "*"), f"CORS blocks the UI origin: {allow}"
+        print("        bundle contains neither the key nor the API hostname")
 
     def recommendation(self) -> None:
         status, data = post(
@@ -283,12 +261,12 @@ class Smoke:
             print(f"expecting evidence_source={self.expect_evidence}")
         print()
         self.check("API health responds", self.health)
-        self.check("API refuses anonymous callers", self.auth_is_enforced)
+        self.check("API refuses calls without the key", self.auth_is_enforced)
+        self.check("UI reaches the API through the proxy", self.ui_reaches_api_through_proxy)
         self.check("evidence source is as expected", self.evidence_source)
         self.check("UI serves index.html", self.ui_serves)
         self.check("UI deep link falls back to the SPA", self.ui_spa_fallback)
-        self.check("UI bundle targets the deployed API", self.ui_targets_api)
-        self.check("CORS allows the UI origin", self.cors)
+        self.check("UI bundle carries no secret", self.bundle_carries_no_secret)
         self.check("support-plan request succeeds", self.recommendation)
         self.check("recommendation carries citations", self.citations)
         self.check("trace names the real evidence provider", self.trace_reports_expected_provider)
@@ -314,9 +292,9 @@ def main() -> int:
         help="Fail if the app is not serving evidence from this provider.",
     )
     parser.add_argument(
-        "--api-client-id",
+        "--api-key",
         default="",
-        help="Entra client ID of the API. Defaults to the terraform output.",
+        help="Shared key for the API. Defaults to the terraform output.",
     )
     args = parser.parse_args()
 
@@ -329,20 +307,21 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    # Every endpoint except health sits behind Easy Auth. CI has no Terraform
-    # state in the deploy job, so the client id also comes from the environment.
-    client_id = (
-        args.api_client_id
-        or os.environ.get("API_CLIENT_ID", "").strip()
-        or terraform_output("api_client_id")
+
+    # This script calls the API directly, so it needs the key the web tier
+    # would otherwise attach. CI has no Terraform state in the deploy job, so
+    # the key also comes from the environment.
+    key = (
+        args.api_key
+        or os.environ.get("API_SHARED_KEY", "").strip()
+        or terraform_output("api_shared_key")
     )
-    token = acquire_token(client_id)
-    if token:
-        AUTH_HEADERS["Authorization"] = f"Bearer {token}"
-        print("authenticated with the signed-in az identity")
-    elif client_id:
+    if key:
+        AUTH_HEADERS["x-api-key"] = key
+        print("calling the API with the shared key")
+    else:
         print(
-            "could not acquire a token; run `az login`. Authenticated checks will fail with 401.",
+            "no API key available; direct API checks will fail with 401.",
             file=sys.stderr,
         )
 

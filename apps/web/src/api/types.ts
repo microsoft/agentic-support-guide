@@ -7,16 +7,8 @@ export interface HealthResponse {
   version: string;
   banner: string;
   provider_configured: boolean;
-  auth_mode: string;
+  foundry_auth_mode: string;
   build_id: string;
-}
-
-export interface Principal {
-  object_id: string;
-  display_name: string;
-  districts: string[];
-  is_facilitator: boolean;
-  available_districts: string[];
 }
 
 export interface HealthCheckItem {
@@ -142,6 +134,7 @@ export interface SupportOptions {
   categories: CategoryOption[];
   smart_goals: SmartGoalOption[];
   strategies: StrategyOption[];
+  districts: string[];
 }
 
 export interface RecommendationResource {

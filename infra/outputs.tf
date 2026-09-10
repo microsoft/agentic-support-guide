@@ -116,12 +116,8 @@ output "application_insights_connection_string" {
   sensitive   = true
 }
 
-output "api_client_id" {
-  description = "Entra application (client) ID for the API. Empty when auth is disabled."
-  value       = local.effective_api_client_id
-}
-
-output "api_scope" {
-  description = "OAuth scope a client requests to call the API."
-  value       = local.effective_api_client_id != "" ? "api://${local.effective_api_client_id}/access_as_user" : ""
+output "api_shared_key" {
+  description = "Key the web tier sends to the API. Scripts need it to call the API directly."
+  value       = local.api_shared_key
+  sensitive   = true
 }

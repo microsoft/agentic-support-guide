@@ -138,8 +138,7 @@ coordination problems and leaves a few real ones.
   requests plus a short queue, which is ample for one person. Raise
   `search_replica_count` only if you are load testing retrieval.
 - **Access.** Every role goes to whoever runs `terraform apply`, so
-  `additional_principal_ids`, `facilitator_object_ids` and
-  `district_assignments` can all stay empty — empty means you. Only fill them
+  `additional_principal_ids` can stay empty — empty means you. Only fill it
   in if you deliberately want to let a colleague into your subscription.
 - **Suffixes.** `WORKSHOP_LEARNER_SUFFIX` is mandatory for publishing. In
   your own project it is what keeps a Module 6 variant addressable alongside
@@ -149,13 +148,25 @@ coordination problems and leaves a few real ones.
   — the service is yours — but index prefixes are a naming convention, not a
   security boundary, and this is the pattern people carry into shared
   environments. See the note at the end of Module 0.
-- **Easy Auth needs a restart.** Changing the auth settings leaves the
-  running worker on the old configuration, so Terraform can report success
-  while the API still serves anonymous traffic. Always follow with
-  `az webapp restart` and confirm with an unauthenticated `curl` that a
-  protected endpoint returns 401.
+- **Anyone with the UI URL can use your deployment.** There is no sign-in.
+  The shared key stops the API being called directly, but the web tier
+  attaches that key for whoever asks, so the front door is open. The records
+  are synthetic; what a stranger can actually spend is your model quota. Set
+  `web_allowed_ip_ranges` if the deployment will be up for more than a
+  session, and keep `model_capacity` sized to what you need.
+- **The web tier rate-limits the front door.** 10 recommendations per minute
+  per address, 4 at once, 30 requests per minute overall. A demo that clicks
+  repeatedly, or a room sharing one outbound address, can hit it and see
+  `429`. Raise it with app settings on the web app:
+
+  ```powershell
+  az webapp config appsettings set -g <rg> -n <web-app> --settings `
+      RECOMMENDATION_LIMIT_PER_MIN=30 MAX_CONCURRENT_RECOMMENDATIONS=8
+  ```
+
+  The limit is per instance and held in memory, so it resets on restart.
+  `scripts/load_test.py` is unaffected: it calls the API directly with the
+  key, which is the point of Module 5.
 - **Cost.** Tear down with `terraform -chdir=infra destroy` whenever you stop
   for more than a day. The Search service and the two App Service plans bill
-  by the hour whether or not you use them. The API app registration created by
-  `scripts/setup-api-auth.ps1` survives teardown and must be deleted
-  separately.
+  by the hour whether or not you use them.

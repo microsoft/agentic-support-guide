@@ -162,64 +162,26 @@ EOT
   }
 }
 
-variable "api_client_id" {
+variable "web_allowed_ip_ranges" {
   description = <<EOT
-Entra application (client) ID for the API.
+CIDR ranges allowed to open the UI. Empty means anyone with the URL.
 
-Leave empty to have Terraform create the registration. Set it to a client ID
-from `scripts/setup-api-auth.ps1` when Terraform cannot: Continuous Access
-Evaluation can reject the azuread provider's token even when `az` works, and
-registering an application needs tenant permission a learner may not have.
-EOT
-  type        = string
-  default     = ""
-}
+There is no user sign-in, so this is the only control that distinguishes you
+from any other anonymous visitor. The shared key stops the API's hostname
+being called directly; it does nothing about someone driving the UI, because
+the web tier attaches the key for whoever asks.
 
-variable "enable_api_auth" {
-  description = <<EOT
-Require Entra sign-in on the deployed API.
+Empty by default because a learner who moves between office, home and a
+hotspot will lock themselves out and have no way to tell why. Set it when the
+deployment will be up for more than a session:
 
-Setting this false does NOT produce an open API. The app refuses to honour
-`API_AUTH_MODE=disabled` whenever it detects App Service, because that mode
-grants the caller facilitator rights over every district. The result is an API
-that returns 401 to everyone, which is safe but useless.
+  web_allowed_ip_ranges = ["203.0.113.4/32"]
 
-In other words there is no supported way to run the deployed API without
-authentication. Leave this true. Auth can only be disabled for local
-development, where there is no Easy Auth to inject a principal.
-
-Creating the app registration needs permission to register applications in
-the tenant. If you lack it, run scripts/setup-api-auth.ps1 with an account
-that has it and pass the result as `api_client_id` rather than turning auth
-off.
-EOT
-  type        = bool
-  default     = true
-}
-
-variable "facilitator_object_ids" {
-  description = <<EOT
-Entra object IDs that may act on every district and run the demo reset.
-Leave empty to grant it to whoever runs `terraform apply`.
+The Access Restrictions blade for the web app shows the address you are
+currently calling from.
 EOT
   type        = list(string)
   default     = []
-}
-
-variable "district_assignments" {
-  description = <<EOT
-Entra object ID to the districts that identity may use.
-
-  district_assignments = {
-    "00000000-0000-0000-0000-000000000000" = ["DIST-A"]
-  }
-
-An identity that is not listed gets NO districts. There is deliberately no
-default grant: one would hand every account in the tenant access to a
-district's data.
-EOT
-  type        = map(list(string))
-  default     = {}
 }
 
 variable "api_knowledge_base_name" {

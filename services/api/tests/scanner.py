@@ -90,10 +90,6 @@ ALLOWED_HOSTS = {
     "monitor.azure.com",
     "applicationinsights.azure.com",
     "portal.azure.com",
-    # Entra sign-in authority, referenced by the Easy Auth configuration.
-    "login.microsoftonline.com",
-    # Microsoft Graph, used to configure the API's app registration.
-    "graph.microsoft.com",
     "registry.terraform.io",
     "developer.hashicorp.com",
     "www.terraform.io",

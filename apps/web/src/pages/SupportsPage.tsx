@@ -13,7 +13,6 @@ import { AgentWorkflowPanel } from "../components/AgentWorkflowPanel";
 import { Card } from "../components/Card";
 import { SetupStatus } from "../components/SetupStatus";
 import { ApiUnavailable, LoadingState } from "../components/States";
-import { usePrincipal } from "../auth/AuthGate";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -39,8 +38,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function SupportsPage() {
-  const { districts } = usePrincipal();
-  const [district, setDistrict] = useState(districts[0] ?? "");
+  const [district, setDistrict] = useState("");
   const [options, setOptions] = useState<OptionsState>({ kind: "loading" });
   const [step, setStep] = useState<Step>(1);
   const [learnerId, setLearnerId] = useState("");
@@ -58,7 +56,12 @@ export function SupportsPage() {
     setOptions({ kind: "loading" });
     api
       .supportOptions()
-      .then((data) => setOptions({ kind: "ready", data }))
+      .then((data) => {
+        setOptions({ kind: "ready", data });
+        // The roster comes from the API so the bundle carries no district
+        // names of its own.
+        setDistrict((current) => current || (data.districts[0] ?? ""));
+      })
       .catch(() => setOptions({ kind: "error" }));
   };
 
@@ -174,7 +177,7 @@ export function SupportsPage() {
       <AgentWorkflowPanel running={recLoading} trace={trace} />
 
       <Card title="Guided plan builder">
-        {districts.length > 1 && (
+        {data.districts.length > 1 && (
           <div className="mb-4">
             <label
               htmlFor="district-select"
@@ -189,7 +192,7 @@ export function SupportsPage() {
               onChange={(e) => setDistrict(e.target.value)}
               className="w-full max-w-md rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
             >
-              {districts.map((d) => (
+              {data.districts.map((d) => (
                 <option key={d} value={d}>
                   {d}
                 </option>

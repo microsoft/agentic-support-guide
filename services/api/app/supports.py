@@ -120,12 +120,17 @@ def _strategies() -> list[StrategyOption]:
     return strategies
 
 
-def build_support_options(learners_labels: list[tuple[str, str]]) -> SupportOptions:
+def build_support_options(
+    learners_labels: list[tuple[str, str]],
+    *,
+    districts: list[str] | None = None,
+) -> SupportOptions:
     return SupportOptions(
         learners=[Option(id=lid, label=label) for lid, label in learners_labels],
         categories=list(CATEGORIES),
         smart_goals=_smart_goals(),
         strategies=_strategies(),
+        districts=districts or [],
     )
 
 

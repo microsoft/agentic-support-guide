@@ -32,9 +32,6 @@ $webApp = Get-Output "web_app_name"
 $resourceGroup = Get-Output "resource_group_name"
 $apiUrl = Get-Output "api_url"
 $webUrl = Get-Output "web_url"
-$apiClientId = Get-Output "api_client_id"
-$apiScope = Get-Output "api_scope"
-$tenantId = (az account show --query tenantId -o tsv)
 
 if (-not $apiApp) {
     Write-Host "No app names in Terraform outputs. Is enable_app_hosting true and applied?" -ForegroundColor Red
@@ -88,35 +85,28 @@ function Deploy-Web {
     Write-Host "Building UI ..." -ForegroundColor Cyan
     Push-Location (Join-Path $repoRoot "apps\web")
     try {
-        # Vite inlines this at build time, so the API URL must be known now.
-        # The client defaults to a relative "/api", which cannot work here:
-        # the UI and API are separate App Service hosts.
-        $env:VITE_API_BASE_URL = "$apiUrl/api"
-        Write-Host "  VITE_API_BASE_URL = $env:VITE_API_BASE_URL"
-
-        # Also inlined. Without all three the UI ships without a sign-in
-        # screen and every call to the secured API returns 401.
-        $env:VITE_ENTRA_CLIENT_ID = $apiClientId
-        $env:VITE_ENTRA_TENANT_ID = $tenantId
-        $env:VITE_API_SCOPE = $apiScope
-        if (-not $apiClientId -or -not $tenantId -or -not $apiScope) {
-            Write-Host "  WARNING: sign-in not configured; the UI will not be able to call the API." -ForegroundColor Yellow
-        } else {
-            Write-Host "  VITE_API_SCOPE       = $apiScope"
-        }
-
+        # No VITE_API_BASE_URL: the browser calls /api on the web tier's own
+        # origin and server.js forwards it. Pointing the bundle straight at
+        # the API would bypass the proxy, and the API would reject it.
         & npm run build
         if ($LASTEXITCODE -ne 0) { throw "UI build failed" }
     } finally {
-        Remove-Item Env:\VITE_API_BASE_URL -ErrorAction SilentlyContinue
-        Remove-Item Env:\VITE_ENTRA_CLIENT_ID -ErrorAction SilentlyContinue
-        Remove-Item Env:\VITE_ENTRA_TENANT_ID -ErrorAction SilentlyContinue
-        Remove-Item Env:\VITE_API_SCOPE -ErrorAction SilentlyContinue
         Pop-Location
     }
 
+    # server.js sits beside dist/ and is what App Service starts. Shipping
+    # only dist/ leaves the site with nothing to run.
+    $webStage = Join-Path $staging "web"
+    Remove-Item $webStage -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $webStage -Force | Out-Null
+    Copy-Item (Join-Path $repoRoot "apps\web\dist") $webStage -Recurse
+    Copy-Item (Join-Path $repoRoot "apps\web\server.js") $webStage
+    # `"type": "module"` so Node treats server.js as ESM. Without a
+    # package.json here the import statements fail at startup.
+    '{ "type": "module" }' | Set-Content (Join-Path $webStage "package.json") -NoNewline
+
     $zip = Join-Path $staging "web.zip"
-    Compress-Archive -Path (Join-Path $repoRoot "apps\web\dist\*") -DestinationPath $zip -Force
+    Compress-Archive -Path (Join-Path $webStage "*") -DestinationPath $zip -Force
     Write-Host "  $([math]::Round((Get-Item $zip).Length / 1MB, 2)) MB"
 
     Write-Host "Deploying UI ..." -ForegroundColor Cyan

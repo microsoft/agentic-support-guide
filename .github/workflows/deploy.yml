@@ -96,30 +96,25 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      # Vite inlines these at build time. VITE_API_BASE_URL: the client falls
-      # back to a relative /api, which cannot work when the UI and API are
-      # separate hosts. The Entra values: without all three the UI ships with
-      # no sign-in screen and every call to the secured API returns 401.
+      # No VITE_* API variables: the browser calls /api on the web tier's own
+      # origin and server.js forwards it with the shared key attached
+      # server-side. Pointing the bundle at the API would bypass the proxy.
       - name: Build UI
         if: inputs.component != 'api'
         working-directory: apps/web
-        env:
-          VITE_API_BASE_URL: ${{ vars.AZURE_API_URL }}/api
-          VITE_ENTRA_CLIENT_ID: ${{ vars.AZURE_API_CLIENT_ID }}
-          VITE_ENTRA_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          VITE_API_SCOPE: api://${{ vars.AZURE_API_CLIENT_ID }}/access_as_user
         run: |
-          if [ -z "${VITE_ENTRA_CLIENT_ID}" ]; then
-            echo "AZURE_API_CLIENT_ID variable is not set; the UI would ship without sign-in." >&2
-            exit 1
-          fi
           npm ci
           npm run build
 
       - name: Deploy UI
         if: inputs.component != 'api'
         run: |
-          (cd apps/web/dist && zip -qr ../../../web.zip .)
+          # server.js is what App Service starts; shipping only dist/ leaves
+          # the site with nothing to run.
+          mkdir -p build/web && cp -r apps/web/dist build/web/dist
+          cp apps/web/server.js build/web/server.js
+          echo '{ "type": "module" }' > build/web/package.json
+          (cd build/web && zip -qr ../../web.zip .)
           az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$WEB_APP" \
             --src-path web.zip --type zip --async false
 
@@ -147,7 +142,7 @@ jobs:
 
       - name: Smoke test
         env:
-          API_CLIENT_ID: ${{ vars.AZURE_API_CLIENT_ID }}
+          API_SHARED_KEY: ${{ secrets.API_SHARED_KEY }}
         run: |
           python scripts/smoke_test.py \
             --api-url "$API_URL" \

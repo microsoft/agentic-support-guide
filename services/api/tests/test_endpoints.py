@@ -7,7 +7,7 @@ def test_health_reports_provider_status() -> None:
     client = make_default_client()
     body = client.get("/api/health").json()
     assert body["service"] == "agentic-support-guide-api"
-    assert body["auth_mode"] == "entra"
+    assert body["foundry_auth_mode"] == "entra"
     assert body["provider_configured"] is True
 
 

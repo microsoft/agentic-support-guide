@@ -16,21 +16,14 @@ class HealthResponse(BaseModel):
     version: str
     banner: str
     provider_configured: bool
-    auth_mode: str
+    # How the API authenticates OUTBOUND to Foundry. Deliberately not named
+    # `auth_mode`: this endpoint is anonymous, and a bare "entra" here reads as
+    # "the API requires a sign-in", which it does not. Inbound protection is
+    # `api_auth_mode` on /health/details.
+    foundry_auth_mode: str
     # Proves which build is serving. A deploy can succeed and still leave the
     # previous code running, which no other field here would reveal.
     build_id: str
-
-
-class PrincipalResponse(BaseModel):
-    object_id: str
-    display_name: str
-    districts: list[str]
-    is_facilitator: bool
-    # What the caller may actually pick. A facilitator carries no explicit
-    # assignments, so `districts` alone would leave the UI with nothing to
-    # offer them.
-    available_districts: list[str]
 
 
 class HealthCheckItem(BaseModel):
@@ -190,6 +183,9 @@ class SupportOptions(BaseModel):
     categories: list[CategoryOption]
     smart_goals: list[SmartGoalOption]
     strategies: list[StrategyOption]
+    # The UI has no identity to derive a district from, so the roster comes
+    # from here rather than being hardcoded in the bundle.
+    districts: list[str] = []
 
 
 class SupportPlanRequest(BaseModel):

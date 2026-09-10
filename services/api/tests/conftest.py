@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import base64
-import json
 import os
 from collections.abc import Callable, Iterator
 from typing import Any
@@ -153,47 +151,22 @@ def evidence_retriever() -> FixtureEvidenceRetriever:
     return FixtureEvidenceRetriever()
 
 
-TEST_PRINCIPAL_OID = "11111111-1111-1111-1111-111111111111"
-# All-zero placeholder: the privacy scanner rejects realistic-looking GUIDs
-# next to identity keywords, which is the behaviour we want everywhere else.
-TEST_TENANT_ID = "00000000-0000-0000-0000-000000000000"
-TEST_DISTRICTS = ("DIST-A", "DIST-B", "DIST-DEMO")
+TEST_API_KEY = "test-shared-key-not-a-real-secret"
 
 
-def principal_header(
-    *,
-    object_id: str = TEST_PRINCIPAL_OID,
-    name: str = "Test Educator",
-    tenant_id: str = TEST_TENANT_ID,
-) -> dict[str, str]:
-    """Build the header App Service Easy Auth injects on a validated request.
+def api_key_header() -> dict[str, str]:
+    """The header the web tier attaches on every forwarded request.
 
-    Tests send this rather than disabling auth, so the real header parsing and
-    authorization path runs. Turning auth off in tests would make every
-    endpoint test silently blind to authorization.
+    Tests send a real key rather than leaving it unset, so the comparison path
+    runs. Clearing the key in tests would make every endpoint test blind to
+    whether the check is wired up at all.
     """
 
-    payload = {
-        "auth_typ": "aad",
-        "claims": [
-            {"typ": "oid", "val": object_id},
-            {"typ": "tid", "val": tenant_id},
-            {"typ": "name", "val": name},
-        ],
-    }
-    encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
-    return {"x-ms-client-principal": encoded}
+    return {"x-api-key": TEST_API_KEY}
 
 
-def _apply_test_identity(
-    monkeypatch: pytest.MonkeyPatch | None = None,
-    *,
-    districts: tuple[str, ...] = TEST_DISTRICTS,
-    facilitator: bool = True,
-) -> None:
-    assignment = "|".join(districts)
-    os.environ["DISTRICT_ASSIGNMENTS"] = f"{TEST_PRINCIPAL_OID}={assignment}"
-    os.environ["FACILITATOR_OBJECT_IDS"] = TEST_PRINCIPAL_OID if facilitator else ""
+def _apply_test_identity() -> None:
+    os.environ["API_SHARED_KEY"] = TEST_API_KEY
 
 
 @pytest.fixture()
@@ -215,7 +188,7 @@ def make_client() -> Callable[..., TestClient]:
         )
         app.state.runtime = runtime
         _apply_test_identity()
-        return TestClient(app, headers=principal_header())
+        return TestClient(app, headers=api_key_header())
 
     return _factory
 
@@ -231,4 +204,4 @@ def make_default_client(*, demo_reset_enabled: bool = False) -> TestClient:
     )
     app.state.runtime = runtime
     _apply_test_identity()
-    return TestClient(app, headers=principal_header())
+    return TestClient(app, headers=api_key_header())

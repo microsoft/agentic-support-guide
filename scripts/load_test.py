@@ -39,36 +39,13 @@ def terraform_output(name: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def acquire_token(client_id: str) -> str:
-    """Bearer token for the API, or "" when auth is off.
+def acquire_key() -> str:
+    """The key the web tier would attach. Without it every request is a 401."""
 
-    Without this every request stops at Easy Auth and the run measures how
-    fast the platform can return 401 rather than how the orchestration scales.
-    """
-
-    if not client_id:
-        return ""
-    result = run(
-        [
-            "az",
-            "account",
-            "get-access-token",
-            "--resource",
-            f"api://{client_id}",
-            "--query",
-            "accessToken",
-            "-o",
-            "tsv",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        shell=True,
-    )
-    return result.stdout.strip() if result.returncode == 0 else ""
+    return terraform_output("api_shared_key")
 
 
-def one_request(api: str, index: int, timeout: int, token: str) -> dict:
+def one_request(api: str, index: int, timeout: int, key: str) -> dict:
     payload = {
         "district_id": DISTRICTS[index % len(DISTRICTS)],
         "learner_id": "LRN-0001",
@@ -76,8 +53,8 @@ def one_request(api: str, index: int, timeout: int, token: str) -> dict:
         "concern_text": "Letter-sound fluency below expected pace.",
     }
     headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    if key:
+        headers["x-api-key"] = key
     req = urllib.request.Request(
         f"{api}/api/recommendations/support-plan",
         data=json.dumps(payload).encode(),
@@ -110,9 +87,9 @@ def one_request(api: str, index: int, timeout: int, token: str) -> dict:
         }
 
 
-def wave(api: str, size: int, timeout: int, token: str) -> list[dict]:
+def wave(api: str, size: int, timeout: int, key: str) -> list[dict]:
     with ThreadPoolExecutor(max_workers=size) as pool:
-        return list(pool.map(lambda i: one_request(api, i, timeout, token), range(size)))
+        return list(pool.map(lambda i: one_request(api, i, timeout, key), range(size)))
 
 
 def report(size: int, results: list[dict], wall: float) -> bool:
@@ -159,15 +136,13 @@ def main() -> int:
     print(f"API {api}")
     print(f"waves: {args.waves}   (each request is a full 4-step orchestration)")
 
-    token = acquire_token(terraform_output("api_client_id"))
-    # The run cycles DISTRICTS, so the caller needs all three. A facilitator
-    # has them; anyone else gets 403 on two thirds of the requests.
-    print(f"auth: {'bearer token acquired' if token else 'none (expect 401s)'}")
+    key = acquire_key()
+    print(f"auth: {'shared key loaded' if key else 'none (expect 401s)'}")
 
     all_clean = True
     for size in args.waves:
         started = time.monotonic()
-        results = wave(api, size, args.timeout, token)
+        results = wave(api, size, args.timeout, key)
         all_clean &= report(size, results, time.monotonic() - started)
 
     print()

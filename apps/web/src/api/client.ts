@@ -7,22 +7,16 @@ import type {
   HealthDetailsResponse,
   HealthResponse,
   LearnersResponse,
-  Principal,
   RecommendationEnvelope,
   SavedPlan,
   SavedPlansResponse,
   SupportOptions,
 } from "./types";
 
+// Same origin: the web tier serves this bundle and proxies /api to the API,
+// attaching the shared key server-side. The browser holds no credential,
+// because a bundle cannot keep one.
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "");
-
-// Set once by the auth provider at startup. The client stays free of MSAL so
-// it can still be used from tests and from an unauthenticated local run.
-let accessTokenProvider: (() => Promise<string | null>) | null = null;
-
-export function setAccessTokenProvider(provider: (() => Promise<string | null>) | null): void {
-  accessTokenProvider = provider;
-}
 
 export class ApiError extends Error {
   constructor(
@@ -34,26 +28,17 @@ export class ApiError extends Error {
   }
 }
 
-// A bare "Request failed: 403" reads as an outage. Authorization failures are
-// the one case a user can act on, so name them.
+// A bare "Request failed: 503" reads as an outage. The key cases a user can
+// act on are the ones where the deployment is misconfigured.
 function describeStatus(status: number): string {
-  if (status === 401) return "Your session expired. Sign in again.";
-  if (status === 403) return "You are not assigned to that district.";
+  if (status === 401) return "The web tier is not authorized to call the API.";
+  if (status === 503) return "The API has no key configured and is refusing requests.";
   return `Request failed: ${status}`;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const headers: Record<string, string> = { "content-type": "application/json" };
-  const token = accessTokenProvider ? await accessTokenProvider() : null;
-  if (accessTokenProvider && !token) {
-    // Sending it anyway would return a 401 that reads like an outage. When a
-    // provider is configured, no token means the session is gone.
-    throw new ApiError(401, "Your session expired. Sign in again.");
-  }
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
   let response: Response;
   try {
     response = await fetch(url, {
@@ -71,7 +56,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
-  me: () => request<Principal>("/me"),
   dashboardSummary: () => request<DashboardSummary>("/dashboard/summary"),
   learners: () => request<LearnersResponse>("/learners"),
   assessmentsSummary: (filters: {

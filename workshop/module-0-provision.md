@@ -133,8 +133,8 @@ python scripts\load_test.py --waves 30
 ## 3. Apply
 
 There is no access list to fill in. Every role this stack creates goes to
-whoever runs `apply`, so `additional_principal_ids`, `facilitator_object_ids`
-and `district_assignments` can all stay empty — empty means you, and you are
+whoever runs `apply`, so `additional_principal_ids` can stay empty — empty
+means you, and you are
 the only identity that needs to reach this environment. Set them only if you
 deliberately want to let a colleague into your subscription.
 

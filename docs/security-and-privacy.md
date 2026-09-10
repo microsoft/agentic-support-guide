@@ -230,61 +230,81 @@ the persistent banner in the frontend layout.
 
 ## Caller authentication
 
-App Service Easy Auth sits in front of the API and validates the Entra
-token before a request reaches application code. Signature, issuer,
-audience and expiry are the platform's job; the app never parses a JWT
-or caches signing keys.
+There is no user sign-in. The API is authenticated to, but nobody logs in.
 
-- Unauthenticated requests get **401**, not a redirect. Every caller is
-  a SPA holding a bearer token or a script, and both break on a 302 to
-  a login page.
-- Only `/api/health` and `/api/health/details` are anonymous, so a
-  deploy can check which build is serving before anyone signs in.
-- `auth_settings_v2.allowed_audiences` lists **both** the bare app-ID
-  GUID and `api://<app-id>`. A v2.0 access token carries the GUID; if
-  only the URI is listed, Easy Auth rejects every valid token with a
-  bodiless 403.
-- Easy Auth changes need `az webapp restart`. Terraform state can show
-  `require_authentication = true` while the running worker still serves
-  anonymous traffic.
+The web tier serves the SPA and reverse-proxies `/api/*` to the API,
+attaching a shared key server-side (`apps/web/server.js`). The API
+rejects anything without that key, so its public hostname cannot be
+called directly.
 
-The UI signs in with MSAL using the authorization-code flow with PKCE
-and no client secret, caching tokens in `sessionStorage` so a token
-does not outlive the browser session on a shared workshop machine.
+The key never reaches the browser. A React bundle cannot keep a secret -
+anything it carried would be readable in DevTools - which is why the
+proxy exists at all rather than the SPA holding a credential. A smoke
+check asserts the deployed bundle contains neither the key nor the API
+hostname, because either would mean the proxy had been bypassed.
 
-Local development runs with `API_AUTH_MODE=disabled`, because a local
-uvicorn has no Easy Auth in front of it to inject the principal header.
-That mode returns a development principal with facilitator rights over
-every district, so the app refuses to honour it whenever App Service is
-detected (`WEBSITE_SITE_NAME` is set). A deployed API with auth turned
-off therefore returns 401 to everyone rather than serving everyone -
-unusable, but not open. `/api/health/details` reports the effective mode.
+- `/api/health` is the only anonymous route. The deploy polls it to find
+  out which build is serving, before the web tier is up. It returns a
+  status, a version and a build id.
+- `/api/health/details` requires the key. It reports evidence source,
+  knowledge base and readiness flags, which is reconnaissance for anyone
+  choosing what to attack, and nothing in the deploy path needs it.
+- A deployed API with no key configured returns 503 rather than serving
+  unauthenticated. Forgetting a setting must not be the same as turning
+  authentication off.
+- Local development needs no key: the Vite dev server proxies `/api` to
+  uvicorn, mirroring production, and the API only insists on a key when
+  it detects App Service.
 
-### The trust boundary
+### What this does not protect
 
-The app does not verify the `x-ms-client-principal` header. Easy Auth
-strips any client-supplied copy and injects its own, so within the
-platform boundary the header is authoritative. This is a deliberate
-choice: owning JWKS caching and key rollover in application code would
-be a liability with no upside.
+**The web tier is anonymous.** Anyone with the UI URL can use the app,
+and the proxy will attach the key on their behalf. The key stops the API
+being called directly; it does nothing about the front door.
 
-The consequence is that anything able to reach the container directly,
-bypassing Easy Auth, could present any identity it liked. That is why
-the fail-closed check above exists, and why
-`test_a_forged_principal_header_is_honoured_documenting_the_trust_model`
-pins the behaviour: it is a recorded decision, not an oversight.
+That is a deliberate consequence of "no user login". Without an identity
+nothing can distinguish the owner from any other visitor, so the only
+remaining control is a network boundary: `web_allowed_ip_ranges` puts an
+IP allowlist on the web app. It is empty by default, because a learner
+moving between office, home and a hotspot will lock themselves out with
+no way to tell why.
+
+The realistic exposure is model quota, not data - the records are
+synthetic. The web tier rate-limits the front door (10 recommendations
+per minute per address, 4 concurrent, 30 requests per minute overall,
+256 KB bodies), which bounds what a stranger can spend without an
+account. The limit lives in the proxy rather than the API so that
+`scripts/load_test.py`, which calls the API directly with the key, can
+still measure real capacity in Module 5.
+
+It is per instance and in memory, so it resets on restart and would
+multiply if the app scaled out. It is a cost guard, not a security
+boundary. `model_capacity` and a budget alert remain the backstop.
+
+### What was removed, and why
+
+An earlier version used App Service Easy Auth with per-user Entra
+sign-in and district assignments keyed on object id. It was removed
+because each learner deploys their own stack: the deploying learner was
+the only legitimate user, so per-user identity added a sign-in flow, an
+app registration, and several failure modes while defending against a
+threat that did not exist.
+
+The cost is real and worth stating plainly: **district isolation is now
+a demonstrated pattern, not an enforced control.** The UI picks a
+district and the API validates that it exists. Nothing answers "is this
+caller allowed that district", because there is no caller identity to
+ask about. Retrieval filtering, cross-district citation checks and the
+validator's district assertions all still run - they keep a *request*
+inside one district, which is what the workshop is teaching.
 
 ## District isolation
 
 Every request carries a `district_id` matching pattern
-`^[A-Z0-9][A-Z0-9\-]{1,31}$`. It is enforced at five layers:
+`^[A-Z0-9][A-Z0-9\-]{1,31}$`, and the roster is served to the UI from
+`/api/supports/options` so no district name is hardcoded in the bundle.
+It is enforced at four layers:
 
-- **Authorization** - `require_district` rejects any district not
-  assigned to the caller with a **403**, before any data access or
-  model call. This is the layer that matters: the four below faithfully
-  honour whatever district the caller asks for, so without it a caller
-  simply chose their own `district_id` and the rest of the stack
-  obliged.
 - **HTTP** - required by `SupportPlanRequest`.
 - **Contracts** - required in every JSON Schema in `/contracts/v1/`.
 - **Coordinator** - propagated to every agent context and stamped on
@@ -293,35 +313,20 @@ Every request carries a `district_id` matching pattern
   (`DRAFT_DISTRICT_MISMATCH`, `CROSS_DISTRICT_CITATION`,
   `UNKNOWN_CITATION_ID`) reject any drift.
 
-Assignments live in `district_assignments` in `terraform.tfvars`, keyed
-on Entra object ID because it is immutable and unique within the tenant,
-unlike a UPN which can be reassigned to a different person. An account
-with no assignment can sign in and sees nothing; a blanket default grant
-would hand every account in the tenant access to every district.
-
-`require_district` deliberately does not distinguish "no such district"
-from "not yours" - that difference would let a caller enumerate which
-districts exist.
-
-Reads are filtered rather than refused: saved plans and the audit feed
-return only the caller's districts, so a shared demo environment does
-not leak another learner's activity.
+These keep evidence for one request inside one district. None of them is
+an authorization check, and with no caller identity there is nothing to
+authorize against - see above.
 
 ### Known gap: the synthetic roster is not district-scoped
 
 `Learner`, `AssessmentRecord` and `BehaviorRecord` carry no
 `district_id`. Every caller sees the same synthetic cohort from
 `/api/learners`, `/api/dashboard/summary`, `/api/assessments/summary`,
-`/api/behavior/summary` and `/api/supports/options`. Those routes still
-require an authenticated principal, but they have nothing to filter on,
-and nothing stops a caller pairing any learner ID with any district they
-are assigned to.
+`/api/behavior/summary` and `/api/supports/options`.
 
-This is a property of the mock dataset, not of the authorization layer.
-It does not leak across districts today because there are no
-per-district learners to leak - but a real deployment must add
-`district_id` to these records and filter on it, exactly as the
-evidence layer already does for citations.
+This is a property of the mock dataset, not of the request pipeline. A
+real deployment must add `district_id` to these records and filter on
+it, exactly as the evidence layer already does for citations.
 
 The target production topology gives each district its own Microsoft
 Fabric workspace and lakehouse. This repo ships only synthetic

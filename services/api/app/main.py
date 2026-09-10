@@ -27,7 +27,7 @@ from . import behavior as behavior_mod
 from . import dashboard as dashboard_mod
 from . import learners as learners_mod
 from .agents.shared.contracts import ResourceRef
-from .auth import Principal, principal_from_request, require_district
+from .auth import require_api_key, running_on_app_service
 from .build_info import current_build_id
 from .config import (
     BASE_TIMESTAMP,
@@ -64,7 +64,6 @@ from .models import (
     HealthDetailsResponse,
     HealthResponse,
     LearnersResponse,
-    PrincipalResponse,
     RecommendationEnvelope,
     ReviewTransitionRequest,
     SavedPlan,
@@ -185,8 +184,12 @@ def create_app(
             "Synthetic data only."
         ),
         version=SERVICE_VERSION,
-        openapi_url="/api/openapi.json",
-        docs_url="/api/docs",
+        # FastAPI serves these as plain Starlette routes, outside the router
+        # that carries the key check, so on App Service they would hand the
+        # full schema to anyone who asked. Local development keeps them: the
+        # API is on a laptop and /api/docs is how learners explore it.
+        openapi_url=None if running_on_app_service() else "/api/openapi.json",
+        docs_url=None if running_on_app_service() else "/api/docs",
         redoc_url=None,
     )
 
@@ -251,10 +254,13 @@ def create_app(
     def get_evidence(request: Request) -> EvidenceRetriever:
         return request.app.state.evidence_retriever  # type: ignore[no-any-return]
 
-    def get_principal(request: Request) -> Principal:
-        return principal_from_request(request)
-
     router = APIRouter(prefix="/api")
+
+    # `/api/health` is the only anonymous route: deploy-app.ps1 and CI poll it
+    # to find out which build is serving, and that runs before the web tier is
+    # up. It returns a status and a build id and nothing else. Everything
+    # below it, including `/health/details`, needs the key.
+    guarded = [Depends(require_api_key)]
 
     @router.get("/health", response_model=HealthResponse)
     def get_health(
@@ -266,11 +272,15 @@ def create_app(
             version=SERVICE_VERSION,
             banner=PROTOTYPE_BANNER,
             provider_configured=settings.configured,
-            auth_mode=settings.auth_mode,
+            foundry_auth_mode=settings.auth_mode,
             build_id=current_build_id(),
         )
 
-    @router.get("/health/details", response_model=HealthDetailsResponse)
+    @router.get(
+        "/health/details",
+        response_model=HealthDetailsResponse,
+        dependencies=guarded,
+    )
     def get_health_details(
         settings: AzureFoundrySettings = Depends(get_settings_dep),
         runtime: MafAgentRuntime | None = Depends(get_runtime),
@@ -284,36 +294,14 @@ def create_app(
             version=SERVICE_VERSION,
         )
 
-    @router.get("/me", response_model=PrincipalResponse)
-    def get_me(principal: Principal = Depends(get_principal)) -> PrincipalResponse:
-        """Who the caller is and which districts they may use.
-
-        Entra does not carry district membership, so the UI cannot derive this
-        from the token. Without it the UI would have to guess - which is how
-        three hardcoded DIST-DEMO values ended up in it.
-        """
-
-        return PrincipalResponse(
-            object_id=principal.object_id,
-            display_name=principal.display_name,
-            districts=sorted(principal.districts),
-            is_facilitator=principal.is_facilitator,
-            available_districts=sorted(principal.visible_districts(frozenset(KNOWN_DISTRICTS))),
-        )
-
-    @router.post("/demo/reset", response_model=DemoResetResponse)
+    @router.post("/demo/reset", response_model=DemoResetResponse, dependencies=guarded)
     def post_demo_reset(
         settings: AzureFoundrySettings = Depends(get_settings_dep),
         plans: SavedPlansStore = Depends(get_plans),
         audit: RuntimeAuditLog = Depends(get_audit),
         repos: Repositories = Depends(get_repos),
         telemetry: TelemetryRecorder = Depends(get_telemetry),
-        principal: Principal = Depends(get_principal),
     ) -> DemoResetResponse:
-        # Wipes everyone's plans and audit rows, so it is facilitator-only
-        # even when the feature flag is on.
-        if not principal.is_facilitator:
-            raise HTTPException(status_code=403, detail="Demo reset is facilitator-only.")
         if not settings.demo_reset_enabled:
             raise HTTPException(
                 status_code=403,
@@ -345,11 +333,11 @@ def create_app(
     # than as a parameter because the handler has no use for the value.
     # Giving learners a district is a known gap, tracked in
     # docs/security-and-privacy.md.
-    @router.get(
-        "/dashboard/summary",
-        response_model=DashboardSummary,
-        dependencies=[Depends(get_principal)],
-    )
+    # The synthetic roster has no district dimension: Learner,
+    # AssessmentRecord and BehaviorRecord carry no district_id, so these
+    # endpoints have nothing to filter on and every caller sees the same
+    # cohort. Documented in docs/security-and-privacy.md.
+    @router.get("/dashboard/summary", response_model=DashboardSummary, dependencies=guarded)
     def get_dashboard(repos: Repositories = Depends(get_repos)) -> DashboardSummary:
         return dashboard_mod.build_summary(
             learners=repos.learners,
@@ -357,19 +345,11 @@ def create_app(
             behavior=repos.behavior,
         )
 
-    @router.get(
-        "/learners",
-        response_model=LearnersResponse,
-        dependencies=[Depends(get_principal)],
-    )
+    @router.get("/learners", response_model=LearnersResponse, dependencies=guarded)
     def get_learners_ep(repos: Repositories = Depends(get_repos)) -> LearnersResponse:
         return learners_mod.list_learner_summaries(repos.learners)
 
-    @router.get(
-        "/assessments/summary",
-        response_model=AssessmentsSummary,
-        dependencies=[Depends(get_principal)],
-    )
+    @router.get("/assessments/summary", response_model=AssessmentsSummary, dependencies=guarded)
     def get_assessments(
         school: str | None = Query(default=None),
         grade: str | None = Query(default=None),
@@ -385,26 +365,19 @@ def create_app(
             group=group,
         )
 
-    @router.get(
-        "/behavior/summary",
-        response_model=BehaviorSummary,
-        dependencies=[Depends(get_principal)],
-    )
+    @router.get("/behavior/summary", response_model=BehaviorSummary, dependencies=guarded)
     def get_behavior(repos: Repositories = Depends(get_repos)) -> BehaviorSummary:
         return behavior_mod.summarize(repos.behavior)
 
-    @router.get(
-        "/supports/options",
-        response_model=SupportOptions,
-        dependencies=[Depends(get_principal)],
-    )
+    @router.get("/supports/options", response_model=SupportOptions, dependencies=guarded)
     def get_support_options(repos: Repositories = Depends(get_repos)) -> SupportOptions:
         labels = [(learner.learner_id, learner.display_label) for learner in repos.learners]
-        return build_support_options(labels)
+        return build_support_options(labels, districts=list(KNOWN_DISTRICTS))
 
     @router.post(
         "/recommendations/support-plan",
         response_model=RecommendationEnvelope,
+        dependencies=guarded,
     )
     async def post_recommendation(
         payload: SupportPlanRequest,
@@ -414,11 +387,7 @@ def create_app(
         audit: RuntimeAuditLog = Depends(get_audit),
         contracts: ContractsRegistry = Depends(get_contracts),
         evidence: EvidenceRetriever = Depends(get_evidence),
-        principal: Principal = Depends(get_principal),
     ) -> RecommendationEnvelope:
-        # Authorize before anything else: this is the endpoint that spends
-        # model quota, four calls at a time.
-        require_district(principal, payload.district_id)
         learner = next(
             (learner for learner in repos.learners if learner.learner_id == payload.learner_id),
             None,
@@ -442,7 +411,8 @@ def create_app(
             )
 
         options = build_support_options(
-            [(le.learner_id, le.display_label) for le in repos.learners]
+            [(le.learner_id, le.display_label) for le in repos.learners],
+            districts=list(KNOWN_DISTRICTS),
         )
         allowed_resources = tuple(
             ResourceRef(id=r.resource_id, label=r.label, kind=r.kind) for r in repos.resources
@@ -510,22 +480,18 @@ def create_app(
             district_id=result.district_id,
         )
 
-    @router.get("/supports/plans", response_model=SavedPlansResponse)
+    @router.get("/supports/plans", response_model=SavedPlansResponse, dependencies=guarded)
     def get_saved_plans(
         plans: SavedPlansStore = Depends(get_plans),
-        principal: Principal = Depends(get_principal),
     ) -> SavedPlansResponse:
-        # Previously returned every district's plans, including concern text.
-        rows = [p for p in plans.list() if principal.may_access(p.district_id)]
+        rows = plans.list()
         return SavedPlansResponse(plans=rows, total=len(rows))
 
-    @router.post("/supports/plans", response_model=SavedPlan)
+    @router.post("/supports/plans", response_model=SavedPlan, dependencies=guarded)
     def post_saved_plan(
         payload: SavePlanRequest,
         plans: SavedPlansStore = Depends(get_plans),
-        principal: Principal = Depends(get_principal),
     ) -> SavedPlan:
-        require_district(principal, payload.district_id)
         plan = SavedPlan(
             plan_id=plans.next_plan_id(),
             learner_id=payload.learner_id,
@@ -540,21 +506,20 @@ def create_app(
         )
         return plans.add(plan)
 
-    @router.post("/supports/plans/{plan_id}/review", response_model=SavedPlan)
+    @router.post(
+        "/supports/plans/{plan_id}/review",
+        response_model=SavedPlan,
+        dependencies=guarded,
+    )
     def post_plan_review(
         plan_id: str,
         payload: ReviewTransitionRequest,
         plans: SavedPlansStore = Depends(get_plans),
         audit: RuntimeAuditLog = Depends(get_audit),
-        principal: Principal = Depends(get_principal),
     ) -> SavedPlan:
         plan = plans.get(plan_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="Unknown plan_id")
-        # The request body carries no district, so authorization has to come
-        # from the STORED plan. Trusting the body here would leave any plan
-        # transitionable by id.
-        require_district(principal, plan.district_id)
         try:
             new_state = transition(
                 HumanReviewState(plan.human_review_state),
@@ -569,9 +534,9 @@ def create_app(
             ReviewTransitionAuditEntry(
                 correlation_id=plan_id,
                 district_id=plan.district_id,
-                # Reviewer identity comes from the token, never the body: a
-                # caller-supplied label lets anyone forge attribution.
-                user_label=principal.display_name,
+                # No caller identity exists, so attribution is honest about
+                # that rather than recording a name the body supplied.
+                user_label="web-tier",
                 timestamp=_utc_now_iso(),
                 previous_state=plan.human_review_state,
                 new_state=new_state.value,
@@ -581,19 +546,14 @@ def create_app(
         )
         return updated
 
-    @router.get("/audit/events", response_model=AuditResponse)
+    @router.get("/audit/events", response_model=AuditResponse, dependencies=guarded)
     def get_audit_events(
         repos: Repositories = Depends(get_repos),
         audit: RuntimeAuditLog = Depends(get_audit),
-        principal: Principal = Depends(get_principal),
     ) -> AuditResponse:
         seeded = audit_mod.list_events(repos.audit).events
         runtime_rows: list[AuditEvent] = audit.snapshot()
-        combined = [
-            row
-            for row in seeded + runtime_rows
-            if principal.may_access(getattr(row, "district_id", "") or "")
-        ]
+        combined = seeded + runtime_rows
         return AuditResponse(
             events=combined,
             total=len(combined),

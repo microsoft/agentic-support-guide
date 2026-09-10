@@ -110,10 +110,9 @@ Implemented now:
 - Deterministic coordinator, typed shared contracts, JSON Schema
   protocol validation at every hop, one-shot repair loop.
 - Keyless Azure AI Foundry auth via `DefaultAzureCredential`.
-- Entra sign-in on the UI (MSAL, PKCE, no client secret) and App Service
-  Easy Auth on the API, with per-caller district authorization. Each
-  learner only sees the districts assigned to them in
-  `district_assignments`. See
+- No user sign-in. The web tier proxies `/api` to the API and attaches a
+  shared key server-side, so the API's hostname cannot be called directly
+  and the browser never holds a credential. See
   [docs/security-and-privacy.md](docs/security-and-privacy.md).
 - Terraform for AI Services account, Foundry project, model deployment,
   RBAC, Log Analytics + Application Insights.

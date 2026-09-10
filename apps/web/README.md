@@ -32,33 +32,35 @@ npm run build
 npm run test
 ```
 
-## API base URL
+## How the UI reaches the API
 
-The client resolves the API root from `VITE_API_BASE_URL` (see
-[`.env.example`](./.env.example)). Default is `/api`.
+There is no sign-in. The browser calls `/api/...` on the web tier's own
+origin, and `server.js` forwards it to the API with a shared key
+attached server-side.
 
-## Sign-in
+The key never reaches the browser, because a bundle cannot keep a
+secret. That is the whole reason the web tier runs a server instead of
+serving static files: `pm2 serve` had nowhere to hold a credential.
 
-The deployed API requires an Entra token, so the UI signs in with MSAL
-before it renders anything. Three build-time variables configure it:
+```
+browser  ──/api/*──▶  web tier (server.js)  ──+ x-api-key──▶  API
+```
 
-| Variable | Source |
-| --- | --- |
-| `VITE_ENTRA_CLIENT_ID` | `terraform output -raw api_client_id` |
-| `VITE_ENTRA_TENANT_ID` | `az account show --query tenantId -o tsv` |
-| `VITE_API_SCOPE` | `terraform output -raw api_scope` |
+`VITE_API_BASE_URL` should stay unset. It defaults to a relative `/api`,
+which is what routes through the proxy. Pointing it at the API's own
+hostname bypasses the proxy, and the API will reject the call because
+the browser has no key to send.
 
-Vite inlines these at build time, so a rebuild is required to change
-them. `scripts/deploy-app.ps1` sets all three from Terraform outputs.
+Local development already works this way: `vite.config.ts` proxies
+`/api` to `http://127.0.0.1:8000`, so the shape is identical and the API
+skips the key check when it is not on App Service.
 
-If any is missing the UI builds **without** a sign-in screen and every
-call to a secured API returns 401. That is the intended shape for local
-development, where the backend runs with `API_AUTH_MODE=disabled` and
-there is no Easy Auth to inject a principal.
+The district list comes from `/api/supports/options`, never from a
+constant in the UI. More than one district renders a picker.
 
-The district shown in the plan builder comes from `/api/me`, never from
-a constant in the UI. A caller assigned more than one district gets a
-picker.
+Anyone who can open the UI can use it. See
+[docs/security-and-privacy.md](../../docs/security-and-privacy.md) for
+what that does and does not protect.
 
 ## Setup status and error states
 

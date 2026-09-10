@@ -42,17 +42,11 @@ App Service managed identities, and for the Search service's managed identity
 | You need | Scope | Why | Check |
 | --- | --- | --- | --- |
 | `Owner`, or `Contributor` + `User Access Administrator` | Subscription (or a resource group you own) | Create resources **and** the role assignments in `infra/rbac.tf` | `az role assignment list --assignee $(az ad signed-in-user show --query id -o tsv) --include-inherited -o table` |
-| Ability to register an Entra application | Tenant | `enable_api_auth = true` makes Terraform create the API's app registration | Try `az ad app create --display-name asg-prereq-check` then delete it |
 | Ability to create role assignments on your own AI Services account | Resource | Module 6 (portal guardrails) and Module 7 (hosted agent identity) both need one | Covered by `Owner` / `User Access Administrator` above |
 
-If you cannot register an application, you have two documented ways out and
-should decide which before Module 0:
-
-1. Run [scripts/setup-api-auth.ps1](../scripts/setup-api-auth.ps1) with an
-   account that can, and paste the client ID into `api_client_id`.
-2. Set `enable_api_auth = false`. Understand what that costs: the API is
-   internet-reachable, and with auth off any caller can pick their own
-   `district_id`, read every saved plan, and spend your model quota.
+No Entra application registration is required. The API is protected by a
+shared key that Terraform generates and injects into both app services;
+there is no sign-in and nothing to register.
 
 Sign in and pin the subscription before anything else:
 
@@ -166,10 +160,7 @@ documented path through:
   neither can the portal. Module 3 gives you a File-knowledge-source
   alternative. The `SecurityControl = Ignore` tag in `var.tags` exempts the
   environment in some tenants; check whether yours honours it.
-- **Continuous Access Evaluation rejecting the `azuread` provider's token.**
-  Terraform then cannot create the API app registration even though `az`
-  works fine. Fall back to
-  [scripts/setup-api-auth.ps1](../scripts/setup-api-auth.ps1).
+
 
 ---
 
