@@ -138,11 +138,15 @@ step(
 # --- the proxy is the only way in --------------------------------------
 code, body, _ = call(f"{WEB}/api/health/details")
 details = json.loads(body) if code == 200 else {}
+# Asserts the payload came from the API, not that the app is configured.
+# `customer_demo_ready` is a configuration signal and stays true when the
+# knowledge base is missing, so using it here passed while every
+# recommendation was failing.
 step(
     "browser path reaches the API through the proxy",
-    code == 200 and bool(details.get("customer_demo_ready")),
-    f"{code} demo_ready={details.get('customer_demo_ready')} "
-    f"evidence={details.get('evidence_source')}",
+    code == 200 and details.get("service") == "agentic-support-guide-api",
+    f"{code} service={details.get('service')} evidence={details.get('evidence_source')} "
+    f"verified={details.get('evidence_verified')}",
 )
 
 code, body, _ = call(f"{WEB}/api/supports/options")
