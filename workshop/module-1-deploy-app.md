@@ -57,10 +57,15 @@ command is:
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir services/api
 ```
 
-**The UI's API URL is baked in at build time.** Vite inlines
-`VITE_API_BASE_URL` into the bundle. The client defaults to a relative
-`/api`, which cannot work here because the UI and API are different hosts.
-The script sets it to `<api_url>/api` before `npm run build`.
+**The UI never learns the API's address.** The browser calls `/api` on the
+web tier's own origin, and `apps/web/server.js` forwards it to the API with
+the shared key attached server-side. `VITE_API_BASE_URL` stays unset so the
+client uses its relative default. Pointing the bundle at the API's hostname
+would bypass the proxy, and the API would reject the call because the browser
+has no key to send.
+
+That is also why the web tier runs `node server.js` instead of serving static
+files: a React bundle cannot hold a secret, so something server-side has to.
 
 ## 3. Deploy
 
@@ -181,6 +186,15 @@ gh variable set AZURE_API_APP_NAME   --body (terraform -chdir=infra output -raw 
 gh variable set AZURE_WEB_APP_NAME   --body (terraform -chdir=infra output -raw web_app_name)
 gh variable set AZURE_API_URL        --body (terraform -chdir=infra output -raw api_url)
 gh variable set AZURE_WEB_URL        --body (terraform -chdir=infra output -raw web_url)
+```
+
+The post-deploy smoke test calls the API directly, so it needs the key the
+web tier would otherwise attach. Without it every authenticated check in CI
+fails with 401:
+
+```powershell
+gh secret set API_SHARED_KEY --env workshop `
+    --body (terraform -chdir=infra output -raw api_shared_key)
 ```
 
 Create an app registration with a federated credential, grant it
