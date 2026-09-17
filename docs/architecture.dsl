@@ -9,12 +9,11 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             }
             apiService = container "API Service" "FastAPI backend that owns request handling and error taxonomy" {
                 tags "LocalApp"
-                coordinator = component "Workflow Coordinator" "Deterministic Python that sequences the three remote agents, validates protocol messages, and runs a one-shot repair loop"
+                coordinator = component "Workflow Coordinator" "Deterministic Python that builds the Agent Framework workflow graph, validates every protocol hop, and enforces the run budget"
             }
-            syntheticData = container "Synthetic Data" "In-memory synthetic learner signals" {
+            syntheticData = container "Synthetic Data" "In-memory synthetic dealership signals" {
                 tags "Data"
             }
-            evidenceRetriever = container "Evidence Retriever" "EvidenceRetriever interface; synthetic fixtures per district today; Fabric-backed in production" {
                 tags "Data"
             }
             humanReview = container "Human Review" "Review lifecycle (pending, approved, rejected) with audited transitions" {
@@ -23,17 +22,12 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             agentDefinitions = container "Agent Definitions" "Source-controlled agent.md and manifest.yaml files" {
                 tags "AgentAssets"
             }
-            protocolContracts = container "Protocol Contracts" "Versioned JSON Schema message contracts including district_id and citations" {
+            protocolContracts = container "Protocol Contracts" "Versioned JSON Schema message contracts including dealer_group_id and citations" {
                 tags "AgentAssets"
             }
         }
 
-        fabric = softwareSystem "Microsoft Fabric (per district)" "Target production data tier. Each district has its own workspace and lakehouse. Not wired up in this build." {
-            fabricDistA = container "District A workspace + lakehouse" "Structured tables and district-approved PDFs for District A" {
-                tags "Fabric"
             }
-            fabricDistB = container "District B workspace + lakehouse" "Structured tables and district-approved PDFs for District B" {
-                tags "Fabric"
             }
         }
 
@@ -41,7 +35,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             foundryProject = container "Foundry Project" "Project boundary for agents, model, and observability" {
                 tags "Azure"
             }
-            remoteAgents = container "Ephemeral Foundry Agents" "Agent Framework agents assembled in-process per call; nothing is persisted in Foundry" {
+            remoteAgents = container "Ephemeral Foundry Agents" "Agent Framework agents assembled in-process per call; the same definitions are also published to Foundry as versioned prompt agents" {
                 tags "Azure"
                 dataAnalystAgent = component "Data Analyst Agent" "Reviews synthetic signals and writes an evidence summary"
                 supportRecommendationAgent = component "Support Recommendation Agent" "Proposes a plan drawn from an allowed catalog"
@@ -56,7 +50,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
         }
 
         operations = softwareSystem "Deployment & Operations" {
-            terraformAndScripts = container "Terraform & Ops Scripts" "Provision Azure infrastructure and validate agent definitions. Never creates agents." {
+            terraformAndScripts = container "Terraform & Ops Scripts" "Provision Azure infrastructure, validate agent definitions, and publish agent versions to Foundry." {
                 tags "Ops"
             }
         }
@@ -66,7 +60,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
         webApp -> apiService "HTTP /api"
 
         coordinator -> syntheticData "reads"
-        coordinator -> evidenceRetriever "retrieves per-district evidence bundle"
+        coordinator -> evidenceRetriever "retrieves per-dealer group evidence bundle"
         coordinator -> protocolContracts "validates"
         coordinator -> agentDefinitions "loads"
         coordinator -> dataAnalystAgent "invokes via Microsoft Agent Framework"
@@ -77,12 +71,10 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
         coordinator -> humanReview "creates draft in pending_review"
         apiService -> humanReview "approves or rejects (API only; no UI yet)"
 
-        evidenceRetriever -> fabricDistA "district-scoped read (target production)"
-        evidenceRetriever -> fabricDistB "district-scoped read (target production)"
 
         remoteAgents -> modelDeployment "uses shared model deployment"
 
-        apiService -> observability "emits correlation_id, district_id, coded status only"
+        apiService -> observability "emits correlation_id, dealer_group_id, coded status only"
 
         terraformAndScripts -> foundry "provisions and verifies"
         terraformAndScripts -> agentDefinitions "validates definitions (no deploy)"
@@ -145,7 +137,6 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
                 background "#8aa27a"
                 color "#ffffff"
             }
-            element "Fabric" {
                 background "#3f6b5b"
                 color "#ffffff"
             }

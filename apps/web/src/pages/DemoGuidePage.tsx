@@ -6,15 +6,15 @@ export function DemoGuidePage() {
     <div className="space-y-6">
       <Card title="Demo guide">
         <p className="text-sm text-slate-200">
-          This prototype demonstrates a generic learner-support workflow. All values on
+          This prototype demonstrates a generic dealership support workflow. All values on
           screen are synthetic. When the backend is connected to Azure AI Foundry, three
           collaborating agents run on real language-model calls to produce a structured
-          support recommendation for a chosen learner and category.
+          support recommendation for a chosen dealership and category.
         </p>
         <p className="mt-3 rounded border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-300">
           This prototype uses synthetic data. It is intended to demonstrate architecture
-          and workflow patterns, not to make production educational, legal, compliance,
-          medical, disability, or placement decisions.
+          and workflow patterns, not to make production pricing, financing, credit,
+          compliance, safety, or staffing decisions.
         </p>
       </Card>
 
@@ -27,7 +27,7 @@ export function DemoGuidePage() {
           <li>
             <span className="font-medium text-slate-100">Dashboard.</span> Open the
             Dashboard to introduce the demo. Point out the four KPI cards and the
-            proficiency / domain charts. Say the numbers are synthetic signals used to
+            band / process_area charts. Say the numbers are synthetic signals used to
             illustrate the shape of a support workflow.
           </li>
           <li>
@@ -37,7 +37,7 @@ export function DemoGuidePage() {
           </li>
           <li>
             <span className="font-medium text-slate-100">Supports.</span> Walk through
-            the guided plan builder: pick a learner, pick a category, type a short
+            the guided plan builder: pick a dealership, pick a category, type a short
             concern, and click <em>Generate recommendation</em>. Explain that this is
             where the three agents run.
           </li>
@@ -47,7 +47,7 @@ export function DemoGuidePage() {
             <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
               <li>
                 <span className="text-slate-100">Data Analyst Agent</span> reviews the
-                synthetic evidence for the chosen learner.
+                synthetic evidence for the chosen dealership.
               </li>
               <li>
                 <span className="text-slate-100">Support Recommendation Agent</span>{" "}

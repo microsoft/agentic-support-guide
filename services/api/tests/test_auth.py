@@ -23,10 +23,10 @@ from app.auth import API_KEY_HEADER, APP_SERVICE_MARKER, api_auth_mode
 from .conftest import TEST_API_KEY, make_default_client
 
 RECOMMENDATION_BODY = {
-    "district_id": "DIST-A",
-    "learner_id": "LRN-0001",
-    "category": "early-literacy",
-    "concern_text": "Letter-sound fluency below expected pace.",
+    "dealer_group_id": "GROUP-A",
+    "dealership_id": "DLR-0001",
+    "category": "lead-response",
+    "concern_text": "Median first response to online enquiries slipped past one hour.",
 }
 
 # Reachable without a key by design: deploy-app.ps1 and CI poll this to find
@@ -175,8 +175,8 @@ def test_api_refuses_to_serve_unauthenticated_on_app_service() -> None:
         c.close()
 
 
-def test_districts_come_from_the_api_not_the_bundle(client: TestClient) -> None:
+def test_dealer_groups_come_from_the_api_not_the_bundle(client: TestClient) -> None:
     """The UI has no identity, so the roster has to be served to it."""
 
     body = client.get("/api/supports/options", headers={API_KEY_HEADER: TEST_API_KEY}).json()
-    assert body["districts"] == ["DIST-A", "DIST-B", "DIST-DEMO"]
+    assert body["dealer_groups"] == ["GROUP-A", "GROUP-B", "GROUP-DEMO"]

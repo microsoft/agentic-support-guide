@@ -29,6 +29,7 @@ sys.path.insert(0, str(REPO_ROOT / "services" / "api"))
 
 from app.foundry_agents import (
     compose_instructions,
+    declared_response_format,
     instructions_hash,
     load_agent_assets,
 )
@@ -75,11 +76,15 @@ def _validate_manifest(agent_dir: Path) -> tuple[dict[str, Any], list[str]]:
         return {}, [f"{agent_dir.name}: manifest.yaml not found"]
 
     manifest: dict[str, Any] = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    foundry = manifest.get("foundry") or {}
+    is_text_agent = foundry.get("response_format") == "text"
+
     for key in REQUIRED_MANIFEST_KEYS:
+        if key == "contracts" and is_text_agent:
+            continue
         if key not in manifest:
             errors.append(f"{agent_dir.name}: manifest missing '{key}'")
 
-    foundry = manifest.get("foundry") or {}
     for key in REQUIRED_FOUNDRY_KEYS:
         if not foundry.get(key):
             errors.append(f"{agent_dir.name}: manifest.foundry missing '{key}'")
@@ -92,16 +97,25 @@ def _validate_manifest(agent_dir: Path) -> tuple[dict[str, Any], list[str]]:
         )
 
     contracts = manifest.get("contracts") or {}
-    for side in REQUIRED_CONTRACT_SIDES:
-        block = contracts.get(side) or {}
-        for key in REQUIRED_CONTRACT_KEYS:
-            if not block.get(key):
-                errors.append(f"{agent_dir.name}: contracts.{side} missing '{key}'")
-        ref = block.get("schema_ref")
-        if ref and not (CONTRACTS_DIR / ref).is_file():
+    # A text agent answers in prose, so there is no schema for it to honour.
+    # Requiring one produced a manifest that borrowed the data analyst's.
+    if foundry.get("response_format") == "text":
+        if contracts:
             errors.append(
-                f"{agent_dir.name}: contracts.{side}.schema_ref not found in /contracts/v1 -> {ref}"
+                f"{agent_dir.name}: response_format is text, so contracts must be omitted"
             )
+    else:
+        for side in REQUIRED_CONTRACT_SIDES:
+            block = contracts.get(side) or {}
+            for key in REQUIRED_CONTRACT_KEYS:
+                if not block.get(key):
+                    errors.append(f"{agent_dir.name}: contracts.{side} missing '{key}'")
+            ref = block.get("schema_ref")
+            if ref and not (CONTRACTS_DIR / ref).is_file():
+                errors.append(
+                    f"{agent_dir.name}: contracts.{side}.schema_ref not found "
+                    f"in /contracts/v1 -> {ref}"
+                )
 
     for handoff in manifest.get("handoff") or []:
         contract = handoff.get("contract")
@@ -119,7 +133,9 @@ def _validate_instructions(agent_dir: Path) -> tuple[str, list[str]]:
     errors: list[str] = []
     assets = load_agent_assets(agent_dir.name)
     instructions = compose_instructions(
-        assets.agent_md_body, frontmatter=assets.agent_md_frontmatter
+        assets.agent_md_body,
+        frontmatter=assets.agent_md_frontmatter,
+        response_format=declared_response_format(assets.manifest),
     )
     if not assets.agent_md_body.strip():
         errors.append(f"{agent_dir.name}: agent.md body is empty")
@@ -131,20 +147,21 @@ def _validate_instructions(agent_dir: Path) -> tuple[str, list[str]]:
     return instructions, errors
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--check-connectivity",
-        action="store_true",
-        help="Live check: verify the Foundry project endpoint and credential work.",
-    )
-    args = parser.parse_args()
-
-    _load_env_file()
-
-    if not AGENTS_DIR.is_dir():
-        print(f"ERROR: /agents directory not found at {AGENTS_DIR}", file=sys.stderr)
+def _show_instructions(name: str) -> int:
+    names = [d.name for d in _all_agents()]
+    if name not in names:
+        print(
+            f"ERROR: unknown agent '{name}'. Choose one of: {', '.join(names)}",
+            file=sys.stderr,
+        )
         return 1
+    instructions, _ = _validate_instructions(AGENTS_DIR / name)
+    print(instructions)
+    return 0
+
+
+def _validate_all() -> list[str]:
+    """Validate every agent, printing one line each. Returns all errors."""
 
     all_errors: list[str] = []
     print(f"Validating {len(_all_agents())} agent definition(s):")
@@ -159,13 +176,38 @@ def main() -> int:
             continue
         foundry = manifest.get("foundry") or {}
         env_name = str(foundry.get("model_deployment_env", ""))
-        deployment = os.environ.get(env_name)
-        state = deployment or "<unset>"
+        state = os.environ.get(env_name) or "<unset>"
         print(
             f"  [ok]   {agent_dir.name:22s} model_env={env_name} ({state}) "
             f"instructions_hash={instructions_hash(instructions)[:12]}"
         )
+    return all_errors
 
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check-connectivity",
+        action="store_true",
+        help="Live check: verify the Foundry project endpoint and credential work.",
+    )
+    parser.add_argument(
+        "--show-instructions",
+        metavar="AGENT",
+        help="Print the composed instructions for one agent, for pasting into the portal.",
+    )
+    args = parser.parse_args()
+
+    _load_env_file()
+
+    if not AGENTS_DIR.is_dir():
+        print(f"ERROR: /agents directory not found at {AGENTS_DIR}", file=sys.stderr)
+        return 1
+
+    if args.show_instructions:
+        return _show_instructions(args.show_instructions)
+
+    all_errors = _validate_all()
     if all_errors:
         print(f"\n{len(all_errors)} problem(s) found.", file=sys.stderr)
         return 1
@@ -175,7 +217,8 @@ def main() -> int:
 
     print(
         "\nAll agent definitions are valid. Publish them to Foundry with:\n"
-        "  python scripts/publish_prompt_agents.py --suffix <you> --apply"
+        "  .\\services\\api\\.venv\\Scripts\\python.exe "
+        "scripts\\publish_prompt_agents.py --suffix <you> --apply"
     )
     return 0
 

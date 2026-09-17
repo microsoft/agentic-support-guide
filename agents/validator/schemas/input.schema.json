@@ -9,7 +9,7 @@
     "analyst_output",
     "recommendation_draft",
     "allowed_resource_ids",
-    "allowed_smart_goal_ids",
+    "allowed_goal_ids",
     "allowed_strategy_ids",
     "required_contract_version"
   ],
@@ -25,7 +25,7 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
     },
-    "allowed_smart_goal_ids": {
+    "allowed_goal_ids": {
       "type": "array",
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
     },

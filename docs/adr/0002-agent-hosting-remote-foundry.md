@@ -41,7 +41,8 @@ directly and does not fall back to a local runtime.
   which composes runtime instructions = `agent.md` body + a fixed
   generic envelope and writes assistant IDs to
   `.foundry/agent-bindings.local.json` (gitignored). A committed
-  example lives at `.foundry/agent-bindings.example.json`.
+  example lives at `.foundry/agent-bindings.example.json`. (Both files
+  went with the Assistants path and no longer exist.)
 - The three Python role classes (`DataAnalystAgent`,
   `SupportRecommendationAgent`, `ValidatorAgent`) invoke the remote
   agents through
@@ -93,7 +94,7 @@ directly and does not fall back to a local runtime.
 - Deploying a new environment now requires three steps: run Terraform,
   populate `services/api/.env` with `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
   (plus per-role `FOUNDRY_MODEL_DEPLOYMENT_*` names), then run
-  `scripts/sync_foundry_agents.py --apply`. The health endpoint
+  `scripts/sync_foundry_agents.py --apply` (since removed). The health endpoint
   reports `foundry_project_configured`, `foundry_agents_bound`, and
   `service_side_remote_workflow_active` to make the state explicit.
 - Runtime observability includes `spec_version` per agent step, so

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from app.agents.shared.determinations import POLICY_NOUN_PHRASE
 from app.foundry_agents import (
     AGENTS_DIR,
     RUNTIME_ENVELOPE,
@@ -77,6 +78,26 @@ def test_composed_instructions_include_agent_md_body_and_envelope(agent_id: str)
     )
     assert assets.agent_md_body.splitlines()[0] in instructions
     assert RUNTIME_ENVELOPE.strip() in instructions
+
+
+@pytest.mark.parametrize("agent_id", (*AGENT_IDS, "support-explainer"))
+def test_json_contract_follows_the_declared_response_format(agent_id: str) -> None:
+    """A text-mode agent told to "return JSON only" answers the playground in JSON."""
+
+    assets = load_agent_assets(agent_id)
+    declared = str((assets.manifest.get("foundry") or {}).get("response_format", "json") or "json")
+    instructions = compose_instructions(
+        assets.agent_md_body,
+        frontmatter=assets.agent_md_frontmatter,
+        response_format=declared,
+    )
+    # Always present, whatever the output shape.
+    assert "<<<UNTRUSTED_DATA>>>" in instructions
+    assert POLICY_NOUN_PHRASE in instructions
+
+    wants_json = declared.strip().lower() != "text"
+    assert ("Return JSON only" in instructions) is wants_json
+    assert ("satisfy the referenced output schema" in instructions) is wants_json
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)
@@ -153,10 +174,10 @@ def test_agents_do_not_import_api_internals() -> None:
             assert forbidden not in text
 
 
-def test_no_direct_model_calls_outside_sdk_client() -> None:
+def test_no_direct_model_calls_outside_the_sdk_boundary() -> None:
     py_root = Path(__file__).resolve().parents[1] / "app"
     forbidden = ("AzureOpenAI", "openai.", "chat.completions")
-    permitted = (py_root / "foundry_agents" / "sdk_client.py",)
+    permitted = (py_root / "foundry_agents" / "maf_client.py",)
     for py_file in py_root.rglob("*.py"):
         if py_file in permitted:
             continue

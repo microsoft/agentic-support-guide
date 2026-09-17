@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type {
   AgentTraceStep,
   Recommendation,
   RecommendationEnvelope,
   SavedPlan,
-  SmartGoalOption,
+  GoalOption,
   StrategyOption,
   SupportOptions,
 } from "../api/types";
@@ -35,18 +35,21 @@ const ERROR_MESSAGES: Record<string, string> = {
     "The recommendation could not be validated after one repair attempt. No recommendation was returned.",
   orchestration_budget_exhausted:
     "The three-agent workflow exceeded its overall budget. Try again in a moment.",
+  orchestration_error: "The workflow failed before it could produce a recommendation.",
+  evidence_missing:
+    "No evidence was found for this dealer group, so no grounded recommendation could be made.",
 };
 
 export function SupportsPage() {
-  const [district, setDistrict] = useState("");
+  const [dealerGroup, setDealerGroup] = useState("");
   const [options, setOptions] = useState<OptionsState>({ kind: "loading" });
   const [step, setStep] = useState<Step>(1);
-  const [learnerId, setLearnerId] = useState("");
+  const [dealershipId, setDealershipId] = useState("");
   const [category, setCategory] = useState("");
   const [concern, setConcern] = useState("");
   const [envelope, setEnvelope] = useState<RecommendationEnvelope | null>(null);
   const [recLoading, setRecLoading] = useState(false);
-  const [smartGoal, setSmartGoal] = useState<string | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
   const [strategies, setStrategies] = useState<string[]>([]);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [savedError, setSavedError] = useState<string | null>(null);
@@ -58,9 +61,9 @@ export function SupportsPage() {
       .supportOptions()
       .then((data) => {
         setOptions({ kind: "ready", data });
-        // The roster comes from the API so the bundle carries no district
+        // The roster comes from the API so the bundle carries no dealer group
         // names of its own.
-        setDistrict((current) => current || (data.districts[0] ?? ""));
+        setDealerGroup((current) => current || (data.dealer_groups[0] ?? ""));
       })
       .catch(() => setOptions({ kind: "error" }));
   };
@@ -77,8 +80,8 @@ export function SupportsPage() {
     loadPlans();
   }, []);
 
-  const goalsForCategory = useMemo<SmartGoalOption[]>(
-    () => options.data?.smart_goals.filter((g) => g.category_id === category) ?? [],
+  const goalsForCategory = useMemo<GoalOption[]>(
+    () => options.data?.goals.filter((g) => g.category_id === category) ?? [],
     [options, category],
   );
   const strategiesForCategory = useMemo<StrategyOption[]>(
@@ -96,7 +99,7 @@ export function SupportsPage() {
   const canAdvanceFromStep = (current: Step): boolean => {
     switch (current) {
       case 1:
-        return !!learnerId;
+        return !!dealershipId;
       case 2:
         return !!category;
       case 3:
@@ -104,7 +107,7 @@ export function SupportsPage() {
       case 4:
         return !!rec;
       case 5:
-        return !!smartGoal;
+        return !!selectedGoal;
       case 6:
         return strategies.length > 0;
       case 7:
@@ -119,25 +122,31 @@ export function SupportsPage() {
     setRecLoading(true);
     api
       .recommendation({
-        learner_id: learnerId,
+        dealership_id: dealershipId,
         category,
         concern_text: concern,
-        district_id: district,
+        dealer_group_id: dealerGroup,
       })
       .then((env) => {
         setEnvelope(env);
         if (env.status === "ok") setStep(5);
       })
-      .catch(() =>
+      .catch((err: unknown) =>
+        // The client already parsed the typed error body. Collapsing every
+        // transport failure to "provider_error" would report a 401 or a 422
+        // as a model outage and send the user looking in the wrong place.
         setEnvelope({
           status: "provider_error",
-          error_code: "REQUEST_FAILED",
-          error_message: "Request failed. Ensure the backend is running.",
+          error_code: err instanceof ApiError ? `HTTP_${err.status}` : "REQUEST_FAILED",
+          error_message:
+            err instanceof ApiError
+              ? err.message
+              : "Request failed. Ensure the backend is running.",
           recommendation: null,
           agent_trace: [],
           provider_model: "unknown",
           correlation_id: "",
-          district_id: district,
+          dealer_group_id: dealerGroup,
         }),
       )
       .finally(() => setRecLoading(false));
@@ -148,22 +157,22 @@ export function SupportsPage() {
     setSaving(true);
     api
       .savePlan({
-        learner_id: learnerId,
+        dealership_id: dealershipId,
         category,
         concern_text: concern,
-        selected_smart_goal: smartGoal,
+        selected_goal: selectedGoal,
         selected_strategies: strategies,
         recommendation: rec,
-        district_id: district,
+        dealer_group_id: dealerGroup,
       })
       .then((plan) => {
         setSavedPlans((prev) => [...prev, plan]);
         setStep(1);
-        setLearnerId("");
+        setDealershipId("");
         setCategory("");
         setConcern("");
         setEnvelope(null);
-        setSmartGoal(null);
+        setSelectedGoal(null);
         setStrategies([]);
       })
       .catch(() => setSavedError("Unable to save plan."))
@@ -177,22 +186,22 @@ export function SupportsPage() {
       <AgentWorkflowPanel running={recLoading} trace={trace} />
 
       <Card title="Guided plan builder">
-        {data.districts.length > 1 && (
+        {data.dealer_groups.length > 1 && (
           <div className="mb-4">
             <label
-              htmlFor="district-select"
+              htmlFor="dealer-group-select"
               className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400"
             >
-              District
+              Dealer group
             </label>
             <select
-              id="district-select"
-              aria-label="District"
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
+              id="dealer-group-select"
+              aria-label="Dealer group"
+              value={dealerGroup}
+              onChange={(e) => setDealerGroup(e.target.value)}
               className="w-full max-w-md rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
             >
-              {data.districts.map((d) => (
+              {data.dealer_groups.map((d) => (
                 <option key={d} value={d}>
                   {d}
                 </option>
@@ -201,15 +210,15 @@ export function SupportsPage() {
           </div>
         )}
         <ol className="space-y-4" aria-label="Plan builder steps">
-          <StepRow n={1} current={step} title="Select learner">
+          <StepRow n={1} current={step} title="Select dealership">
             <select
-              aria-label="Learner"
-              value={learnerId}
-              onChange={(e) => setLearnerId(e.target.value)}
+              aria-label="Dealership"
+              value={dealershipId}
+              onChange={(e) => setDealershipId(e.target.value)}
               className="w-full max-w-md rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
             >
-              <option value="">Choose a learner...</option>
-              {data.learners.map((l) => (
+              <option value="">Choose a dealership...</option>
+              {data.dealerships.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.label}
                 </option>
@@ -223,7 +232,7 @@ export function SupportsPage() {
               value={category}
               onChange={(e) => {
                 setCategory(e.target.value);
-                setSmartGoal(null);
+                setSelectedGoal(null);
                 setStrategies([]);
               }}
               className="w-full max-w-md rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
@@ -275,7 +284,7 @@ export function SupportsPage() {
             {rec && <RecommendationPanel rec={rec} providerModel={envelope?.provider_model ?? ""} />}
           </StepRow>
 
-          <StepRow n={5} current={step} title="Select a SMART goal">
+          <StepRow n={5} current={step} title="Select a goal">
             {goalsForCategory.length === 0 ? (
               <p className="text-sm text-slate-400">Choose a category first.</p>
             ) : (
@@ -285,10 +294,10 @@ export function SupportsPage() {
                     <label className="flex items-start gap-2 text-sm text-slate-200">
                       <input
                         type="radio"
-                        name="smart-goal"
+                          name="goal"
                         value={goal.id}
-                        checked={smartGoal === goal.id}
-                        onChange={() => setSmartGoal(goal.id)}
+                        checked={selectedGoal === goal.id}
+                        onChange={() => setSelectedGoal(goal.id)}
                       />
                       <span>{goal.description}</span>
                     </label>
@@ -341,7 +350,7 @@ export function SupportsPage() {
           <StepRow n={8} current={step} title="Save plan in memory">
             <button
               type="button"
-              disabled={!rec || !smartGoal || strategies.length === 0 || saving}
+              disabled={!rec || !selectedGoal || strategies.length === 0 || saving}
               onClick={savePlan}
               className="rounded bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 disabled:opacity-40"
             >
@@ -382,7 +391,7 @@ export function SupportsPage() {
               <li key={p.plan_id} className="rounded border border-slate-800 p-2">
                 <div>
                   <span className="font-medium text-slate-100">{p.plan_id}</span> ·{" "}
-                  {p.learner_id} · {p.category}
+                  {p.dealership_id} · {p.category}
                 </div>
                 <div className="text-xs text-slate-500">Created {p.created_at}</div>
               </li>
@@ -427,7 +436,7 @@ function RecommendationPanel({
   providerModel: string;
 }) {
   const ok = rec.completeness.ok;
-  // Must match PROVIDER_DISPLAY_CONFIGURED in services/api/app/main.py.
+  // Must match PROVIDER_DISPLAY_CONFIGURED in services/api/app/config.py.
   const isFoundry = providerModel.startsWith("Azure AI Foundry");
   return (
     <div className="mt-3 rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200">

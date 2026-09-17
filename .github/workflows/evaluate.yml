@@ -1,0 +1,73 @@
+name: Evaluate
+
+# Graded evaluation is slow, costs tokens, and is non-deterministic, so it is
+# manual on purpose. The deterministic offline gate lives in ci.yml and runs
+# on every push - that is the one that belongs in a pull request check.
+on:
+  workflow_dispatch:
+    inputs:
+      evaluators:
+        description: Comma-separated graders (blank = defaults)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: evaluate
+  cancel-in-progress: false
+
+env:
+  AZURE_AI_FOUNDRY_PROJECT_ENDPOINT: ${{ vars.AZURE_AI_FOUNDRY_PROJECT_ENDPOINT }}
+  FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER }}
+  FOUNDRY_MODEL_DEPLOYMENT_JUDGE: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_JUDGE }}
+
+jobs:
+  graded:
+    name: Graded evaluation
+    runs-on: ubuntu-latest
+    environment: workshop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail fast on missing configuration
+        run: |
+          missing=""
+          for v in AZURE_AI_FOUNDRY_PROJECT_ENDPOINT FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER FOUNDRY_MODEL_DEPLOYMENT_JUDGE; do
+            if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing repository variables:$missing" >&2
+            echo "Set them from your .env or 'terraform output' before running this workflow." >&2
+            exit 1
+          fi
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/api/requirements.txt
+
+      - name: Run graded evaluation
+        env:
+          # Passed through the environment, not interpolated into the command
+          # line: a workflow input is untrusted text and `${{ }}` substitution
+          # happens before bash parses it.
+          EVALUATORS: ${{ inputs.evaluators }}
+        run: |
+          args=()
+          if [ -n "$EVALUATORS" ]; then
+            args+=(--evaluators "$EVALUATORS")
+          fi
+          python scripts/run_agent_evals.py --apply "${args[@]}"

@@ -23,7 +23,6 @@ def test_foundry_iq_retriever_declares_itself() -> None:
     retriever = FoundryIQEvidenceRetriever(
         endpoint="https://example.search.windows.net",
         knowledge_base="kb-under-test",
-        index_name="idx-under-test",
     )
     assert retriever.provider_name == "foundry_iq"
     assert retriever.provider_model == "kb-under-test"
@@ -36,6 +35,5 @@ def test_both_retrievers_satisfy_the_protocol() -> None:
     foundry: EvidenceRetriever = FoundryIQEvidenceRetriever(
         endpoint="https://example.search.windows.net",
         knowledge_base="kb-under-test",
-        index_name="idx-under-test",
     )
     assert fixture.provider_name != foundry.provider_name

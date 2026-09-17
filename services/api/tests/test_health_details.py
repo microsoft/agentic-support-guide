@@ -15,18 +15,18 @@ def test_health_details_reports_ready_with_definitions_and_fixture() -> None:
     assert body["agent_definitions_valid"] is True
     assert body["service_side_remote_workflow_active"] is True
     assert body["evidence_fixture_available"] is True
-    assert body["district_isolation_enabled"] is True
+    assert body["dealer_group_isolation_enabled"] is True
     assert body["customer_demo_ready"] is True
     assert any(check["name"] == "backend" and check["ok"] for check in body["checks"])
     assert any(check["name"] == "foundry_project_endpoint" for check in body["checks"])
     assert any(check["name"] == "agent_definitions_valid" for check in body["checks"])
     assert any(check["name"] == "evidence_fixture" for check in body["checks"])
-    assert any(check["name"] == "district_isolation" for check in body["checks"])
+    assert any(check["name"] == "dealer_group_isolation" for check in body["checks"])
 
 
 def test_health_details_unconfigured_when_project_endpoint_missing() -> None:
     client = make_default_client()
-    client.app.state.settings = AzureFoundrySettings(  # type: ignore[attr-defined]
+    client.app.state.services.settings = AzureFoundrySettings(  # type: ignore[attr-defined]
         project_endpoint=None,
         auth_mode="entra",
         application_insights_connection_string=None,
@@ -43,7 +43,7 @@ def test_health_details_unconfigured_when_project_endpoint_missing() -> None:
 
 def test_health_details_unconfigured_when_definitions_missing() -> None:
     client = make_default_client()
-    client.app.state.runtime = None  # type: ignore[attr-defined]
+    client.app.state.services.runtime = None  # type: ignore[attr-defined]
     body = client.get("/api/health/details").json()
 
     assert body["active_provider"] == "unconfigured"
@@ -66,7 +66,7 @@ CANARY_CONN_STR = "InstrumentationKey=SENSITIVE_CANARY_KEY;IngestionEndpoint=hid
 
 def test_health_details_does_not_leak_any_configured_env_values() -> None:
     client = make_default_client()
-    client.app.state.settings = AzureFoundrySettings(  # type: ignore[attr-defined]
+    client.app.state.services.settings = AzureFoundrySettings(  # type: ignore[attr-defined]
         project_endpoint=CANARY_ENDPOINT,
         auth_mode="entra",
         application_insights_connection_string=CANARY_CONN_STR,

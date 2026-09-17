@@ -15,22 +15,22 @@ def test_demo_reset_clears_runtime_state_when_enabled() -> None:
     rec = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()
     client.post(
         "/api/supports/plans",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "selected_smart_goal": "SG-early-literacy-1",
-            "selected_strategies": ["ST-early-literacy-1"],
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "selected_goal": "GOAL-lead-response-1",
+            "selected_strategies": ["ST-lead-response-1"],
             "recommendation": rec["recommendation"],
-            "district_id": "DIST-DEMO",
+            "dealer_group_id": "GROUP-DEMO",
         },
     )
 

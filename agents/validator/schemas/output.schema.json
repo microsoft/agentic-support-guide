@@ -1,27 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/agents/validator/output.schema.json",
-  "title": "Validator Agent output",
+  "title": "Validator Agent output (advisory critique only)",
+  "description": "What the remote model returns. Pass/fail and issue codes are decided by deterministic Python, never by the model, so they are deliberately absent here.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "contract_version",
-    "passed",
-    "issue_codes",
     "warning_codes",
     "repair_guidance"
   ],
   "properties": {
-    "contract_version": { "const": "1.0.0" },
-    "passed": { "type": "boolean" },
-    "issue_codes": {
-      "type": "array",
-      "maxItems": 20,
-      "items": {
-        "type": "string",
-        "pattern": "^[A-Z][A-Z0-9_]{3,59}$"
-      }
-    },
     "warning_codes": {
       "type": "array",
       "maxItems": 20,

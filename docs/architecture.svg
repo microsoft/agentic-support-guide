@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 900" width="1700" height="900" role="img" aria-labelledby="asg-title asg-desc">
   <title id="asg-title">Agentic Support Guide - High-level architecture</title>
-  <desc id="asg-desc">A Demo User interacts with a Web App that calls an API Service (FastAPI). Every request carries a district_id. Inside the API Service, a deterministic Workflow Coordinator generates a correlation_id, retrieves a per-district evidence bundle from an Evidence Retriever (synthetic fixtures today; Fabric-backed in production, where each district has its own workspace and lakehouse), reads Synthetic Data, validates Protocol Contracts, loads Agent Definitions, and invokes three remote Azure AI Foundry agents in sequence: Data Analyst Agent, then Support Recommendation Agent (with citations attached from the evidence bundle), then Validator Agent (which enforces district isolation, citation integrity, and forbidden determinations). All three agents share one Model Deployment. Every passing recommendation is created in pending_review and moves through the human review lifecycle (approved or rejected) via an audited review endpoint. The API Service emits metadata-only telemetry (correlation_id, district_id, coded status) to Observability. Terraform and Sync Scripts provision Azure AI Foundry and sync Agent Definitions.</desc>
+  <desc id="asg-desc">A Demo User interacts with a Web App that calls an API Service (FastAPI). Every request carries a dealer_group_id. Inside the API Service, a deterministic Workflow Coordinator generates a correlation_id, retrieves a per-dealer-group evidence bundle from an Evidence Retriever (synthetic fixtures, or Azure AI Search when grounding is enabled), reads Synthetic Data, validates Protocol Contracts, loads Agent Definitions, and invokes three Azure AI Foundry agents in sequence: Data Analyst Agent, then Support Recommendation Agent (with citations attached from the evidence bundle), then Validator Agent (which enforces dealer group isolation, citation integrity, and forbidden determinations). All three agents share one Model Deployment. Every passing recommendation is created in pending_review and moves through the human review lifecycle (approved or rejected) via an audited review endpoint. The API Service emits Agent Framework spans (correlation_id, dealer_group_id, coded status) to Observability. Terraform and Ops Scripts provision Azure AI Foundry and publish Agent Definitions as agent versions.</desc>
   <rect x="0" y="0" width="1700" height="900" fill="#ffffff" />
   <style type="text/css">
     .title { font: bold 22px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; text-anchor: middle; }
@@ -97,12 +97,12 @@
   <!-- Observability -->
   <rect x="1020" y="480" width="260" height="130" rx="10" class="Azure container-stroke" />
   <text x="1150" y="518" class="container-label">Observability</text>
-  <text x="1150" y="548" class="container-desc">Metadata-only telemetry</text>
+  <text x="1150" y="548" class="container-desc">Agent Framework spans</text>
   <text x="1150" y="566" class="container-desc">and audit events</text>
 
-  <!-- Remote Foundry Agents (outer container) with three nested agent components -->
+  <!-- Ephemeral Foundry Agents (outer container) with three nested agent components -->
   <rect x="1320" y="140" width="260" height="470" rx="10" class="Azure container-stroke" />
-  <text x="1450" y="175" class="container-label">Remote Foundry Agents</text>
+  <text x="1450" y="175" class="container-label">Ephemeral Foundry Agents</text>
 
   <rect x="1340" y="200" width="220" height="100" rx="8" class="nested-fill" />
   <text x="1450" y="232" class="nested-label">Data Analyst Agent</text>
@@ -126,9 +126,9 @@
   <rect x="1000" y="740" width="600" height="130" rx="14" class="boundary" />
   <text x="1015" y="860" class="boundary-label">Deployment &amp; Operations</text>
 
-  <!-- Terraform & Sync Scripts -->
+  <!-- Terraform & Ops Scripts -->
   <rect x="1060" y="755" width="500" height="80" rx="10" class="Ops container-stroke" />
-  <text x="1310" y="785" class="container-label">Terraform &amp; Sync Scripts</text>
+  <text x="1310" y="785" class="container-label">Terraform &amp; Ops Scripts</text>
   <text x="1310" y="808" class="container-desc">Provision Azure resources,</text>
   <text x="1310" y="826" class="container-desc">sync agents, verify demo</text>
 
@@ -159,7 +159,7 @@
   <rect x="1340" y="434" width="100" height="14" class="arrow-label-bg" />
   <text x="1390" y="445" class="arrow-label">passes draft</text>
 
-  <!-- 6. Remote Foundry Agents -> Model Deployment (shared), routed through empty strip above MD so the label does not overlap MD content -->
+  <!-- 6. Ephemeral Foundry Agents -> Model Deployment (shared), routed through empty strip above MD so the label does not overlap MD content -->
   <path d="M 1320 298 L 1150 298 L 1150 314" class="arrow" marker-end="url(#arrow-head)" />
   <rect x="1140" y="290" width="190" height="14" class="arrow-label-bg" />
   <text x="1235" y="301" class="arrow-label">uses shared model deployment</text>
@@ -184,12 +184,12 @@
   <rect x="985" y="462" width="150" height="14" class="arrow-label-bg" />
   <text x="1060" y="473" class="arrow-label">emits metadata only</text>
 
-  <!-- 11. Terraform & Sync Scripts -> Azure AI Foundry (provisions and verifies) -->
+  <!-- 11. Terraform & Ops Scripts -> Azure AI Foundry (provisions and verifies) -->
   <line x1="1300" y1="755" x2="1300" y2="706" class="arrow" marker-end="url(#arrow-head)" />
   <rect x="1310" y="715" width="152" height="14" class="arrow-label-bg" />
   <text x="1386" y="726" class="arrow-label">provisions and verifies</text>
 
-  <!-- 12. Terraform & Sync Scripts -> Agent Definitions (syncs definitions) -->
+  <!-- 12. Terraform & Ops Scripts -> Agent Definitions (syncs definitions) -->
   <path d="M 1060 795 L 950 795 L 950 600 L 777 600 L 777 566" class="arrow" marker-end="url(#arrow-head)" />
   <rect x="810" y="592" width="108" height="14" class="arrow-label-bg" />
   <text x="864" y="603" class="arrow-label">syncs definitions</text>

@@ -90,32 +90,33 @@ Diffs on those files show up in every PR that changes a prompt.
   recommendation is surfaced.
 
 **How to verify.** Read [`services/api/app/contracts_registry.py`](../services/api/app/contracts_registry.py)
-and search `_protocol_validate` in
-[`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py).
+and `StepRunner.check_protocol` in
+[`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py).
 
 ### 3. Use synthetic eval datasets
 
 - Evaluation cases live in [`/evals`](../evals). Every case describes
-  a synthetic learner and category and lists the structural or safety
+  a synthetic dealership and category and lists the structural or safety
   checks that must hold on the produced recommendation.
 - No real user data is used anywhere.
 
-**How to verify.** Manual review of files under
-[`/evals`](../evals). This repo does not currently ship an automated
-eval runner (see gaps below).
+**How to verify.** Run `python scripts/run_evals.py --offline` for the
+deterministic structural gate, and `python scripts/run_agent_evals.py
+--dry-run` for the graded quality pass. Neither is wired to block a merge
+automatically — both are run on demand.
 
 ### 4. Evaluate structure and safety, not exact prose
 
 - The Validator Agent runs deterministic Python checks in
   [`services/api/app/agents/validator/agent.py`](../services/api/app/agents/validator/agent.py):
-  allowed resource / SMART-goal / strategy IDs, required caveats
+  allowed resource / goal / strategy IDs, required caveats
   (including a "human review" clause), required support-tier framing
-  (`universal`, `targeted`, `intensive`, or `enrichment`), required
+  (`baseline`, `focused`, `intensive`, or `advanced`), required
   progress-monitoring measures, and contract-version match.
 - The LLM critique step may **add** advisory warning codes but cannot
   flip a deterministic pass into a failure. Free-text critique is
   filtered through
-  [`enforce_code()`](../services/api/app/agents/shared/sanitization.py),
+  [`enforce_code()`](../services/api/app/agents/shared/prompt_blocks.py),
   which drops anything that is not uppercase snake case of at least
   four characters.
 
@@ -149,14 +150,13 @@ eval runner (see gaps below).
 
 - Telemetry never carries prompts, completions, raw concern text, or
   secrets. See [Observability](observability.md) for the safe schema.
-- `TelemetryRecorder` has a hard denylist of unsafe keys
-  (`prompt`, `completion`, `concern_text`, `raw_critique`, `secret`,
-  `api_key`, `token`).
+- Spans come from Agent Framework, whose `enable_sensitive_data` setting
+  defaults to False; this app never opts in.
 - The audit trail exposed by `/api/audit/events` mirrors the same
   schema.
 
 **How to verify.** Read
-[`services/api/app/telemetry.py`](../services/api/app/telemetry.py)
+[`services/api/app/observability.py`](../services/api/app/observability.py)
 and
 [`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py).
 The privacy scanner test in
@@ -230,7 +230,7 @@ against a running backend.
   agent. `tests/test_no_persisted_agents.py` fails the build if those
   symbols appear anywhere else.
 - Publishing without `--suffix`. The script refuses, because dozens of
-  learners share one Foundry project and unsuffixed names collide.
+  learners share one subscription and unsuffixed names collide.
 - Adding a "just this once" direct model call from the coordinator or
   a role wrapper. All Agent Framework SDK imports belong in
   `services/api/app/foundry_agents/maf_client.py`.
@@ -249,15 +249,12 @@ against a running backend.
 None of the following is implemented and should not be described as
 existing:
 
-- **No automated eval harness.** The `/evals` folder holds synthetic
-  cases and expected checks, but there is no runner that scores an
-  agent version against them and blocks promotion. CI validates that
-  each case still satisfies the API contract and resolves to real
-  evidence, which is not the same as scoring output quality.
 - **No promotion gate.** A prompt change can be applied to Foundry
   without any eval or safety pass; the guardrail today is human PR
   review plus the CI checks in
-  [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+  [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). CI runs
+  `run_evals.py --offline` against fixtures, but nothing blocks a merge on a
+  live-model score.
 - **No signed audit records.** The audit trail is metadata-only but
   is not tamper-evident.
 
@@ -268,7 +265,5 @@ a production GenAIOps posture.
 
 - [`agents-vs-prompts.md`](agents-vs-prompts.md) — why this workload
   is a multi-agent workflow rather than one bigger prompt.
-- [`foundry-fabric-deep-dive.md`](foundry-fabric-deep-dive.md) — how
-  Foundry and Fabric fit together in the target topology.
-- [`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md)
+- [`adr/0003-dealer-group-isolation-and-grounding.md`](adr/0003-dealer-group-isolation-and-grounding.md)
 - [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md)

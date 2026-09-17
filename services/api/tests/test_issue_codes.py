@@ -2,7 +2,7 @@
 
 `code = str(exc)` put raw parse-failure text into the trace. Pydantic quotes
 the offending value, and that value is model output derived from a
-district's evidence. Issue codes travel to the API response and to
+dealer group's evidence. Issue codes travel to the API response and to
 Application Insights, so anything free-form there is an exfiltration path.
 """
 
@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.workflows.coordinator import _invalid_json_code
+from app.workflows.failures import invalid_json_code
 
 
 def _find_issue_code_pattern(node: Any) -> str | None:
@@ -54,12 +54,12 @@ def test_decode_failures_get_a_fixed_code() -> None:
     try:
         json.loads("{not json")
     except json.JSONDecodeError as exc:
-        assert _invalid_json_code(exc) == "AGENT_INVALID_JSON_NOT_JSON"
+        assert invalid_json_code(exc) == "AGENT_INVALID_JSON_NOT_JSON"
 
 
 def test_schema_failures_get_a_fixed_code() -> None:
     exc = _validation_error_quoting("abc")
-    assert _invalid_json_code(exc) == "AGENT_INVALID_JSON_SCHEMA_MISMATCH"
+    assert invalid_json_code(exc) == "AGENT_INVALID_JSON_SCHEMA_MISMATCH"
 
 
 def test_every_issue_code_satisfies_the_trace_contract() -> None:
@@ -78,9 +78,9 @@ def test_every_issue_code_satisfies_the_trace_contract() -> None:
     assert pattern, "could not locate the issue_codes pattern in the contract"
 
     codes = [
-        _invalid_json_code(json.JSONDecodeError("x", "y", 0)),
-        _invalid_json_code(_validation_error_quoting("abc")),
-        _invalid_json_code(ValueError("anything")),
+        invalid_json_code(json.JSONDecodeError("x", "y", 0)),
+        invalid_json_code(_validation_error_quoting("abc")),
+        invalid_json_code(ValueError("anything")),
     ]
     for code in codes:
         assert re.fullmatch(pattern, code), f"{code!r} violates {pattern!r}"
@@ -90,7 +90,7 @@ def test_issue_code_never_contains_the_offending_value() -> None:
     secret = "LEARNER-PRIVATE-VALUE-42"
     exc = _validation_error_quoting(secret)
     assert secret in str(exc), "precondition: pydantic quotes the bad value"
-    assert secret not in _invalid_json_code(exc)
+    assert secret not in invalid_json_code(exc)
 
 
 @pytest.mark.parametrize(
@@ -98,6 +98,6 @@ def test_issue_code_never_contains_the_offending_value() -> None:
     [ValueError("boom with detail"), RuntimeError("also detail")],
 )
 def test_unknown_failures_fall_back_to_a_fixed_code(exc: Exception) -> None:
-    code = _invalid_json_code(exc)
+    code = invalid_json_code(exc)
     assert code == "AGENT_INVALID_JSON_UNPARSEABLE"
     assert "detail" not in code

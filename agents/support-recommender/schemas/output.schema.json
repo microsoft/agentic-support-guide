@@ -12,9 +12,9 @@
     "grouping_guidance",
     "resource_ids",
     "rationale",
-    "smart_goal_suggestions",
+    "goal_suggestions",
     "strategy_suggestions",
-    "educator_next_steps",
+    "manager_next_steps",
     "progress_monitoring",
     "review_window_days",
     "decision_rule",
@@ -32,7 +32,7 @@
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
     },
     "rationale": { "type": "string", "maxLength": 2000 },
-    "smart_goal_suggestions": {
+    "goal_suggestions": {
       "type": "array",
       "maxItems": 6,
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
@@ -42,7 +42,13 @@
       "maxItems": 8,
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
     },
-    "educator_next_steps": {
+    "cited_ids": {
+      "description": "IDs only. The wrapper resolves them against the group-scoped evidence bundle, so the model cannot fabricate citation text.",
+      "type": "array",
+      "maxItems": 12,
+      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
+    },
+    "manager_next_steps": {
       "type": "array",
       "maxItems": 8,
       "items": { "type": "string", "minLength": 1, "maxLength": 300 }

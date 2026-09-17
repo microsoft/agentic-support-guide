@@ -45,7 +45,7 @@ Publishing reintroduces a shared server-side namespace, which is what ADR
 - Agents are named `asg-<role>-<suffix>`.
 - `--delete` removes only agents ending in the caller's suffix.
 
-Dozens of learners can therefore share one Foundry project.
+Dozens of learners can therefore share one subscription.
 
 ### Agent categories
 

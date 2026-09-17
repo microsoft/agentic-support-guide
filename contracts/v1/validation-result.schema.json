@@ -23,9 +23,9 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["district_id", "passed", "issue_codes", "warning_codes", "failed_fields", "safe_summary", "repair_guidance", "synthetic_only"],
+      "required": ["dealer_group_id", "passed", "issue_codes", "warning_codes", "failed_fields", "safe_summary", "repair_guidance", "synthetic_only"],
       "properties": {
-        "district_id": {
+        "dealer_group_id": {
           "type": "string",
           "minLength": 2,
           "maxLength": 32,

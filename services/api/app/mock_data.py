@@ -13,63 +13,74 @@ from random import Random
 
 from .config import BASE_TIMESTAMP, COUNTS, SEED
 
-SCHOOL_IDS: tuple[str, ...] = ("SCH-001", "SCH-002", "SCH-003", "SCH-004")
-GROUP_IDS: tuple[str, ...] = ("GRP-A", "GRP-B", "GRP-C")
-DOMAINS: tuple[str, ...] = (
-    "early-literacy",
-    "reading-comprehension",
-    "math-foundations",
-    "math-acceleration",
-    "attendance-engagement",
-    "multi-domain",
-)
-GRADES: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7, 8)
+REGION_IDS: tuple[str, ...] = ("REG-001", "REG-002", "REG-003", "REG-004")
+SEGMENT_IDS: tuple[str, ...] = ("SEG-VOLUME", "SEG-PREMIUM", "SEG-COMMERCIAL")
 
-CATEGORY_IDS: tuple[str, ...] = (
-    "early-literacy",
-    "attendance-support",
-    "math-acceleration",
-    "reading-below-grade",
-    "multi-domain",
+# Five measured process areas. `multi-area` is deliberately NOT here: it is a
+# plan scope a user can request, not something a dealership is scored on.
+# Scoring it produced a sixth "area" with its own independent value that sat
+# outside the real five for 37 of 120 dealerships and skewed every aggregate.
+PROCESS_AREAS: tuple[str, ...] = (
+    "lead-response",
+    "test-drive-conversion",
+    "listing-completeness",
+    "inventory-ageing",
+    "price-data-freshness",
 )
+
+# Everything a plan can be requested for: the measured areas plus the
+# cross-area scope.
+CATEGORY_IDS: tuple[str, ...] = (*PROCESS_AREAS, "multi-area")
+
+# Points per period the whole network gains. Individual drifts are centred and
+# so cancel in aggregate, which left every dashboard trend line flat.
+COHORT_DRIFT_PER_PERIOD = 0.9
+
+# Six consecutive months ending at the current reporting month.
+PERIOD_START_MONTH = 4
+
+
+def period_label(index: int) -> str:
+    """Roll into the next year rather than emitting "2026-13"."""
+
+    month = PERIOD_START_MONTH + index
+    return f"{2026 + (month - 1) // 12}-{(month - 1) % 12 + 1:02d}"
 
 
 @dataclass(frozen=True)
-class Learner:
-    learner_id: str
+class Dealership:
+    dealership_id: str
     display_label: str
-    school_id: str
-    grade: int
-    group: str
-    proficiency_index: float
-    attendance_rate: float
-    behavior_index: float
+    region_id: str
+    segment: str
+    process_score: float
+    appointment_attendance_rate: float
+    followup_index: float
     engagement_index: float
     flagged: bool
 
 
 @dataclass(frozen=True)
-class AssessmentRecord:
+class AreaScoreRecord:
     record_id: str
-    learner_id: str
-    school_id: str
-    grade: int
-    group: str
-    domain: str
-    proficiency: str
+    dealership_id: str
+    region_id: str
+    segment: str
+    process_area: str
+    band: str
     score: int
     period: str
 
 
 @dataclass(frozen=True)
-class BehaviorRecord:
+class OperationsRecord:
     record_id: str
-    learner_id: str
-    school_id: str
+    dealership_id: str
+    region_id: str
     period: str
-    attendance_rate: float
-    behavior_incidents: int
-    engagement_score: float
+    appointment_attendance_rate: float
+    escalations: int
+    followup_completion: float
 
 
 @dataclass(frozen=True)
@@ -77,7 +88,7 @@ class ResourceItem:
     resource_id: str
     label: str
     kind: str
-    domain: str
+    process_area: str
     tier: str
 
 
@@ -103,111 +114,149 @@ def _offset_iso(days: int, seconds: int = 0) -> str:
     return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _proficiency_label(score: int) -> str:
+def _band_label(score: int) -> str:
     if score < 40:
-        return "Emerging"
+        return "At risk"
     if score < 60:
-        return "Approaching"
+        return "Developing"
     if score < 80:
-        return "Proficient"
-    return "Advanced"
+        return "On track"
+    return "Leading"
 
 
-def build_learners() -> list[Learner]:
+def build_dealerships() -> list[Dealership]:
     rng = Random(SEED)
-    learners: list[Learner] = []
-    for i in range(1, COUNTS.learners + 1):
-        lid = f"LRN-{i:04d}"
-        label = f"Learner {i:04d}"
-        school = SCHOOL_IDS[rng.randrange(len(SCHOOL_IDS))]
-        grade = GRADES[rng.randrange(len(GRADES))]
-        group = GROUP_IDS[rng.randrange(len(GROUP_IDS))]
-        proficiency = round(rng.uniform(20.0, 95.0), 1)
+    dealerships: list[Dealership] = []
+    for i in range(1, COUNTS.dealerships + 1):
+        did = f"DLR-{i:04d}"
+        label = f"Dealership {i:04d}"
+        region = REGION_IDS[rng.randrange(len(REGION_IDS))]
+        segment = SEGMENT_IDS[rng.randrange(len(SEGMENT_IDS))]
+        process_score = round(rng.uniform(20.0, 95.0), 1)
         attendance = round(rng.uniform(0.72, 0.99), 3)
-        behavior = round(rng.uniform(30.0, 95.0), 1)
+        followup = round(rng.uniform(30.0, 95.0), 1)
         engagement = round(rng.uniform(30.0, 95.0), 1)
-        flagged = proficiency < 45 or attendance < 0.85 or behavior < 50
-        learners.append(
-            Learner(
-                learner_id=lid,
+        flagged = process_score < 45 or attendance < 0.85 or followup < 50
+        dealerships.append(
+            Dealership(
+                dealership_id=did,
                 display_label=label,
-                school_id=school,
-                grade=grade,
-                group=group,
-                proficiency_index=proficiency,
-                attendance_rate=attendance,
-                behavior_index=behavior,
+                region_id=region,
+                segment=segment,
+                process_score=process_score,
+                appointment_attendance_rate=attendance,
+                followup_index=followup,
                 engagement_index=engagement,
                 flagged=flagged,
             )
         )
-    return learners
+    return dealerships
 
 
-def build_assessments(learners: list[Learner]) -> list[AssessmentRecord]:
+def build_area_scores(dealerships: list[Dealership]) -> list[AreaScoreRecord]:
+    """One record per dealership, per period, per process area.
+
+    This used to draw a random subject and a random area 400 times, which
+    left 253 of 319 subject-periods holding a single area, 18 holding the
+    same area twice, and not one holding all six. Nothing could compare a
+    dealership across areas, which is the analysis the workshop demonstrates.
+
+    Scores are built from a per-dealership baseline, a per-area offset and a
+    per-dealership drift, so a trend is actually present to be found rather
+    than being noise.
+    """
+
     rng = Random(SEED + 1)
-    records: list[AssessmentRecord] = []
-    for i in range(1, COUNTS.assessments + 1):
-        learner = learners[rng.randrange(len(learners))]
-        domain = DOMAINS[rng.randrange(len(DOMAINS))]
-        score = rng.randrange(15, 100)
-        period_offset = rng.randrange(0, 6)
-        period = f"2026-P{period_offset + 1:02d}"
-        records.append(
-            AssessmentRecord(
-                record_id=f"ASM-{i:05d}",
-                learner_id=learner.learner_id,
-                school_id=learner.school_id,
-                grade=learner.grade,
-                group=learner.group,
-                domain=domain,
-                proficiency=_proficiency_label(score),
-                score=score,
-                period=period,
-            )
-        )
+    records: list[AreaScoreRecord] = []
+    sequence = 0
+    for dealership in dealerships:
+        # Compressed into a mid band so an area offset plus six periods of
+        # drift still fit inside 1-99. Using the raw score pinned strong
+        # dealerships against the ceiling and flattened the trend away.
+        baseline = 28.0 + (dealership.process_score - 20.0) / 75.0 * 50.0
+        area_offsets = {area: rng.uniform(-11.0, 11.0) for area in PROCESS_AREAS}
+        drift = rng.uniform(-2.5, 2.5)
+        midpoint = (COUNTS.score_periods - 1) / 2.0
+        for index in range(COUNTS.score_periods):
+            period = period_label(index)
+            for area in PROCESS_AREAS:
+                # Drift is centred on the midpoint so process_score stays the
+                # dealership's average rather than their starting point. That
+                # halves the headroom a trend needs, which is what let the
+                # score band stay wide enough to populate every tier.
+                raw = (
+                    baseline
+                    + area_offsets[area]
+                    + (drift + COHORT_DRIFT_PER_PERIOD) * (index - midpoint)
+                    + rng.uniform(-2.5, 2.5)
+                )
+                score = max(1, min(99, round(raw)))
+                sequence += 1
+                records.append(
+                    AreaScoreRecord(
+                        record_id=f"SCR-{sequence:05d}",
+                        dealership_id=dealership.dealership_id,
+                        region_id=dealership.region_id,
+                        segment=dealership.segment,
+                        process_area=area,
+                        band=_band_label(score),
+                        score=score,
+                        period=period,
+                    )
+                )
     return records
 
 
-def build_behavior(learners: list[Learner]) -> list[BehaviorRecord]:
+def build_operations(dealerships: list[Dealership]) -> list[OperationsRecord]:
+    """One record per dealership, per period.
+
+    This used to draw 150 records at random across 720 dealership-periods, so
+    a typical dealership had a single data point and the analyst could not see
+    an operational trend at all.
+    """
+
     rng = Random(SEED + 2)
-    records: list[BehaviorRecord] = []
-    for i in range(1, COUNTS.behavior_records + 1):
-        learner = learners[rng.randrange(len(learners))]
-        period_offset = rng.randrange(0, 6)
-        period = f"2026-P{period_offset + 1:02d}"
-        attendance = round(rng.uniform(0.70, 0.99), 3)
-        incidents = rng.randrange(0, 5)
-        engagement = round(rng.uniform(30.0, 95.0), 1)
-        records.append(
-            BehaviorRecord(
-                record_id=f"BHV-{i:05d}",
-                learner_id=learner.learner_id,
-                school_id=learner.school_id,
-                period=period,
-                attendance_rate=attendance,
-                behavior_incidents=incidents,
-                engagement_score=engagement,
+    records: list[OperationsRecord] = []
+    sequence = 0
+    midpoint = (COUNTS.score_periods - 1) / 2.0
+    for dealership in dealerships:
+        attendance_drift = rng.uniform(-0.015, 0.015)
+        followup_drift = rng.uniform(-2.0, 2.0)
+        for index in range(COUNTS.score_periods):
+            offset = index - midpoint
+            attendance = dealership.appointment_attendance_rate + attendance_drift * offset
+            attendance += rng.uniform(-0.01, 0.01)
+            followup = dealership.followup_index + followup_drift * offset + rng.uniform(-2.0, 2.0)
+            sequence += 1
+            records.append(
+                OperationsRecord(
+                    record_id=f"OPS-{sequence:05d}",
+                    dealership_id=dealership.dealership_id,
+                    region_id=dealership.region_id,
+                    period=period_label(index),
+                    appointment_attendance_rate=round(max(0.5, min(1.0, attendance)), 3),
+                    escalations=rng.randrange(0, 5),
+                    followup_completion=round(max(1.0, min(99.0, followup)), 1),
+                )
             )
-        )
     return records
 
 
 def build_resources() -> list[ResourceItem]:
     rng = Random(SEED + 3)
-    kinds = ("guide", "practice-set", "small-group-plan", "family-message", "screening-kit")
-    tiers = ("universal", "targeted", "intensive")
+    kinds = ("playbook", "checklist", "coaching-plan", "customer-message", "audit-kit")
+    tiers = ("baseline", "focused", "intensive")
     items: list[ResourceItem] = []
     for i in range(1, COUNTS.resources + 1):
-        domain = DOMAINS[rng.randrange(len(DOMAINS))]
+        area = PROCESS_AREAS[rng.randrange(len(PROCESS_AREAS))]
         kind = kinds[rng.randrange(len(kinds))]
         tier = tiers[rng.randrange(len(tiers))]
         items.append(
             ResourceItem(
                 resource_id=f"RES-{i:03d}",
-                label=f"Strategy Kit {i:03d}",
+                label=f"Process Kit {i:03d}",
                 kind=kind,
-                domain=domain,
+                process_area=area,
                 tier=tier,
             )
         )
@@ -218,11 +267,11 @@ def build_audit_rows() -> list[AuditRow]:
     rng = Random(SEED + 4)
     endpoints = (
         "/api/dashboard/summary",
-        "/api/assessments/summary",
+        "/api/scores/summary",
         "/api/recommendations/support-plan",
         "/api/supports/plans",
-        "/api/behavior/summary",
-        "/api/learners",
+        "/api/operations/summary",
+        "/api/dealerships",
     )
     statuses = ("ok", "ok", "ok", "ok", "warning", "error")
     contexts = (
@@ -230,7 +279,7 @@ def build_audit_rows() -> list[AuditRow]:
         "filter-change",
         "plan-generation",
         "plan-save",
-        "learner-listing",
+        "dealership-listing",
         "trend-review",
     )
     rows: list[AuditRow] = []
@@ -260,10 +309,10 @@ def build_audit_rows() -> list[AuditRow]:
 @dataclass(frozen=True)
 class SeededPlanSpec:
     plan_id: str
-    learner_id: str
+    dealership_id: str
     category: str
     concern_text: str
-    selected_smart_goal_id: str | None
+    selected_goal_id: str | None
     selected_strategy_ids: tuple[str, ...]
     created_at: str
 
@@ -271,23 +320,24 @@ class SeededPlanSpec:
 def build_seeded_plan_specs() -> list[SeededPlanSpec]:
     rng = Random(SEED + 5)
     concerns = {
-        "early-literacy": "Letter-sound fluency is below expected pace over the last two windows.",
-        "attendance-support": "Attendance dipped below 85% across the recent period.",
-        "math-acceleration": "Consistently exceeds grade-level checks; ready for enrichment.",
-        "reading-below-grade": "Reading comprehension trending below grade-level over 3 windows.",
-        "multi-domain": "Concerns across literacy, math, and attendance over the recent period.",
+        "lead-response": "Median first response to online enquiries slipped past one hour.",
+        "test-drive-conversion": "Booked test drives are attended less often than last quarter.",
+        "listing-completeness": "Listings are publishing without required photos and label data.",
+        "inventory-ageing": "Scheduled ageing reviews are being missed on part of the stock.",
+        "price-data-freshness": "Advertised prices are not being refreshed on the agreed cadence.",
+        "multi-area": "Enquiry handling, test drives, and listing quality all declined.",
     }
     specs: list[SeededPlanSpec] = []
     for i in range(1, COUNTS.seeded_plans + 1):
         category = CATEGORY_IDS[rng.randrange(len(CATEGORY_IDS))]
-        learner_num = rng.randrange(1, COUNTS.learners + 1)
+        dealership_num = rng.randrange(1, COUNTS.dealerships + 1)
         specs.append(
             SeededPlanSpec(
                 plan_id=f"PLN-{i:04d}",
-                learner_id=f"LRN-{learner_num:04d}",
+                dealership_id=f"DLR-{dealership_num:04d}",
                 category=category,
                 concern_text=concerns[category],
-                selected_smart_goal_id=f"SG-{category}-1",
+                selected_goal_id=f"GOAL-{category}-1",
                 selected_strategy_ids=(f"ST-{category}-1", f"ST-{category}-2"),
                 created_at=_offset_iso(days=i, seconds=i * 91),
             )

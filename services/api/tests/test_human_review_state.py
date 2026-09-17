@@ -32,7 +32,7 @@ def test_transition_raises_on_illegal() -> None:
 def test_audit_entry_contains_only_safe_metadata() -> None:
     entry = ReviewTransitionAuditEntry(
         correlation_id="corr-1",
-        district_id="DIST-DEMO",
+        dealer_group_id="GROUP-DEMO",
         user_label="Staff S-01",
         timestamp="2026-01-05T09:00:00Z",
         previous_state="pending_review",
@@ -52,23 +52,23 @@ def test_review_endpoint_round_trip(make_client) -> None:  # type: ignore[no-unt
     rec = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()
     assert rec["status"] == "ok", rec
     saved = client.post(
         "/api/supports/plans",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "selected_smart_goal": "SG-early-literacy-1",
-            "selected_strategies": ["ST-early-literacy-1"],
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "selected_goal": "GOAL-lead-response-1",
+            "selected_strategies": ["ST-lead-response-1"],
             "recommendation": rec["recommendation"],
-            "district_id": "DIST-DEMO",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()
     plan_id = saved["plan_id"]

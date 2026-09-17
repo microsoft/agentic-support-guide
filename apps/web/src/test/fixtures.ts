@@ -1,5 +1,5 @@
 import type {
-  AssessmentsSummary,
+  ScoresSummary,
   AuditResponse,
   DashboardSummary,
   HealthDetailsResponse,
@@ -30,7 +30,11 @@ export const healthDetailsNotReadyFixture: HealthDetailsResponse = {
   model_deployments_configured: false,
   service_side_remote_workflow_active: false,
   evidence_fixture_available: false,
-  district_isolation_enabled: true,
+  evidence_source: "fixture",
+  evidence_knowledge_base: "synthetic",
+  evidence_verified: false,
+  api_auth_mode: "unprotected",
+  dealer_group_isolation_enabled: true,
   customer_demo_ready: false,
   checks: [
     { name: "backend", label: "Backend service running", ok: true, detail: "ok" },
@@ -64,7 +68,11 @@ export const healthDetailsReadyFixture: HealthDetailsResponse = {
   model_deployments_configured: true,
   service_side_remote_workflow_active: true,
   evidence_fixture_available: true,
-  district_isolation_enabled: true,
+  evidence_source: "fixture",
+  evidence_knowledge_base: "synthetic",
+  evidence_verified: true,
+  api_auth_mode: "shared_key",
+  dealer_group_isolation_enabled: true,
   customer_demo_ready: true,
   checks: [
     { name: "backend", label: "Backend service running", ok: true, detail: "ok" },
@@ -87,18 +95,18 @@ export const healthDetailsReadyFixture: HealthDetailsResponse = {
 
 export const dashboardFixture: DashboardSummary = {
   kpi_cards: [
-    { id: "kpi-learners", label: "Active Learners", value: 120, unit: "count", delta: 0, trend: "steady" },
+    { id: "kpi-dealerships", label: "Active Dealerships", value: 120, unit: "count", delta: 0, trend: "steady" },
     { id: "kpi-flagged", label: "Flagged for Support", value: 30, unit: "count", delta: 25, trend: "watch" },
-    { id: "kpi-proficiency", label: "Avg Proficiency Index", value: 62.5, unit: "index", delta: 1.2, trend: "up" },
-    { id: "kpi-attendance", label: "Avg Attendance", value: 91.4, unit: "percent", delta: -0.4, trend: "down" },
+    { id: "kpi-process-score", label: "Avg Process Score", value: 62.5, unit: "index", delta: 1.2, trend: "up" },
+    { id: "kpi-appointments", label: "Avg Attendance", value: 91.4, unit: "percent", delta: -0.4, trend: "down" },
   ],
-  proficiency_trend: [
+  process_score_trend: [
     { period: "2026-P01", value: 55.2 },
     { period: "2026-P02", value: 57.1 },
   ],
-  domain_distribution: [
-    { domain: "early-literacy", value: 60 },
-    { domain: "math-foundations", value: 65 },
+  area_distribution: [
+    { process_area: "lead-response", value: 60 },
+    { process_area: "listing-completeness", value: 65 },
   ],
   engagement_trend: [
     { period: "2026-P01", value: 65 },
@@ -107,60 +115,59 @@ export const dashboardFixture: DashboardSummary = {
   notes: ["All values are synthetic and generated locally."],
 };
 
-export const assessmentsFixture: AssessmentsSummary = {
-  filters_applied: { school: null, grade: null, domain: null, group: null },
+export const assessmentsFixture: ScoresSummary = {
+  filters_applied: { region: null, process_area: null, segment: null },
   total_records: 3,
-  proficiency_distribution: [
-    { label: "Emerging", count: 1, percent: 33.3 },
-    { label: "Approaching", count: 1, percent: 33.3 },
-    { label: "Proficient", count: 1, percent: 33.3 },
-    { label: "Advanced", count: 0, percent: 0 },
+  band_distribution: [
+    { label: "At risk", count: 1, percent: 33.3 },
+    { label: "Developing", count: 1, percent: 33.3 },
+    { label: "On track", count: 1, percent: 33.3 },
+    { label: "Leading", count: 0, percent: 0 },
   ],
-  domain_trends: [
-    { domain: "early-literacy", points: [{ period: "2026-P01", value: 50 }] },
+  area_trends: [
+    { process_area: "lead-response", points: [{ period: "2026-04", value: 50 }] },
   ],
-  recommendation_bullets: ["Consider targeted small-group instruction."],
+  recommendation_bullets: ["Consider a focused coaching cycle."],
   performance_summary: "Illustrative synthetic summary.",
   generated_by: "Generated from local rules over synthetic data.",
   table_rows: [
     {
-      record_id: "ASM-00001",
-      learner_id: "LRN-0001",
-      school_id: "SCH-001",
-      grade: 3,
-      group: "GRP-A",
-      domain: "early-literacy",
-      proficiency: "Emerging",
+      record_id: "SCR-00001",
+      dealership_id: "DLR-0001",
+      region_id: "REG-001",
+      segment: "SEG-VOLUME",
+      process_area: "lead-response",
+      band: "At risk",
       score: 35,
-      period: "2026-P01",
+      period: "2026-04",
     },
   ],
 };
 
 export const supportOptionsFixture: SupportOptions = {
-  districts: ["DIST-DEMO"],
-  learners: [
-    { id: "LRN-0001", label: "Learner 0001" },
-    { id: "LRN-0002", label: "Learner 0002" },
+  dealer_groups: ["GROUP-DEMO"],
+  dealerships: [
+    { id: "DLR-0001", label: "Dealership 0001" },
+    { id: "DLR-0002", label: "Dealership 0002" },
   ],
   categories: [
-    { id: "early-literacy", label: "Early Literacy Support", description: "desc" },
-    { id: "reading-below-grade", label: "Reading Below Grade Level", description: "desc" },
+    { id: "lead-response", label: "Enquiry Response", description: "desc" },
+    { id: "listing-completeness", label: "Listing Completeness", description: "desc" },
   ],
-  smart_goals: [
+  goals: [
     {
-      id: "SG-early-literacy-1",
-      label: "SMART goal 1",
-      category_id: "early-literacy",
-      description: "Increase letter-sound correspondence.",
+      id: "GOAL-lead-response-1",
+      label: "goal 1",
+      category_id: "lead-response",
+      description: "Increase same-day enquiry replies.",
     },
   ],
   strategies: [
     {
-      id: "ST-early-literacy-1",
+      id: "ST-lead-response-1",
       label: "Strategy 1",
-      category_id: "early-literacy",
-      description: "Daily 15-minute phonemic awareness routine.",
+      category_id: "lead-response",
+      description: "Daily 15-minute enquiry triage routine.",
     },
   ],
 };
@@ -171,30 +178,30 @@ export const savedPlansFixture: SavedPlansResponse = {
 };
 
 export const recommendationFixture: Recommendation = {
-  district_id: "DIST-DEMO",
-  detected_need: "Early literacy skill gap",
-  evidence_summary: ["Proficiency index (synthetic): 35.0"],
+  dealer_group_id: "GROUP-DEMO",
+  detected_need: "Slow enquiry response",
+  evidence_summary: ["Process score (synthetic): 35.0"],
   rationale: "Rule-based rationale.",
-  support_tier: "Intensive support (Tier 3)",
+  support_tier: "Intensive",
   recommended_frequency: "4-5x weekly",
   grouping_guidance: "1:1 or 1:2",
   resource_matches: [],
-  educator_next_steps: ["Confirm baseline."],
+  manager_next_steps: ["Confirm baseline."],
   progress_monitoring: ["Weekly probe."],
   review_window_days: 28,
   decision_rule: "IF ...",
   caveats: ["Illustrative only.", "Human review is required."],
-  smart_goal_suggestions: ["SG-early-literacy-1"],
-  strategy_suggestions: ["ST-early-literacy-1"],
+  goal_suggestions: ["GOAL-lead-response-1"],
+  strategy_suggestions: ["ST-lead-response-1"],
   citations: [
     {
-      citation_id: "DIST-DEMO-el-01",
-      district_id: "DIST-DEMO",
+      citation_id: "GROUP-DEMO-el-01",
+      dealer_group_id: "GROUP-DEMO",
       source_type: "synthetic_fixture",
-      source_title: "Demo district - Early Literacy Fixture",
+      source_title: "Demo group - Enquiry Response Fixture",
       section_or_page: "",
       evidence_summary: "Illustrative synthetic reference used only for the customer demo.",
-      source_ref: "fixture://dist-demo/el-01",
+      source_ref: "fixture://group-demo/lr-01",
       retrieved_at: "2026-01-05T09:00:00Z",
       confidence: 0.8,
     },
@@ -244,7 +251,7 @@ export const envelopeOkFixture: RecommendationEnvelope = {
   ],
   provider_model: "Azure AI Foundry (Agent Framework, prompt agents)",
   correlation_id: "corr-fixture-1",
-  district_id: "DIST-DEMO",
+  dealer_group_id: "GROUP-DEMO",
 };
 
 export const envelopeErrorFixture: RecommendationEnvelope = {
@@ -266,7 +273,7 @@ export const envelopeErrorFixture: RecommendationEnvelope = {
   ],
   provider_model: "Azure AI Foundry (Agent Framework, prompt agents)",
   correlation_id: "corr-fixture-err-1",
-  district_id: "DIST-DEMO",
+  dealer_group_id: "GROUP-DEMO",
 };
 
 export const auditFixture: AuditResponse = {

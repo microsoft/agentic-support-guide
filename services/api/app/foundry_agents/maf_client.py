@@ -8,6 +8,7 @@ symbols are never imported anywhere.
 from __future__ import annotations
 
 import inspect
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -16,6 +17,8 @@ from pydantic import BaseModel
 
 from .errors import ConfigurationError, FoundryRunError
 from .maf_runtime import RoleDefinition
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,8 @@ class FoundryResponsesClientFactory:
             options: dict[str, Any] = {"store": False}
             if definition.temperature is not None:
                 options["temperature"] = definition.temperature
+            if definition.max_output_tokens is not None:
+                options["max_tokens"] = definition.max_output_tokens
             if response_model is not None:
                 options["response_format"] = response_model
 
@@ -79,10 +84,9 @@ class FoundryResponsesClientFactory:
             ) as agent:
                 response = await agent.run(user_message, options=options)
         finally:
-            # Each close is independent: one failing must not strand the other.
-            if client is not None:
-                await aclose_foundry_client(client)
-            await _aclose(credential)
+            # Independent on purpose: the comment used to claim this while the
+            # calls were sequential, so one close failure stranded the rest.
+            await _aclose_all(aclose_foundry_client(client), _aclose(credential))
 
         text = str(getattr(response, "text", "") or "")
         parsed = _safe_value(response)
@@ -144,9 +148,25 @@ async def aclose_foundry_client(client: Any) -> None:
 
     if client is None:
         return
-    for attr in ("client", "project_client"):
-        await _aclose(getattr(client, attr, None))
-    await _aclose(client)
+    await _aclose_all(
+        _aclose(getattr(client, "client", None)),
+        _aclose(getattr(client, "project_client", None)),
+        _aclose(client),
+    )
+
+
+async def _aclose_all(*closers: Any) -> None:
+    """Await every closer even if an earlier one raises.
+
+    Cleanup failures are logged rather than raised: a close error must not
+    replace a result the caller already produced.
+    """
+
+    for closer in closers:
+        try:
+            await closer
+        except Exception:  # noqa: BLE001 - cleanup must not mask the result
+            _LOGGER.debug("close failed during cleanup", exc_info=True)
 
 
 def _safe_value(response: Any) -> Any:

@@ -1,6 +1,6 @@
 """Hosted agent: the Support Explainer, running as Foundry-managed code.
 
-Same role as the Module 1 prompt agent, same instructions file. The
+Same role as the Module 4 prompt agent, same instructions file. The
 difference is where it runs and what it can do: this process is built and
 run by Foundry, gets its own Entra identity, and can carry any dependency
 in requirements.txt.
@@ -20,8 +20,8 @@ import os
 from pathlib import Path
 
 from azure.ai.agentserver.responses import ResponsesAgentServerHost, TextResponse
+from prompt_blocks import wrap_untrusted
 from safety import extract_question, gate
-from sanitization import wrap_untrusted
 
 INSTRUCTIONS_FILE = Path(__file__).with_name("instructions.md")
 
@@ -71,7 +71,7 @@ async def _answer(question: str) -> str:
 async def handle(request, context, cancellation_signal):  # noqa: ANN001, ANN201
     question = extract_question(request)
     if not question:
-        answer = "Ask a question about learner-support practice."
+        answer = "Ask a question about dealership support practice."
     else:
         answer = gate(await _answer(question))
     async for event in TextResponse(context, request, text=answer):

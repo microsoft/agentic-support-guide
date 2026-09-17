@@ -1,4 +1,5 @@
 import type { AgentTraceStep } from "../api/types";
+import { WorkflowGraph } from "./WorkflowGraph";
 
 interface Props {
   running: boolean;
@@ -45,7 +46,6 @@ export function AgentWorkflowPanel({ running, trace }: Props) {
             "provider_throttling",
             "provider_missing",
             "invalid_model_json",
-            "budget_exhausted",
             "orchestration_budget_exhausted",
           ]);
           const tone =
@@ -76,17 +76,17 @@ export function AgentWorkflowPanel({ running, trace }: Props) {
         })}
       </ol>
       {trace.some((s) => (s.issue_codes ?? []).length || (s.warning_codes ?? []).length) && (
-        <div className="mt-3 rounded bg-slate-950/60 p-2 text-xs text-slate-400">
+        <div className="mt-3 space-y-1 rounded bg-slate-950/60 p-2 text-xs text-slate-400">
           {trace.map((step) => (
-            <div key={`${step.agent}-${step.status}`}>
+            <div key={`${step.agent}-${step.status}`} className="flex flex-wrap gap-x-2">
               <span className="text-slate-300">{step.agent}</span>
               {(step.issue_codes ?? []).length > 0 && (
-                <span className="ml-2 text-rose-300">
+                <span className="flex-1 basis-full pl-4 text-rose-300 sm:basis-auto sm:pl-0">
                   issues: {(step.issue_codes ?? []).join(", ")}
                 </span>
               )}
               {(step.warning_codes ?? []).length > 0 && (
-                <span className="ml-2 text-amber-300">
+                <span className="flex-1 basis-full pl-4 text-amber-300 sm:basis-auto sm:pl-0">
                   warnings: {(step.warning_codes ?? []).join(", ")}
                 </span>
               )}
@@ -94,6 +94,7 @@ export function AgentWorkflowPanel({ running, trace }: Props) {
           ))}
         </div>
       )}
+      <WorkflowGraph running={running} trace={trace} />
     </div>
   );
 }

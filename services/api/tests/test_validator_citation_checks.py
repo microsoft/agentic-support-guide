@@ -6,7 +6,7 @@ from app.agents.validator import ValidatorAgent, ValidatorContext, ValidatorInpu
 from app.evidence import EvidenceBundle
 
 from .conftest import (
-    DEFAULT_DISTRICT,
+    DEFAULT_DEALER_GROUP,
     canned_data_analyst_output,
     canned_recommendation_draft,
     canned_validator_critique,
@@ -20,7 +20,7 @@ def _seed(client: FakeChatClientFactory) -> None:
     client.register_response(
         "support-recommendation-agent",
         canned_recommendation_draft(
-            smart_goal_ids=["SG-early-literacy-1"], strategy_ids=["ST-early-literacy-1"]
+            goal_ids=["GOAL-lead-response-1"], strategy_ids=["ST-lead-response-1"]
         ),
     )
     client.register_response("validator-agent", canned_validator_critique())
@@ -40,14 +40,14 @@ async def test_validator_fails_on_missing_citations() -> None:
     _seed(client)
     runtime, _ = make_fake_runtime(client)
 
-    empty_bundle = EvidenceBundle(district_id=DEFAULT_DISTRICT, citations=())
+    empty_bundle = EvidenceBundle(dealer_group_id=DEFAULT_DEALER_GROUP, citations=())
     ctx = SupportRecommenderContext(
-        district_id=DEFAULT_DISTRICT,
-        category="early-literacy",
-        sanitized_concern_text="synthetic",
+        dealer_group_id=DEFAULT_DEALER_GROUP,
+        category="lead-response",
+        concern_text="synthetic",
         allowed_resources=(),
-        allowed_smart_goal_ids=("SG-early-literacy-1",),
-        allowed_strategy_ids=("ST-early-literacy-1",),
+        allowed_goal_ids=("GOAL-lead-response-1",),
+        allowed_strategy_ids=("ST-lead-response-1",),
         evidence=empty_bundle,
     )
     analysis = await DataAnalystAgent(runtime).analyze(_analyst_ctx())
@@ -59,10 +59,10 @@ async def test_validator_fails_on_missing_citations() -> None:
             analysis=analysis,
             draft=draft,
             context=ValidatorContext(
-                district_id=DEFAULT_DISTRICT,
+                dealer_group_id=DEFAULT_DEALER_GROUP,
                 allowed_resource_ids=(),
-                allowed_smart_goal_ids=("SG-early-literacy-1",),
-                allowed_strategy_ids=("ST-early-literacy-1",),
+                allowed_goal_ids=("GOAL-lead-response-1",),
+                allowed_strategy_ids=("ST-lead-response-1",),
                 allowed_citation_ids=(),
                 required_contract_version="1.0.0",
             ),
@@ -76,7 +76,7 @@ async def test_validator_fails_on_missing_citations() -> None:
 
 
 async def test_validator_flags_forbidden_determination_language() -> None:
-    """Draft mentioning diagnosis must trigger FORBIDDEN_DETERMINATION."""
+    """Draft committing to a trade-in value must trigger FORBIDDEN_DETERMINATION."""
 
     from app.agents.shared.contracts import (
         AnalysisSummary,
@@ -87,8 +87,8 @@ async def test_validator_flags_forbidden_determination_language() -> None:
     )
 
     citation = Citation(
-        citation_id="DIST-DEMO-el-01",
-        district_id=DEFAULT_DISTRICT,
+        citation_id="GROUP-DEMO-el-01",
+        dealer_group_id=DEFAULT_DEALER_GROUP,
         source_type=CitationSourceType.SYNTHETIC_FIXTURE,
         source_title="Fixture",
         section_or_page="",
@@ -98,16 +98,18 @@ async def test_validator_flags_forbidden_determination_language() -> None:
         confidence=0.7,
     )
     draft = SupportRecommendationDraft(
-        district_id=DEFAULT_DISTRICT,
+        dealer_group_id=DEFAULT_DEALER_GROUP,
         detected_need="synthetic",
-        support_tier="Targeted support",
+        support_tier="Focused support",
         recommended_frequency="3x weekly",
         grouping_guidance="small group",
         resource_ids=[],
-        rationale="The synthetic learner appears to warrant a diagnosis of a reading disorder.",
-        smart_goal_suggestions=[],
+        rationale=(
+            "The synthetic dealership should tell the customer their trade-in is worth $8,500."
+        ),
+        goal_suggestions=[],
         strategy_suggestions=[],
-        educator_next_steps=["Confirm baseline."],
+        manager_next_steps=["Confirm baseline."],
         progress_monitoring=["Weekly probe."],
         review_window_days=28,
         decision_rule="IF baseline low THEN targeted.",
@@ -115,7 +117,7 @@ async def test_validator_flags_forbidden_determination_language() -> None:
         citations=[citation],
     )
     analysis = DataAnalystOutput(
-        district_id=DEFAULT_DISTRICT,
+        dealer_group_id=DEFAULT_DEALER_GROUP,
         analysis=AnalysisSummary(
             detected_need="n", evidence_bullets=[], missing_data_flags=[], analysis_confidence=0.5
         ),
@@ -129,11 +131,11 @@ async def test_validator_flags_forbidden_determination_language() -> None:
             analysis=analysis,
             draft=draft,
             context=ValidatorContext(
-                district_id=DEFAULT_DISTRICT,
+                dealer_group_id=DEFAULT_DEALER_GROUP,
                 allowed_resource_ids=(),
-                allowed_smart_goal_ids=(),
+                allowed_goal_ids=(),
                 allowed_strategy_ids=(),
-                allowed_citation_ids=("DIST-DEMO-el-01",),
+                allowed_citation_ids=("GROUP-DEMO-el-01",),
                 required_contract_version="1.0.0",
             ),
         ),
@@ -164,8 +166,8 @@ async def test_validator_safe_summary_never_contains_raw_critique() -> None:
     runtime, _ = make_fake_runtime(client)
 
     citation = Citation(
-        citation_id="DIST-DEMO-el-01",
-        district_id=DEFAULT_DISTRICT,
+        citation_id="GROUP-DEMO-el-01",
+        dealer_group_id=DEFAULT_DEALER_GROUP,
         source_type=CitationSourceType.SYNTHETIC_FIXTURE,
         source_title="Fixture",
         section_or_page="",
@@ -175,16 +177,16 @@ async def test_validator_safe_summary_never_contains_raw_critique() -> None:
         confidence=0.7,
     )
     draft = SupportRecommendationDraft(
-        district_id=DEFAULT_DISTRICT,
+        dealer_group_id=DEFAULT_DEALER_GROUP,
         detected_need="synthetic",
-        support_tier="Targeted support",
+        support_tier="Focused support",
         recommended_frequency="3x weekly",
         grouping_guidance="small group",
         resource_ids=[],
         rationale="synthetic",
-        smart_goal_suggestions=[],
+        goal_suggestions=[],
         strategy_suggestions=[],
-        educator_next_steps=["Confirm baseline."],
+        manager_next_steps=["Confirm baseline."],
         progress_monitoring=["Weekly probe."],
         review_window_days=28,
         decision_rule="IF baseline low THEN targeted.",
@@ -192,7 +194,7 @@ async def test_validator_safe_summary_never_contains_raw_critique() -> None:
         citations=[citation],
     )
     analysis = DataAnalystOutput(
-        district_id=DEFAULT_DISTRICT,
+        dealer_group_id=DEFAULT_DEALER_GROUP,
         analysis=AnalysisSummary(
             detected_need="n", evidence_bullets=[], missing_data_flags=[], analysis_confidence=0.5
         ),
@@ -202,11 +204,11 @@ async def test_validator_safe_summary_never_contains_raw_critique() -> None:
             analysis=analysis,
             draft=draft,
             context=ValidatorContext(
-                district_id=DEFAULT_DISTRICT,
+                dealer_group_id=DEFAULT_DEALER_GROUP,
                 allowed_resource_ids=(),
-                allowed_smart_goal_ids=(),
+                allowed_goal_ids=(),
                 allowed_strategy_ids=(),
-                allowed_citation_ids=("DIST-DEMO-el-01",),
+                allowed_citation_ids=("GROUP-DEMO-el-01",),
                 required_contract_version="1.0.0",
             ),
         ),
@@ -214,7 +216,8 @@ async def test_validator_safe_summary_never_contains_raw_critique() -> None:
     )
     # `safe_summary` and `warning_codes` must not carry the raw free-text.
     assert "raw concern" not in report.safe_summary.lower()
-    for w in report.warning_codes:
-        assert "raw" not in w.lower()
+    # The leaky code was lowercase with spaces, so `enforce_code` drops it.
+    # Assert that rather than looping over what is now an empty list.
+    assert report.warning_codes == []
     assert "the user's raw concern text" not in report.repair_guidance.lower()
     _ = _bundle_from_ctx  # silence unused

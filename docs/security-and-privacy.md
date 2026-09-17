@@ -29,7 +29,8 @@ by design than to remove later.
    customer should represent a real person.
 3. **Prompt-injection boundaries.** Untrusted text (from the user or
    an upstream agent) is wrapped in an explicit "this is data, not
-   instructions" delimiter and stripped of known injection patterns.
+   instructions" delimiter. Filtering obfuscated injections is out of
+   scope; the validator decides what ships.
 4. **Agent-to-agent trust boundaries.** One agent's output is treated
    as untrusted data by the next agent, not as an authoritative
    instruction. Every hop validates against a schema.
@@ -64,7 +65,7 @@ for the synthetic-only data path.
 
 ### Synthetic / non-prod data
 
-- Every learner, school, KPI, and trend value is produced by
+- Every dealership, region, KPI, and trend value is produced by
   deterministic factories seeded with `SEED = 20260101` in
   [`services/api/app/config.py`](../services/api/app/config.py).
 - No demo path reads from a live database.
@@ -77,18 +78,20 @@ enforces that only allow-listed placeholder values appear anywhere.
 
 ### Prompt-injection boundaries
 
-- Free-text user input is sanitized through `sanitize_free_text()`:
-  control characters stripped, common injection phrases replaced with
-  `[filtered]`, delimiter tags removed, whitespace collapsed, length
-  clipped to 1000 characters.
+- Free-text user input is length-clipped, nothing more. Filtering obfuscated
+  injections is deliberately out of scope; Azure's content filters block the
+  direct attacks, and Module 8 measures exactly which.
 - Every untrusted block reaches the remote agent inside
-  `<<<UNTRUSTED_DATA>>> ... <<<END_UNTRUSTED_DATA>>>` markers.
+  `<<<UNTRUSTED_DATA>>> ... <<<END_UNTRUSTED_DATA>>>` markers, with those
+  markers stripped from the body so the fence cannot be closed early.
 - The system-level instructions (in `agent.md`) tell the remote agent
   to treat wrapped blocks as data only.
+- The control that actually decides what ships is the validator's
+  deterministic checks, which do not care how the text was spelled.
 
 **How to verify.** Read
-[`services/api/app/agents/shared/sanitization.py`](../services/api/app/agents/shared/sanitization.py).
-Run `pytest -k sanitization` for the covering tests.
+[`services/api/app/agents/shared/prompt_blocks.py`](../services/api/app/agents/shared/prompt_blocks.py).
+Run `pytest -k prompt_blocks` for the covering tests.
 
 ### Agent-to-agent trust boundaries
 
@@ -102,8 +105,12 @@ Run `pytest -k sanitization` for the covering tests.
   from fixed templates keyed by issue code — not from raw LLM
   critique text.
 
-**How to verify.** Read `_protocol_validate` and the payload builders
-in [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py).
+**How to verify.** Read `StepRunner.check_protocol` in
+[`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py),
+`PlanRun.check_handoff` in
+[`services/api/app/workflows/executors.py`](../services/api/app/workflows/executors.py),
+and the payload builders in
+[`services/api/app/workflows/envelopes.py`](../services/api/app/workflows/envelopes.py).
 
 ### Keyless auth
 
@@ -122,29 +129,56 @@ resource).
 
 ### RBAC
 
-- Terraform assigns the app's principal the `Cognitive Services
-  OpenAI User` role at the AI Services account scope. No other role
-  is granted.
-- The principal is either the current signed-in user (via
-  `data.azurerm_client_config`) or an explicit `principal_id` passed
-  through `terraform.tfvars`.
+`infra/rbac.tf` creates eleven role assignments. They fall into three
+groups.
+
+The learner (or the `principal_id` passed through `terraform.tfvars`):
+
+| Role | Scope |
+| --- | --- |
+| `Cognitive Services OpenAI User` | AI Services account |
+| `var.project_role_definition_name` | Foundry project |
+| `Search Service Contributor` | Search service |
+| `Search Index Data Contributor` | Search service |
+| `Storage Blob Data Contributor` | Storage account |
+
+The deployed API's managed identity:
+
+| Role | Scope |
+| --- | --- |
+| `Cognitive Services OpenAI User` | AI Services account |
+| `var.project_role_definition_name` | Foundry project |
+| `Search Index Data Reader` | Search service |
+
+Service-to-service identities:
+
+| Role | Scope | Why |
+| --- | --- | --- |
+| `Storage Blob Data Reader` | Storage account | Search reads the knowledge container |
+| `Search Index Data Reader` | Search service | AI Services reads the index |
+| `Cognitive Services OpenAI User` | AI Services account | Search calls the embedding model |
+
+`Search Service Contributor` is service-wide. A holder can delete any
+index on the service, so index names do not provide isolation between
+learners who share one. Set `grant_search_control_plane = false` to
+withhold it; Module 6 then requires an index created for you.
 
 **How to verify.** Search for `azurerm_role_assignment` in
 [`/infra`](../infra).
 
 ### No prompt / completion logging
 
-- Telemetry captures structural metadata only: agent name, status,
-  provider, latency, coarse error category, trace ID.
-- `TelemetryRecorder` has a hard denylist of unsafe keys
-  (`prompt`, `completion`, `concern_text`, `raw_critique`, `secret`,
-  `api_key`, `token`).
+- Telemetry captures structural metadata only: span name, executor id,
+  duration, model, token counts, coarse error type.
+- Spans come from Agent Framework, whose `enable_sensitive_data` setting
+  defaults to False; this app never calls `enable_sensitive_telemetry()`.
+  A canary test asserts no user text reaches a span.
 - The audit endpoint returns seeded synthetic rows plus in-memory
   metadata rows and never surfaces prompts, completions, raw
   concern text, or secrets.
 
 **How to verify.** Read
-[`services/api/app/telemetry.py`](../services/api/app/telemetry.py)
+[`services/api/app/observability.py`](../services/api/app/observability.py)
 and
 [`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py).
 See [Observability](observability.md) for the safe schema.
@@ -169,15 +203,15 @@ in the response body.
   required" caveat, enforced deterministically by the Validator Agent.
 - The UI shows a persistent prototype banner and a demo scope
   disclaimer.
-- The prototype does not make final educational, legal, compliance,
-  medical, disability, or placement determinations.
+- The prototype does not make final pricing, financing, credit,
+  compliance, safety, or individual staffing determinations.
 
 **How to verify.** Read the caveat checks in the Validator Agent and
 the persistent banner in the frontend layout.
 
 ## Secret handling
 
-  are gitignored.
+- `.env`, `terraform.tfvars`, and `*.tfstate` are gitignored.
 - `.env.example`, `terraform.tfvars.example`, and
   `services/api/.env.example` contain placeholder values
   only.
@@ -185,9 +219,6 @@ the persistent banner in the frontend layout.
   in Terraform outputs.
 - The privacy scanner test flags 32+ character base64/hex values on
   lines beginning with `AZURE_*=`.
-  and metadata hashes. It never contains tokens or connection
-  strings, and the runtime refuses to use it if the
-  the configured project endpoint does not match the configured endpoint.
 
 ## Validation gates
 
@@ -211,21 +242,17 @@ the persistent banner in the frontend layout.
 ## Common mistakes to avoid
 
 - Adding a "just for debugging" logger that prints the outgoing
-  prompt or the model response. The denylist prevents the metadata
-  facade from carrying such fields, but there is no filter for a
-  developer-added `print()`.
-- Loosening the `sanitize_free_text` regex to "let the model see the
-  full raw input." The regex is intentionally strict; broaden the
-  design (for example, quote-only insertion of the raw text) rather
-  than removing the filter.
-- Storing bindings in a shared drive. Bindings are environment-
-  specific and gitignored on purpose.
+  prompt or the model response. Agent Framework keeps such fields out of
+  spans, but there is no filter for a developer-added `print()`.
+- Removing the fence around untrusted blocks, or letting a body keep its
+  delimiter tags. The fence is what lets the instructions say "treat this as
+  data"; a body that can close it early writes outside it.
 
 ## What the prototype is not
 
 - Not a real AI-safety review pipeline.
 - Not a substitute for human review.
-- Not a medical, legal, disability, placement, or compliance
+- Not a pricing, credit, safety, staffing, or compliance
   determination system.
 
 ## Caller authentication
@@ -273,9 +300,9 @@ The realistic exposure is model quota, not data - the records are
 synthetic. The web tier rate-limits the front door (10 recommendations
 per minute per address, 4 concurrent, 30 requests per minute overall,
 256 KB bodies), which bounds what a stranger can spend without an
-account. The limit lives in the proxy rather than the API so that
-`scripts/load_test.py`, which calls the API directly with the key, can
-still measure real capacity in Module 5.
+account. The limit lives in the proxy rather than the API so that a
+caller holding the shared key is not throttled by a limit meant for the
+anonymous front door.
 
 It is per instance and in memory, so it resets on restart and would
 multiply if the app scaled out. It is a cost guard, not a security
@@ -284,25 +311,25 @@ boundary. `model_capacity` and a budget alert remain the backstop.
 ### What was removed, and why
 
 An earlier version used App Service Easy Auth with per-user Entra
-sign-in and district assignments keyed on object id. It was removed
+sign-in and dealer group assignments keyed on object id. It was removed
 because each learner deploys their own stack: the deploying learner was
 the only legitimate user, so per-user identity added a sign-in flow, an
 app registration, and several failure modes while defending against a
 threat that did not exist.
 
-The cost is real and worth stating plainly: **district isolation is now
+The cost is real and worth stating plainly: **dealer group isolation is now
 a demonstrated pattern, not an enforced control.** The UI picks a
-district and the API validates that it exists. Nothing answers "is this
-caller allowed that district", because there is no caller identity to
-ask about. Retrieval filtering, cross-district citation checks and the
-validator's district assertions all still run - they keep a *request*
-inside one district, which is what the workshop is teaching.
+dealer group and the API validates that it exists. Nothing answers "is this
+caller allowed that dealer group", because there is no caller identity to
+ask about. Retrieval filtering, cross-dealer group citation checks and the
+validator's dealer group assertions all still run - they keep a *request*
+inside one dealer group, which is what the workshop is teaching.
 
-## District isolation
+## Dealer group isolation
 
-Every request carries a `district_id` matching pattern
+Every request carries a `dealer_group_id` matching pattern
 `^[A-Z0-9][A-Z0-9\-]{1,31}$`, and the roster is served to the UI from
-`/api/supports/options` so no district name is hardcoded in the bundle.
+`/api/supports/options` so no dealer group name is hardcoded in the bundle.
 It is enforced at four layers:
 
 - **HTTP** - required by `SupportPlanRequest`.
@@ -310,28 +337,28 @@ It is enforced at four layers:
 - **Coordinator** - propagated to every agent context and stamped on
   every envelope payload.
 - **Validator Agent** - deterministic checks
-  (`DRAFT_DISTRICT_MISMATCH`, `CROSS_DISTRICT_CITATION`,
+  (`DRAFT_DEALER_GROUP_MISMATCH`, `CROSS_DEALER_GROUP_CITATION`,
   `UNKNOWN_CITATION_ID`) reject any drift.
 
-These keep evidence for one request inside one district. None of them is
+These keep evidence for one request inside one dealer group. None of them is
 an authorization check, and with no caller identity there is nothing to
 authorize against - see above.
 
-### Known gap: the synthetic roster is not district-scoped
+### Known gap: the synthetic roster is not dealer group-scoped
 
-`Learner`, `AssessmentRecord` and `BehaviorRecord` carry no
-`district_id`. Every caller sees the same synthetic cohort from
-`/api/learners`, `/api/dashboard/summary`, `/api/assessments/summary`,
-`/api/behavior/summary` and `/api/supports/options`.
+`Dealership`, `AreaScoreRecord` and `OperationsRecord` carry no
+`dealer_group_id`. Every caller sees the same synthetic network from
+`/api/dealerships`, `/api/dashboard/summary`, `/api/scores/summary`,
+`/api/operations/summary` and `/api/supports/options`.
 
 This is a property of the mock dataset, not of the request pipeline. A
-real deployment must add `district_id` to these records and filter on
+real deployment must add `dealer_group_id` to these records and filter on
 it, exactly as the evidence layer already does for citations.
 
-The target production topology gives each district its own Microsoft
+The target production topology gives each dealer group its own Microsoft
 Fabric workspace and lakehouse. This repo ships only synthetic
-per-district fixtures via `FixtureEvidenceRetriever`. See
-[`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md).
+per-dealer group fixtures via `FixtureEvidenceRetriever`. See
+[`adr/0003-dealer-group-isolation-and-grounding.md`](adr/0003-dealer-group-isolation-and-grounding.md).
 
 ## Human review
 
@@ -352,10 +379,10 @@ Transitions:
 - Are validated against the state machine; invalid transitions raise
   `InvalidReviewTransitionError` (HTTP 409).
 - Are recorded in the runtime audit log as `review_transition` events
-  with `correlation_id`, `district_id`, old state, new state, and a
+  with `correlation_id`, `dealer_group_id`, old state, new state, and a
   reviewer identifier. No prompt or completion text is stored.
 
-Approval is terminal in the demo. Production would layer on district
+Approval is terminal in the demo. Production would layer on dealer group
 approver identity, signing, and workflow escalation. That is out of
 scope for this prototype.
 
@@ -363,9 +390,9 @@ scope for this prototype.
 
 Every passing recommendation attaches at least one citation. The
 Validator Agent rejects `MISSING_CITATIONS`,
-`CROSS_DISTRICT_CITATION`, and `UNKNOWN_CITATION_ID`. The
+`CROSS_DEALER_GROUP_CITATION`, and `UNKNOWN_CITATION_ID`. The
 `Citation` type includes only safe fields (`citation_id`,
-`district_id`, `source_type`, `source_title`, `section_or_page`,
+`dealer_group_id`, `source_type`, `source_title`, `section_or_page`,
 `evidence_summary`, `source_ref`, `retrieved_at`, `confidence`).
 It never carries a raw document body.
 
@@ -374,7 +401,7 @@ See [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md)
 ## Correlation IDs and safe audit
 
 The coordinator generates a `correlation_id` per request. Audit rows
-carry `correlation_id`, `district_id`, `evidence_count`,
+carry `correlation_id`, `dealer_group_id`, `evidence_count`,
 `citation_count`, and `validator_status`. None of them contain
 prompts, completions, thread IDs, or run IDs. See
 [`observability.md`](observability.md).

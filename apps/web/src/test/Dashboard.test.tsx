@@ -16,11 +16,11 @@ describe("DashboardPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("kpi-kpi-learners")).toBeInTheDocument();
+      expect(screen.getByTestId("kpi-kpi-dealerships")).toBeInTheDocument();
     });
     expect(screen.getByTestId("kpi-kpi-flagged")).toBeInTheDocument();
-    expect(screen.getByTestId("kpi-kpi-proficiency")).toBeInTheDocument();
-    expect(screen.getByTestId("kpi-kpi-attendance")).toBeInTheDocument();
+    expect(screen.getByTestId("kpi-kpi-process-score")).toBeInTheDocument();
+    expect(screen.getByTestId("kpi-kpi-appointments")).toBeInTheDocument();
   });
 
   it("shows API unavailable banner on error", async () => {

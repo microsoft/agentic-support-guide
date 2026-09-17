@@ -42,8 +42,8 @@ protocol.
 The three agents live under [`/agents`](../agents):
 
 - [`agents/data-analyst`](../agents/data-analyst) — the **Data Analyst
-  Agent** reviews synthetic learner signals and writes a short evidence
-  summary. It does not propose interventions.
+  Agent** reviews synthetic dealership signals and writes a short evidence
+  summary. It does not propose changes.
 - [`agents/support-recommender`](../agents/support-recommender) — the
   **Support Recommendation Agent** proposes a structured plan drawn
   strictly from an allowed catalog.
@@ -72,7 +72,7 @@ The **coordinator** is deterministic Python in
 [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py).
 It:
 
-- sanitizes user text,
+- bounds user text,
 - calls the three role agents in sequence,
 - validates each inter-agent message against a JSON Schema in
   [`/contracts/v1`](../contracts/v1),
@@ -98,11 +98,12 @@ it:
 - **Foundry projects.** A project resource that scopes agents, model
   deployments, RBAC, and observability. This repo provisions one
   project as part of Terraform.
-- **Agent Service.** The hosted-agent surface. Each of the three
-  agents in this repo runs as a ephemeral agent here. The sync script
-  ([`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py))
-  creates or updates those assistants from the on-disk `agent.md` and
-  `manifest.yaml` files.
+- **Agent Service.** The agent surface. The three coordinator roles run
+  as ephemeral agents here, composed at call time from the on-disk
+  `agent.md` and `manifest.yaml` files. Those files are checked offline by
+  [`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py)
+  and published to the portal as versioned prompt agents by
+  [`scripts/publish_prompt_agents.py`](../scripts/publish_prompt_agents.py).
 
 Authentication is keyless: the backend uses `DefaultAzureCredential`
 and holds only a bearer token acquired for the Foundry endpoint. No
@@ -130,7 +131,7 @@ In this repo, that shows up as:
   pull request. No Azure credentials are needed for any of them.
 
 Remaining gap: CI proves the code is well-formed, not that agent output
-is good. Scoring agent versions against `/evals` is still manual.
+is good. Nothing blocks a merge on a live-model eval score.
 
 ## What MLOps means for this repo
 
@@ -147,11 +148,11 @@ model that Foundry hosts. The MLOps concerns that still apply are:
 - How model retirement affects the app.
 
 Those choices live in [`/infra`](../infra) and in each agent's
-[`manifest.yaml`](../agents/data-analyst/manifest.yaml). Bindings from
-role to model deployment are recorded in
+[`manifest.yaml`](../agents/data-analyst/manifest.yaml), which is also where
+the role-to-model-deployment binding is recorded.
 
 Remaining gap: this repo has no automated model-version canary or
-rollback. Deployment changes are manual via Terraform + sync script.
+rollback. Deployment changes are manual via Terraform and the deploy script.
 
 ## What GenAIOps means for this repo
 

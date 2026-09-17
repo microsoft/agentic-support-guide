@@ -6,11 +6,16 @@ calls from the three implemented agents:
 - Azure resource group.
 - Azure AI Services account (`kind = "AIServices"`, `project_management_enabled = true`).
 - Azure AI Foundry project (`azurerm_cognitive_account_project`).
-- Model deployment (`azurerm_cognitive_deployment`, `format = "OpenAI"`).
+- Three model deployments (`azurerm_cognitive_deployment`): the chat model,
+  the Module 9 judge, and the Module 7 router.
+- Azure AI Search plus a storage account and a `group-knowledge` container,
+  which back Foundry IQ in Module 6 (`enable_knowledge_plane`).
+- Two Linux App Service plans and two web apps — one pair for the API, one
+  for the UI (`enable_app_hosting`).
 - Log Analytics workspace + Application Insights (metadata / telemetry).
 - Diagnostic setting routing the AI Services account's own logs and
   metrics into the Log Analytics workspace.
-- RBAC role assignments for keyless (Entra) access.
+- Eleven RBAC role assignments for keyless (Entra) access.
 
 > **Network exposure.** The AI Services account is created with
 > `public_network_access_enabled = true` and no network ACLs. Keyless
@@ -54,14 +59,16 @@ prevents.
 
 - Terraform >= 1.9.
 - Azure CLI (`az`) logged in: `az login`.
-- Environment variable `ARM_SUBSCRIPTION_ID` set to the target subscription
-  ID (azurerm 4.x requires it explicitly).
 - Owner or User Access Administrator on the target subscription to create
   role assignments.
 
+The azurerm provider infers the subscription from your Azure CLI login, so
+`ARM_SUBSCRIPTION_ID` is optional. Set it only to pin a specific subscription
+when your `az` context is ambiguous:
+
 ```powershell
 az login
-$env:ARM_SUBSCRIPTION_ID = "<your-subscription-id>"
+az account set --subscription "<your-subscription-id>"
 ```
 
 ## Configure
@@ -137,9 +144,11 @@ If you'd rather do it by hand:
 3. Open `services/api/.env` in VS Code and paste the values into the
    corresponding `AZURE_AI_FOUNDRY_*` keys:
 
-   - `ai_services_endpoint`     → `AZURE_AI_FOUNDRY_ENDPOINT`
-   - `foundry_project_name`     → `AZURE_AI_FOUNDRY_PROJECT_NAME`
-   - `model_deployment_name`    → `AZURE_AI_FOUNDRY_DEPLOYMENT`
+   - `foundry_project_endpoint` → `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
+   - `model_deployment_name`    → `FOUNDRY_MODEL_DEPLOYMENT_ANALYST`,
+     `FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER`,
+     `FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR` and
+     `FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER`
    - `application_insights_connection_string` (sensitive; see it with
      `terraform output -raw application_insights_connection_string`) →
      `APPLICATIONINSIGHTS_CONNECTION_STRING`
@@ -194,14 +203,17 @@ model_capacity = 1
 
 ## RBAC propagation
 
-The role assignment grants your local principal:
+`rbac.tf` creates **eleven** role assignments: five to whoever runs `apply`
+(`Cognitive Services OpenAI User` at the account scope, the project role at
+the project scope, `Search Service Contributor`, `Search Index Data
+Contributor`, and `Storage Blob Data Contributor`) and six to service
+identities (the search service, the AI Services account and the API web app).
 
-- `Cognitive Services OpenAI User` at the AI Services account scope.
-
-That's the role the runtime actually uses. A project-scope role is
-intentionally not created (see `rbac.tf`) because the backend calls the
-account endpoint. If you later switch to the Foundry project endpoint,
-add `Cognitive Services User` at the project scope.
+Both the account-scope and the project-scope grants are required. Account
+scope authorizes plain model calls; the app reaches its agents through the
+project endpoint, which is a separate scope. Missing the project grant gives
+`AGENT_PROVIDER_AUTH_DENIED` on the first agent call while health still
+reports ok.
 
 Role assignments can take several minutes to propagate. First-run
 inference may return `401` or `403` briefly.

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import time
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from app.agents.shared.contracts import ResourceRef
 from app.contracts_registry import ContractsRegistry, load_registry
@@ -18,15 +21,16 @@ from app.foundry_agents import (
     FoundryTimeoutError,
     ThrottledError,
 )
-from app.telemetry import TelemetryRecorder
 from app.workflows import AgentCoordinator
 from app.workflows.coordinator import CoordinatorRequest
 
 from .conftest import (
-    DEFAULT_DISTRICT,
+    DEFAULT_DEALER_GROUP,
     canned_data_analyst_output,
     canned_recommendation_draft,
     canned_validator_critique,
+    sample_area_series,
+    sample_operations_series,
 )
 from .fakes import FakeChatClientFactory, make_fake_runtime
 
@@ -37,22 +41,21 @@ def _registry() -> ContractsRegistry:
 
 def _request(**overrides: Any) -> CoordinatorRequest:
     defaults: dict[str, Any] = {
-        "district_id": DEFAULT_DISTRICT,
-        "learner_label": "Learner 0001",
-        "grade": 3,
-        "school_id": "SCH-001",
-        "group": "GRP-A",
-        "proficiency_index": 45.0,
-        "attendance_rate": 0.9,
-        "behavior_index": 70.0,
+        "dealer_group_id": DEFAULT_DEALER_GROUP,
+        "dealership_label": "Dealership 0001",
+        "region_id": "REG-001",
+        "segment": "SEG-VOLUME",
+        "process_score": 45.0,
+        "appointment_attendance_rate": 0.9,
+        "followup_index": 70.0,
         "engagement_index": 65.0,
-        "assessment_count": 4,
-        "behavior_record_count": 2,
-        "category": "early-literacy",
-        "concern_text": "Letter-sound fluency below expected pace.",
-        "allowed_resources": (ResourceRef(id="RES-001", label="Kit", kind="guide"),),
-        "allowed_smart_goal_ids": ("SG-early-literacy-1",),
-        "allowed_strategy_ids": ("ST-early-literacy-1",),
+        "area_series": sample_area_series(),
+        "operations_series": sample_operations_series(),
+        "category": "lead-response",
+        "concern_text": "First response to online enquiries is slower than the standard.",
+        "allowed_resources": (ResourceRef(id="RES-001", label="Kit", kind="playbook"),),
+        "allowed_goal_ids": ("GOAL-lead-response-1",),
+        "allowed_strategy_ids": ("ST-lead-response-1",),
     }
     defaults.update(overrides)
     return CoordinatorRequest(**defaults)
@@ -84,8 +87,8 @@ def _make_coord(
     rec_payloads = recommender_payloads or [
         canned_recommendation_draft(
             resource_ids=["RES-001"],
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
+            goal_ids=["GOAL-lead-response-1"],
+            strategy_ids=["ST-lead-response-1"],
         )
     ]
     for rp in rec_payloads:
@@ -101,7 +104,6 @@ def _make_coord(
     runtime, _ = make_fake_runtime(client)
     coord = AgentCoordinator(
         runtime=runtime,
-        telemetry=TelemetryRecorder(None),
         contracts=_registry(),
         evidence_retriever=evidence_retriever or FixtureEvidenceRetriever(),
         provider_display="Azure AI Foundry Agent Service (fake)",
@@ -115,11 +117,11 @@ async def test_coordinator_happy_path() -> None:
     assert result.status == "ok"
     assert result.recommendation is not None
     assert result.recommendation.completeness["ok"] is True
-    assert result.recommendation.district_id == DEFAULT_DISTRICT
+    assert result.recommendation.dealer_group_id == DEFAULT_DEALER_GROUP
     assert result.recommendation.human_review_state == "pending_review"
     assert len(result.recommendation.citations) >= 1
     for c in result.recommendation.citations:
-        assert c.district_id == DEFAULT_DISTRICT
+        assert c.dealer_group_id == DEFAULT_DEALER_GROUP
     # evidence retrieval step + 3 agent steps
     assert len(result.agent_trace) == 4
     agents = [step.agent for step in result.agent_trace]
@@ -142,11 +144,11 @@ async def test_coordinator_missing_evidence_returns_evidence_missing() -> None:
         provider_model = "synthetic"
         evidence_verifiable = True
 
-        def has_district(self, district_id: str) -> bool:
+        def has_dealer_group(self, dealer_group_id: str) -> bool:
             return False
 
         async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
-            raise EvidenceRetrievalError("UNKNOWN_DISTRICT", "no district evidence")
+            raise EvidenceRetrievalError("UNKNOWN_DEALER_GROUP", "no dealer group evidence")
 
     coord, _ = _make_coord(evidence_retriever=EmptyRetriever())
     result = await coord.run(_request())
@@ -169,11 +171,11 @@ async def test_empty_evidence_bundle_fails_before_any_model_call() -> None:
         provider_model = "synthetic"
         evidence_verifiable = True
 
-        def has_district(self, district_id: str) -> bool:
+        def has_dealer_group(self, dealer_group_id: str) -> bool:
             return True
 
         async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
-            return EvidenceBundle(district_id=request.district_id, citations=())
+            return EvidenceBundle(dealer_group_id=request.dealer_group_id, citations=())
 
     coord, client = _make_coord(evidence_retriever=SparseRetriever())
     result = await coord.run(_request())
@@ -191,13 +193,13 @@ async def test_coordinator_repair_succeeds() -> None:
         recommender_payloads=[
             canned_recommendation_draft(
                 resource_ids=["RES-INVENTED"],
-                smart_goal_ids=["SG-early-literacy-1"],
-                strategy_ids=["ST-early-literacy-1"],
+                goal_ids=["GOAL-lead-response-1"],
+                strategy_ids=["ST-lead-response-1"],
             ),
             canned_recommendation_draft(
                 resource_ids=["RES-001"],
-                smart_goal_ids=["SG-early-literacy-1"],
-                strategy_ids=["ST-early-literacy-1"],
+                goal_ids=["GOAL-lead-response-1"],
+                strategy_ids=["ST-lead-response-1"],
             ),
         ]
     )
@@ -212,13 +214,13 @@ async def test_coordinator_repair_failure_returns_validation_failed() -> None:
         recommender_payloads=[
             canned_recommendation_draft(
                 resource_ids=["RES-INVENTED"],
-                smart_goal_ids=["SG-early-literacy-1"],
-                strategy_ids=["ST-early-literacy-1"],
+                goal_ids=["GOAL-lead-response-1"],
+                strategy_ids=["ST-lead-response-1"],
             ),
             canned_recommendation_draft(
                 resource_ids=["RES-INVENTED"],
-                smart_goal_ids=["SG-early-literacy-1"],
-                strategy_ids=["ST-early-literacy-1"],
+                goal_ids=["GOAL-lead-response-1"],
+                strategy_ids=["ST-lead-response-1"],
             ),
         ]
     )
@@ -273,29 +275,6 @@ async def test_coordinator_trace_contains_no_prompt_or_completion_text() -> None
         assert "ignore all previous instructions" not in text
 
 
-async def test_every_agent_step_emits_telemetry() -> None:
-    """A step that appears in the trace must also appear in telemetry.
-
-    The validator runs outside `_call`, so it showed up in the response trace
-    but never in Application Insights. Module 9's per-agent latency query
-    therefore omitted the one step that decides whether an answer ships.
-    """
-
-    coord, _ = _make_coord()
-    result = await coord.run(_request())
-
-    traced_agents = {step.agent for step in result.agent_trace}
-    telemetry_agents = {
-        event.properties["agent"]
-        for event in coord._telemetry.events
-        if "agent" in event.properties
-    }
-    # evidence-retrieval reports under its own event name, not `agent`.
-    traced_agents.discard("evidence-retrieval")
-    missing = traced_agents - telemetry_agents
-    assert not missing, f"trace steps with no telemetry event: {sorted(missing)}"
-
-
 async def test_coordinator_correlation_id_is_a_uuid_and_unique_per_run() -> None:
     """The previous version of this test asserted nothing.
 
@@ -313,16 +292,61 @@ async def test_coordinator_correlation_id_is_a_uuid_and_unique_per_run() -> None
     uuid.UUID(first.correlation_id)
     assert first.correlation_id != second.correlation_id
 
-    # Every telemetry event for a run must carry that run's id, otherwise
-    # Module 9's "find this request by correlation_id" cannot work.
-    recorded = {
-        event.properties.get("correlation_id")
-        for event in coord._telemetry.events
-        if "correlation_id" in event.properties
-    }
-    assert recorded, "no telemetry event carried a correlation_id"
-    assert recorded <= {first.correlation_id, second.correlation_id}
-
     # The id belongs on the envelope, not inside individual trace steps.
     for step in first.agent_trace:
         assert "correlation_id" not in step.model_dump()
+
+
+async def test_a_stalled_retriever_is_bounded_by_the_total_budget() -> None:
+    """The per-step deadline only binds steps that check it.
+
+    Evidence retrieval can block inside a client call, so a stalling
+    retriever used to run past the budget until the caller gave up.
+    """
+
+    import app.workflows.coordinator as coordinator_module
+
+    class _Stalling:
+        provider_name = "stall"
+        provider_model = "stall"
+
+        async def retrieve(self, *args: Any, **kwargs: Any) -> Any:
+            await asyncio.sleep(30)
+
+    budget = "ORCHESTRATION_TOTAL_BUDGET_SECONDS"
+    original = getattr(coordinator_module, budget)
+    setattr(coordinator_module, budget, 0.3)
+    try:
+        coord, _ = _make_coord(evidence_retriever=cast(Any, _Stalling()))
+        started = time.monotonic()
+        result = await coord.run(_request())
+    finally:
+        setattr(coordinator_module, budget, original)
+
+    assert result.status == "orchestration_budget_exhausted"
+    assert time.monotonic() - started < 5
+
+
+async def test_invented_citation_ids_reach_the_validator() -> None:
+    """An uncited draft is the validator's verdict, not an envelope error.
+
+    `_attach_citations` drops ids the retriever never returned, which can
+    leave the draft with none. The envelope used to require at least one
+    citation, so the run failed protocol validation before the validator saw
+    it -- making the `MISSING_CITATIONS` branch unreachable and skipping the
+    repair edge.
+    """
+
+    draft = json.loads(json.dumps(canned_recommendation_draft()))
+    draft["cited_ids"] = ["EV-DOES-NOT-EXIST"]
+
+    coord, _ = _make_coord(recommender_payloads=[draft, draft])
+    result = await coord.run(_request())
+
+    agents = [step.agent for step in result.agent_trace]
+    assert "validator-agent" in agents
+    assert any("repair" in agent for agent in agents)
+
+    codes = [code for step in result.agent_trace for code in step.issue_codes]
+    assert "MISSING_CITATIONS" in codes
+    assert result.error_code == "VALIDATION_FAILED_AFTER_REPAIR"

@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Copy to portal_redact.config.json (gitignored) and fill in the values from",
+    "YOUR deployment before capturing workshop screenshots.",
+    "",
+    "These are the strings the capture pipeline rewrites in the portal DOM before",
+    "taking a screenshot, and the strings the OCR sweep then looks for in the",
+    "committed PNGs. They are real tenant identifiers, which is exactly why they",
+    "do not belong in a published repo - keep them in the gitignored copy.",
+    "",
+    "'literals' are ordered pairs: [findThis, replaceWithThis]. Order matters,",
+    "because replacements are applied in sequence."
+  ],
+  "literals": [
+    ["<your-terraform-random-suffix>", "abc123"],
+    ["<the-token-in-the-nextgen-portal-url>", "SUBTOKEN"],
+    ["<your-subscription-display-name-fragment>", "Contoso"],
+    ["<your-directory-admin-display-name>", "Contoso Admin"],
+    ["<your-alias-or-username>", "learner"],
+    ["<any-tenant-specific-tag-key>", "costCenter"],
+    ["<any-tenant-specific-tag-value>", "workshop"]
+  ],
+  "safeEmail": "learner@example.invalid",
+  "safeGuid": "00000000-0000-0000-0000-000000000000",
+  "allowedEmailDomains": ["example.invalid", "contoso.com"],
+  "allowedGuids": [
+    "00000000-0000-0000-0000-000000000000",
+    "11111111-2222-3333-4444-555555555555",
+    "11111111-1111-1111-1111-111111111111"
+  ]
+}

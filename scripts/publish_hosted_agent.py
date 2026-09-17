@@ -35,15 +35,24 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "services" / "api"))
 
-from app.foundry_agents import compose_instructions, load_agent_assets
+from app.foundry_agents import compose_instructions, declared_response_format, load_agent_assets
 
 ENV_FILE = REPO_ROOT / "services" / "api" / ".env"
 SOURCE_DIR = REPO_ROOT / "hosted" / "support-explainer"
-# Shared with the API so the hosted agent cannot drift from the sanitizer the
-# coordinator uses. Stdlib-only, so it bundles cleanly.
-SANITIZER_SRC = REPO_ROOT / "services" / "api" / "app" / "agents" / "shared" / "sanitization.py"
+# Shared with the API so the hosted agent cannot drift from the prompt blocks and
+# determination policy the coordinator uses. Stdlib-only, so they bundle cleanly.
+#
+# This is a build-time snapshot, not a live dependency: a deployed agent keeps
+# the policy it shipped with until it is published again. Tightening the policy
+# therefore needs a re-publish, or the internet-facing copy stays on the old one.
+SHARED_DIR = REPO_ROOT / "services" / "api" / "app" / "agents" / "shared"
+SHARED_MODULES = ("prompt_blocks.py", "determinations.py")
 AGENT_DIR = "support-explainer"
 AGENT_NAME_PREFIX = "asg-hosted-explainer-"
+
+# Fixed zip entry timestamp, so identical sources hash identically. 1980-01-01
+# is the earliest the zip format can represent.
+ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 
 # Verified against azure-ai-projects 2.3.0. Changing these is what breaks
 # a deploy most often, so they are named constants, not inline literals.
@@ -85,22 +94,33 @@ def _build_zip() -> tuple[bytes, list[str]]:
 
     assets = load_agent_assets(AGENT_DIR)
     instructions = compose_instructions(
-        assets.agent_md_body, frontmatter=assets.agent_md_frontmatter
+        assets.agent_md_body,
+        frontmatter=assets.agent_md_frontmatter,
+        response_format=declared_response_format(assets.manifest),
     )
 
     buffer = io.BytesIO()
     names: list[str] = []
+
+    def _add(name: str, body: str) -> None:
+        # A bare writestr(name, ...) stamps the entry with time.localtime(), so
+        # the same sources produce a different sha256 on every run. Module 5
+        # has learners compare that hash across runs, so pin the timestamp.
+        info = zipfile.ZipInfo(name, date_time=ZIP_EPOCH)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.external_attr = 0o644 << 16
+        zf.writestr(info, body)
+        names.append(name)
+
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in sorted(SOURCE_DIR.glob("*")):
-            if path.is_file() and path.name not in ("instructions.md", "sanitization.py"):
-                zf.writestr(path.name, path.read_text(encoding="utf-8"))
-                names.append(path.name)
+            if path.is_file() and path.name not in ("instructions.md", *SHARED_MODULES):
+                _add(path.name, path.read_text(encoding="utf-8"))
         # Generated, not committed: the hosted agent and the prompt agent
         # must never drift from the same agent.md.
-        zf.writestr("instructions.md", instructions)
-        names.append("instructions.md")
-        zf.writestr("sanitization.py", SANITIZER_SRC.read_text(encoding="utf-8"))
-        names.append("sanitization.py")
+        _add("instructions.md", instructions)
+        for module in SHARED_MODULES:
+            _add(module, (SHARED_DIR / module).read_text(encoding="utf-8"))
     return buffer.getvalue(), names
 
 
@@ -244,6 +264,11 @@ def _publish(suffix: str, apply: bool) -> int:
     return _poll(project, agent_name, version_id)
 
 
+def _version_sort_key(listed: object) -> tuple[int, str]:
+    raw = str(getattr(listed, "version", "") or "")
+    return (int(raw), raw) if raw.isdigit() else (-1, raw)
+
+
 def _status(suffix: str) -> int:
     endpoint = _endpoint()
     if not endpoint:
@@ -255,6 +280,10 @@ def _status(suffix: str) -> int:
     if not versions:
         print(f"No versions for {agent_name}.", file=sys.stderr)
         return 1
+    # Sorted explicitly rather than trusting list order: this module exists to
+    # teach that list_versions cannot be trusted about state, so do not trust
+    # it about ordering either.
+    versions.sort(key=_version_sort_key, reverse=True)
     print(f"{len(versions)} version(s) of {agent_name}:")
     healthy = {"succeeded", "running", "active", "ready"}
     latest_state = ""
@@ -271,6 +300,47 @@ def _status(suffix: str) -> int:
     return 0 if latest_state in healthy else 1
 
 
+def _rollback(suffix: str, target: str) -> int:
+    """Point 100% of traffic at a specific version instead of @latest."""
+
+    endpoint = _endpoint()
+    if not endpoint:
+        print("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.", file=sys.stderr)
+        return 2
+    from azure.ai.projects.models import (
+        AgentEndpointConfig,
+        FixedRatioVersionSelectionRule,
+        VersionSelector,
+    )
+
+    project = _project(endpoint)
+    agent_name = _agent_name(suffix)
+
+    # Rolling back onto a version that never built is the one mistake this
+    # command must not let you make quietly.
+    state, detail = _version_state(project.agents.get_version(agent_name, target))
+    if state not in {"succeeded", "running", "active", "ready"}:
+        suffix_detail = f" - {detail}" if detail else ""
+        print(
+            f"v{target} is '{state}'{suffix_detail}; refusing to send traffic to it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    project.agents.update_details(
+        agent_name,
+        agent_endpoint=AgentEndpointConfig(
+            version_selector=VersionSelector(
+                version_selection_rules=[
+                    FixedRatioVersionSelectionRule(agent_version=target, traffic_percentage=100)
+                ]
+            )
+        ),
+    )
+    print(f"{agent_name}: 100% of traffic now pinned to v{target}.")
+    return 0
+
+
 def _delete(suffix: str) -> int:
     endpoint = _endpoint()
     if not endpoint:
@@ -282,7 +352,8 @@ def _delete(suffix: str) -> int:
     if agent_name not in present:
         print(f"{agent_name} not found. Nothing to delete.")
         return 0
-    project.agents.delete(agent_name)
+    # Playground or invocation sessions block deletion until they expire.
+    project.agents.delete(agent_name, force=True)
     print(f"deleted {agent_name}")
     return 0
 
@@ -295,6 +366,11 @@ def main() -> int:
     parser.add_argument("--apply", action="store_true", help="Upload and build.")
     parser.add_argument("--status", action="store_true", help="Show version states.")
     parser.add_argument("--delete", action="store_true", help="Delete this agent.")
+    parser.add_argument(
+        "--rollback",
+        metavar="VERSION",
+        help="Pin 100%% of traffic to this version instead of @latest.",
+    )
     parser.add_argument(
         "--suffix",
         default=os.environ.get("WORKSHOP_LEARNER_SUFFIX", ""),
@@ -315,6 +391,8 @@ def main() -> int:
 
     if args.delete:
         return _delete(suffix)
+    if args.rollback:
+        return _rollback(suffix, args.rollback)
     if args.status:
         return _status(suffix)
     return _publish(suffix, apply=args.apply)

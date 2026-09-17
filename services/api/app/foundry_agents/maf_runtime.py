@@ -81,6 +81,7 @@ class RoleDefinition:
     instructions: str
     model_deployment: str
     temperature: float | None
+    max_output_tokens: int | None = None
 
 
 class MafAgentRuntime:

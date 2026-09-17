@@ -31,6 +31,7 @@ from .prompt_envelope import (
     RUNTIME_ENVELOPE,
     AgentAssets,
     compose_instructions,
+    declared_response_format,
     instructions_hash,
     load_agent_assets,
 )
@@ -62,6 +63,7 @@ __all__ = [
     "RoleResponse",
     "ThrottledError",
     "compose_instructions",
+    "declared_response_format",
     "default_credential_factory",
     "instructions_hash",
     "load_agent_assets",

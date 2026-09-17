@@ -17,19 +17,19 @@ class EvidenceRetrievalError(Exception):
         self.safe_message = safe_message
 
 
-class CrossDistrictEvidenceError(EvidenceRetrievalError):
-    """Retriever returned a citation whose district does not match request."""
+class CrossDealerGroupEvidenceError(EvidenceRetrievalError):
+    """Retriever returned a citation whose group does not match the request."""
 
 
 @dataclass(frozen=True)
 class EvidenceRequest:
-    """District-scoped retrieval request.
+    """Dealer-group-scoped retrieval request.
 
-    `district_id` is mandatory. A retriever MUST NOT return citations
-    from other districts even if the caller misroutes the request.
+    `dealer_group_id` is mandatory. A retriever MUST NOT return citations
+    from other groups even if the caller misroutes the request.
     """
 
-    district_id: str
+    dealer_group_id: str
     category: str
     detected_need_hint: str
     max_items: int = 6
@@ -37,9 +37,9 @@ class EvidenceRequest:
 
 @dataclass(frozen=True)
 class EvidenceBundle:
-    """Return type for a retrieval call. `citations` is district-scoped."""
+    """Return type for a retrieval call. `citations` is group-scoped."""
 
-    district_id: str
+    dealer_group_id: str
     citations: tuple[Citation, ...]
 
     def is_empty(self) -> bool:
@@ -64,20 +64,20 @@ class EvidenceRetriever(Protocol):
     #: knowledge base name for Foundry IQ.
     provider_model: str
 
-    #: True when `has_district` is authoritative. Fixtures hold their data in
-    #: memory and can answer honestly. A remote retriever cannot, without
+    #: True when `has_dealer_group` is authoritative. Fixtures hold their data
+    #: in memory and can answer honestly. A remote retriever cannot, without
     #: network I/O on an endpoint the UI polls on every page load, so it must
     #: not be treated as proof that evidence exists.
     evidence_verifiable: bool
 
     async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
-        """Return a district-scoped evidence bundle.
+        """Return a dealer-group-scoped evidence bundle.
 
         Raises `EvidenceRetrievalError` on failure. Must not return
-        citations tagged with a different district than the request.
+        citations tagged with a different group than the request.
         """
         ...
 
-    def has_district(self, district_id: str) -> bool:
-        """Return True if the retriever has any evidence for this district."""
+    def has_dealer_group(self, dealer_group_id: str) -> bool:
+        """Return True if the retriever has any evidence for this group."""
         ...

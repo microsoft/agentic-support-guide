@@ -1,7 +1,7 @@
 """Guards the eval case file against drift from the API contract.
 
 The cases are exercised by hand today, so nothing else catches a case that
-would 422 or hit a district/category with no evidence fixtures.
+would 422 or hit a dealer group/category with no evidence fixtures.
 """
 
 from __future__ import annotations
@@ -32,10 +32,10 @@ def test_cases_file_is_not_empty() -> None:
 @pytest.mark.parametrize("case", _cases(), ids=lambda c: str(c["id"]))
 def test_case_satisfies_the_request_contract(case: dict[str, Any]) -> None:
     SupportPlanRequest(
-        learner_id=case["learner_id"],
+        dealership_id=case["dealership_id"],
         category=case["category"],
         concern_text=case["concern_text"],
-        district_id=case["district_id"],
+        dealer_group_id=case["dealer_group_id"],
     )
 
 
@@ -44,7 +44,7 @@ async def test_case_resolves_to_real_evidence(case: dict[str, Any]) -> None:
     assert case["category"] in CATEGORY_IDS
     bundle = await FixtureEvidenceRetriever().retrieve(
         EvidenceRequest(
-            district_id=case["district_id"],
+            dealer_group_id=case["dealer_group_id"],
             category=case["category"],
             detected_need_hint="",
         )

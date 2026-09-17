@@ -1,12 +1,12 @@
 import type {
-  AssessmentsSummary,
+  ScoresSummary,
   AuditResponse,
-  BehaviorSummary,
+  OperationsSummary,
   DashboardSummary,
   DemoResetResponse,
   HealthDetailsResponse,
   HealthResponse,
-  LearnersResponse,
+  DealershipsResponse,
   RecommendationEnvelope,
   SavedPlan,
   SavedPlansResponse,
@@ -49,35 +49,54 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(0, `Network error: ${(err as Error).message}`);
   }
   if (!response.ok) {
-    throw new ApiError(response.status, describeStatus(response.status));
+    // The API returns a typed error body. Prefer it: a generic status string
+    // cannot tell provider throttling from a guardrail refusal.
+    throw new ApiError(response.status, await describeFailure(response));
   }
   return (await response.json()) as T;
+}
+
+async function describeFailure(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      detail?: unknown;
+      error_message?: string;
+      error_code?: string;
+    };
+    const detail = typeof body.detail === "string" ? body.detail : undefined;
+    const message = body.error_message ?? detail;
+    if (message) {
+      return body.error_code ? `${message} (${body.error_code})` : message;
+    }
+  } catch {
+    // Not JSON, or already consumed. Fall through to the status text.
+  }
+  return describeStatus(response.status);
 }
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
   dashboardSummary: () => request<DashboardSummary>("/dashboard/summary"),
-  learners: () => request<LearnersResponse>("/learners"),
-  assessmentsSummary: (filters: {
-    school?: string;
-    grade?: string;
-    domain?: string;
-    group?: string;
+  dealerships: () => request<DealershipsResponse>("/dealerships"),
+  scoresSummary: (filters: {
+    region?: string;
+    process_area?: string;
+    segment?: string;
   }) => {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) {
       if (value) params.set(key, value);
     }
     const qs = params.toString();
-    return request<AssessmentsSummary>(`/assessments/summary${qs ? `?${qs}` : ""}`);
+    return request<ScoresSummary>(`/scores/summary${qs ? `?${qs}` : ""}`);
   },
-  behaviorSummary: () => request<BehaviorSummary>("/behavior/summary"),
+  operationsSummary: () => request<OperationsSummary>("/operations/summary"),
   supportOptions: () => request<SupportOptions>("/supports/options"),
   recommendation: (body: {
-    learner_id: string;
+    dealership_id: string;
     category: string;
     concern_text: string;
-    district_id: string;
+    dealer_group_id: string;
   }) =>
     request<RecommendationEnvelope>("/recommendations/support-plan", {
       method: "POST",
@@ -85,13 +104,13 @@ export const api = {
     }),
   savedPlans: () => request<SavedPlansResponse>("/supports/plans"),
   savePlan: (body: {
-    learner_id: string;
+    dealership_id: string;
     category: string;
     concern_text: string;
-    selected_smart_goal: string | null;
+    selected_goal: string | null;
     selected_strategies: string[];
     recommendation: import("./types").Recommendation;
-    district_id: string;
+    dealer_group_id: string;
   }) =>
     request<SavedPlan>("/supports/plans", {
       method: "POST",

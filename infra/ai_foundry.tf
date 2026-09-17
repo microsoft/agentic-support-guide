@@ -2,10 +2,11 @@ locals {
   suffix                = random_string.suffix.result
   ai_services_name      = "${var.ai_services_name}-${local.suffix}"
   custom_subdomain_name = replace("${var.ai_services_name}${local.suffix}", "-", "")
+  tags                  = merge(var.tags, var.additional_tags)
   # Dozens of learners deploy this into shared subscriptions, so every
   # uniqueness-scoped name carries the suffix. The project also provisions a
   # backing AML workspace that soft-deletes on destroy; without the suffix a
-  # re-apply collides with the tombstone ("Soft-deleted workspace exists").
+  # re-apply fails with "Soft-deleted workspace exists".
   resource_group_name    = "${var.resource_group_name}-${local.suffix}"
   foundry_project_name   = "${var.foundry_project_name}-${local.suffix}"
   effective_principal_id = length(trimspace(var.principal_id)) > 0 ? trimspace(var.principal_id) : data.azurerm_client_config.current.object_id
@@ -21,7 +22,7 @@ locals {
 resource "azurerm_resource_group" "main" {
   name     = local.resource_group_name
   location = var.location
-  tags     = var.tags
+  tags     = local.tags
 }
 
 resource "azurerm_cognitive_account" "ai_services" {
@@ -40,7 +41,7 @@ resource "azurerm_cognitive_account" "ai_services" {
     type = "SystemAssigned"
   }
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_cognitive_account_project" "foundry_project" {
@@ -54,7 +55,7 @@ resource "azurerm_cognitive_account_project" "foundry_project" {
     type = "SystemAssigned"
   }
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_cognitive_deployment" "chat" {

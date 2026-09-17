@@ -10,10 +10,10 @@ Customers asked for **evidence-backed recommendations with source
 attribution**. In practice this means:
 
 1. Every recommendation must be able to point back to one or more
-   evidence items (a district benchmark, a policy excerpt, an approved
-   resource, a district-uploaded PDF, etc.).
-2. Sources must be **district-scoped** (see
-   [ADR 0003](0003-district-isolation-and-grounding.md)).
+   evidence items (a dealer group benchmark, a policy excerpt, an approved
+   resource, a dealer group-uploaded PDF, etc.).
+2. Sources must be **dealer group-scoped** (see
+   [ADR 0003](0003-dealer-group-isolation-and-grounding.md)).
 3. Unstructured content (PDFs, handbooks) matters as much as
    structured data.
 
@@ -26,14 +26,14 @@ abstraction.
 
 - New Pydantic type `Citation` and JSON Schema
   [`contracts/v1/citation.schema.json`](../../contracts/v1/citation.schema.json).
-- Each citation carries: `citation_id`, `district_id`, `source_type`
+- Each citation carries: `citation_id`, `dealer_group_id`, `source_type`
   (structured_data | document | policy | resource | synthetic_fixture),
   `source_title`, `section_or_page`, `evidence_summary`, `source_ref`,
   `retrieved_at`, `confidence`.
 - `support-recommendation-result.schema.json` requires
   `citations: minItems 1`. A recommendation with no evidence cannot
   pass protocol validation.
-- Validator Agent adds `MISSING_CITATIONS`, `CROSS_DISTRICT_CITATION`,
+- Validator Agent adds `MISSING_CITATIONS`, `CROSS_DEALER_GROUP_CITATION`,
   and `UNKNOWN_CITATION_ID` issue codes.
 
 ### Runtime abstraction
@@ -41,7 +41,7 @@ abstraction.
 - [`app/evidence/retrieval.py::EvidenceRetriever`](../../services/api/app/evidence/retrieval.py)
   is the stable interface used by the coordinator.
 - [`app/evidence/fixtures.py::FixtureEvidenceRetriever`](../../services/api/app/evidence/fixtures.py)
-  is the current implementation. Serves purely synthetic, per-district
+  is the current implementation. Serves purely synthetic, per-dealer group
   fixtures.
 - The coordinator calls the retriever **once per request, up front**,
   and passes the resulting `EvidenceBundle` to the recommender wrapper.
@@ -52,14 +52,14 @@ abstraction.
 ### Flow
 
 ```
-POST /api/recommendations/support-plan (district_id required)
+POST /api/recommendations/support-plan (dealer_group_id required)
     -> Coordinator generates correlation_id
-    -> EvidenceRetriever.retrieve(district_id, category)
-    -> Data Analyst Agent  (district_id stamped on output)
+    -> EvidenceRetriever.retrieve(dealer_group_id, category)
+    -> Data Analyst Agent  (dealer_group_id stamped on output)
     -> Support Recommendation Agent (bundle + cited_ids)
         -> Wrapper attaches citations from bundle
     -> Validator Agent
-        -> checks: missing citations, cross-district refs, unknown ref
+        -> checks: missing citations, cross-dealer group refs, unknown ref
     -> Optional one-shot repair
     -> Recommendation surfaces citations to the UI
 ```
@@ -71,10 +71,10 @@ unstructured content. In this repo, either could be plugged in as a
 new `EvidenceRetriever` implementation:
 
 - Structured lookups become `structured_data` citations.
-- District-approved PDFs become `document` citations with a
+- Dealer group-approved PDFs become `document` citations with a
   `section_or_page` from the retrieval hit.
-- District policy documents become `policy` citations.
-- District resource libraries become `resource` citations.
+- Dealer group policy documents become `policy` citations.
+- Dealer group resource libraries become `resource` citations.
 
 None of that is implemented in this repo. It is documented here as the
 intended integration surface.

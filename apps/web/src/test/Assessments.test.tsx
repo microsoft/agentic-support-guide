@@ -8,7 +8,7 @@ import { assessmentsFixture } from "./fixtures";
 
 describe("AssessmentsPage", () => {
   it("refetches when a filter changes", async () => {
-    const spy = vi.spyOn(api, "assessmentsSummary").mockResolvedValue(assessmentsFixture);
+    const spy = vi.spyOn(api, "scoresSummary").mockResolvedValue(assessmentsFixture);
 
     render(
       <MemoryRouter>
@@ -18,20 +18,18 @@ describe("AssessmentsPage", () => {
 
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
     expect(spy).toHaveBeenLastCalledWith({
-      school: undefined,
-      grade: undefined,
-      domain: undefined,
-      group: undefined,
+      region: undefined,
+      process_area: undefined,
+      segment: undefined,
     });
 
-    await userEvent.selectOptions(screen.getByLabelText(/school/i), "SCH-002");
+    await userEvent.selectOptions(screen.getByLabelText(/region/i), "REG-002");
 
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
     expect(spy).toHaveBeenLastCalledWith({
-      school: "SCH-002",
-      grade: undefined,
-      domain: undefined,
-      group: undefined,
+      region: "REG-002",
+      process_area: undefined,
+      segment: undefined,
     });
   });
 });

@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 
 from .maf_runtime import RoleDefinition
-from .prompt_envelope import compose_instructions, load_agent_assets
+from .prompt_envelope import compose_instructions, declared_response_format, load_agent_assets
 
 # Coordinator roles. The hosted three-agent workflow requires all of these.
 ROLE_DIRS: dict[str, str] = {
@@ -65,13 +65,17 @@ def load_agent_definitions(dirs: dict[str, str]) -> dict[str, RoleDefinition]:
         if not deployment:
             continue
         temperature = foundry.get("temperature")
+        max_output_tokens = foundry.get("max_output_tokens")
         definitions[role] = RoleDefinition(
             role=role,
             instructions=compose_instructions(
-                assets.agent_md_body, frontmatter=assets.agent_md_frontmatter
+                assets.agent_md_body,
+                frontmatter=assets.agent_md_frontmatter,
+                response_format=declared_response_format(assets.manifest),
             ),
             model_deployment=deployment,
             temperature=float(temperature) if temperature is not None else None,
+            max_output_tokens=int(max_output_tokens) if max_output_tokens is not None else None,
         )
     return definitions
 

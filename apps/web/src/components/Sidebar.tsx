@@ -1,17 +1,8 @@
 import { NavLink } from "react-router-dom";
 import {
   BarChart3,
-  Users,
-  Activity,
   LifeBuoy,
   ClipboardList,
-  Briefcase,
-  CalendarClock,
-  Rocket,
-  Network,
-  Bell,
-  Shield,
-  Settings,
   FileSearch,
   BookOpen,
 } from "lucide-react";
@@ -24,17 +15,8 @@ interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Dashboard", Icon: BarChart3 },
-  { to: "/learners", label: "Learners", Icon: Users },
-  { to: "/behavior", label: "Behavior", Icon: Activity },
   { to: "/supports", label: "Supports", Icon: LifeBuoy },
   { to: "/assessments", label: "Assessments", Icon: ClipboardList },
-  { to: "/workforce", label: "Workforce", Icon: Briefcase },
-  { to: "/activities", label: "Activities", Icon: CalendarClock },
-  { to: "/readiness", label: "Readiness", Icon: Rocket },
-  { to: "/correlations", label: "Correlations", Icon: Network },
-  { to: "/alerts", label: "Alerts", Icon: Bell },
-  { to: "/access", label: "Access", Icon: Shield },
-  { to: "/settings", label: "Settings", Icon: Settings },
   { to: "/ai-audit", label: "AI Audit", Icon: FileSearch },
   { to: "/demo-guide", label: "Demo Guide", Icon: BookOpen },
 ];
@@ -75,5 +57,37 @@ export function Sidebar() {
         Prototype v0.3.0 - synthetic data
       </div>
     </aside>
+  );
+}
+
+// The sidebar is hidden below `md`, which left narrow windows with no way to
+// change section at all.
+export function MobileNav() {
+  return (
+    <nav
+      aria-label="Sections"
+      className="md:hidden border-b border-slate-800 bg-slate-950 overflow-x-auto"
+    >
+      <ul className="flex gap-1 px-2 py-2">
+        {NAV_ITEMS.map(({ to, label, Icon }) => (
+          <li key={to}>
+            <NavLink
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm",
+                  "text-slate-300 hover:bg-slate-800 hover:text-slate-100",
+                  isActive ? "bg-slate-800 text-white ring-1 ring-sky-500/40" : "",
+                ].join(" ")
+              }
+            >
+              <Icon aria-hidden="true" className="h-4 w-4" />
+              <span>{label}</span>
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

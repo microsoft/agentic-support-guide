@@ -34,7 +34,6 @@
         "ok",
         "passed",
         "failed",
-        "budget_exhausted",
         "evidence_missing",
         "provider_timeout",
         "provider_throttling",

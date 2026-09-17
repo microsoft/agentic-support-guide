@@ -23,19 +23,19 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["district_id", "category", "sanitized_concern_text", "learner_context", "synthetic_only"],
+      "required": ["dealer_group_id", "category", "concern_text", "dealership_context", "synthetic_only"],
       "properties": {
-        "district_id": {
+        "dealer_group_id": {
           "type": "string",
           "minLength": 2,
           "maxLength": 32,
           "pattern": "^[A-Z0-9][A-Z0-9\\-]{1,31}$"
         },
         "category": { "type": "string", "maxLength": 40 },
-        "sanitized_concern_text": { "type": "string", "maxLength": 1000 },
-        "learner_context": {
+        "concern_text": { "type": "string", "maxLength": 1000 },
+        "dealership_context": {
           "type": "object",
-          "description": "Synthetic learner indicators, structurally identical to agents/data-analyst/schemas/input.schema.json learner_context.",
+          "description": "Synthetic dealership indicators, structurally identical to agents/data-analyst/schemas/input.schema.json dealership_context.",
           "additionalProperties": true
         },
         "synthetic_only": { "const": true }

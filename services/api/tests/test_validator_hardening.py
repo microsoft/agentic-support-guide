@@ -7,7 +7,7 @@ from app.agents.support_recommender import SupportRecommendationAgent
 from app.agents.validator import ValidatorAgent, ValidatorContext, ValidatorInput
 
 from .conftest import (
-    DEFAULT_DISTRICT,
+    DEFAULT_DEALER_GROUP,
     canned_data_analyst_output,
     canned_recommendation_draft,
 )
@@ -24,8 +24,8 @@ def _runtime_with_adversarial_critique(critique: dict[str, Any]) -> Any:
     client.register_response(
         "support-recommendation-agent",
         canned_recommendation_draft(
-            smart_goal_ids=["SG-early-literacy-1"],
-            strategy_ids=["ST-early-literacy-1"],
+            goal_ids=["GOAL-lead-response-1"],
+            strategy_ids=["ST-lead-response-1"],
         ),
     )
     client.register_response(
@@ -57,10 +57,10 @@ async def test_validator_drops_non_conforming_llm_warnings() -> None:
             analysis=analysis,
             draft=draft,
             context=ValidatorContext(
-                district_id=DEFAULT_DISTRICT,
+                dealer_group_id=DEFAULT_DEALER_GROUP,
                 allowed_resource_ids=(),
-                allowed_smart_goal_ids=("SG-early-literacy-1",),
-                allowed_strategy_ids=("ST-early-literacy-1",),
+                allowed_goal_ids=("GOAL-lead-response-1",),
+                allowed_strategy_ids=("ST-lead-response-1",),
                 allowed_citation_ids=tuple(c.citation_id for c in bundle.citations),
                 required_contract_version="1.0.0",
             ),
@@ -71,3 +71,50 @@ async def test_validator_drops_non_conforming_llm_warnings() -> None:
     for w in report.warning_codes:
         assert "password" not in w.lower()
         assert "concern" not in w.lower()
+
+
+def test_every_issue_code_a_check_can_emit_has_repair_guidance() -> None:
+    """Catches a new validator rule that forgot its repair template.
+
+    The codes are read out of checks.py rather than listed here, so adding a
+    rule cannot pass by also updating a hand-maintained list in this test.
+    """
+
+    import ast
+    import inspect
+
+    from app.agents.validator import checks
+    from app.agents.validator.repair import REPAIRABLE_ISSUE_CODES
+
+    tree = ast.parse(inspect.getsource(checks))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "flag"
+    ]
+    assert calls, "found no findings.flag(...) calls; the AST scan is broken"
+
+    # A code built at runtime cannot be checked against the templates, so the
+    # scan refuses to pass rather than reporting coverage it did not verify.
+    dynamic = [
+        node
+        for node in calls
+        if not node.args
+        or not isinstance(node.args[0], ast.Constant)
+        or not isinstance(node.args[0].value, str)
+    ]
+    assert not dynamic, (
+        "findings.flag() called with a non-literal issue code at line(s) "
+        f"{sorted(n.lineno for n in dynamic)}; this test cannot verify those"
+    )
+
+    emitted = {
+        node.args[0].value
+        for node in calls
+        if isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)
+    }
+    assert emitted <= REPAIRABLE_ISSUE_CODES, (
+        f"issue codes with no repair template: {sorted(emitted - REPAIRABLE_ISSUE_CODES)}"
+    )

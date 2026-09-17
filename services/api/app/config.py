@@ -19,6 +19,12 @@ PROTOTYPE_BANNER: str = (
     "Azure AI Foundry Agent Service, not a production system."
 )
 
+# What `RecommendationEnvelope.provider_model` reports. The per-step models
+# are in the trace; this names the provider the workflow ran against.
+# apps/web/src/pages/SupportsPage.tsx matches the configured string.
+PROVIDER_DISPLAY_CONFIGURED: str = "Azure AI Foundry (Agent Framework, prompt agents)"
+PROVIDER_DISPLAY_UNCONFIGURED: str = "unconfigured (Azure AI Foundry not set up)"
+
 # Per-run remote agent budget (single Foundry run).
 FOUNDRY_RUN_TIMEOUT_SECONDS: float = 30.0
 # Whole-workflow budget across all remote agent invocations.
@@ -30,9 +36,10 @@ CONTRACT_VERSION: str = "1.0.0"
 
 @dataclass(frozen=True)
 class MockDataCounts:
-    learners: int = 120
-    assessments: int = 400
-    behavior_records: int = 150
+    dealerships: int = 120
+    # Area scores and operations are complete grids, so their record counts are
+    # derived from periods rather than chosen independently.
+    score_periods: int = 6
     resources: int = 40
     audit_events: int = 60
     seeded_plans: int = 10

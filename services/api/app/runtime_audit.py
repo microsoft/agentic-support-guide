@@ -1,7 +1,7 @@
 """Runtime audit metadata store.
 
 Runtime rows are metadata only: agent name, endpoint, provider/model,
-duration, token estimate, status, correlation_id, district_id, evidence
+duration, token estimate, status, correlation_id, dealer_group_id, evidence
 counts, validator status. Never prompts, completions, secrets, or raw
 concern text.
 """
@@ -33,7 +33,7 @@ class RuntimeAuditLog:
         status: str,
         user: str = "S-01",
         correlation_id: str = "",
-        district_id: str = "",
+        dealer_group_id: str = "",
         evidence_count: int = 0,
         citation_count: int = 0,
         validator_status: str = "",
@@ -52,7 +52,7 @@ class RuntimeAuditLog:
                     token_estimate=token_estimate,
                     status=status,
                     correlation_id=correlation_id,
-                    district_id=district_id,
+                    dealer_group_id=dealer_group_id,
                     evidence_count=evidence_count,
                     citation_count=citation_count,
                     validator_status=validator_status,
@@ -78,7 +78,7 @@ class RuntimeAuditLog:
                     token_estimate=0,
                     status=entry.new_state,
                     correlation_id=entry.correlation_id,
-                    district_id=entry.district_id,
+                    dealer_group_id=entry.dealer_group_id,
                     evidence_count=entry.evidence_count,
                     citation_count=0,
                     validator_status=entry.validator_verdict,

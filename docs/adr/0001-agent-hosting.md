@@ -75,8 +75,8 @@ when the SDK stabilizes:
 ## Migration path
 
 1. When Foundry hosted-agent CRUD is stable, extend
-   `sync_foundry_agents.py` to actually create/update hosted agents
-   from the same `manifest.yaml` files.
+   `sync_foundry_agents.py` (since removed) to actually create/update
+   hosted agents from the same `manifest.yaml` files.
 2. Add a `FoundryHostedAgentAdapter` alongside
    `LocalManifestAgentAdapter` that calls the Foundry workflow instead
    of the model deployment directly.

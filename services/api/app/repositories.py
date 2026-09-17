@@ -5,16 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .mock_data import (
-    AssessmentRecord,
+    AreaScoreRecord,
     AuditRow,
-    BehaviorRecord,
-    Learner,
+    Dealership,
+    OperationsRecord,
     ResourceItem,
     SeededPlanSpec,
-    build_assessments,
+    build_area_scores,
     build_audit_rows,
-    build_behavior,
-    build_learners,
+    build_dealerships,
+    build_operations,
     build_resources,
     build_seeded_plan_specs,
 )
@@ -22,20 +22,20 @@ from .mock_data import (
 
 @dataclass(frozen=True)
 class Repositories:
-    learners: list[Learner]
-    assessments: list[AssessmentRecord]
-    behavior: list[BehaviorRecord]
+    dealerships: list[Dealership]
+    area_scores: list[AreaScoreRecord]
+    operations: list[OperationsRecord]
     resources: list[ResourceItem]
     audit: list[AuditRow]
     seeded_plans: list[SeededPlanSpec]
 
 
 def build_repositories() -> Repositories:
-    learners = build_learners()
+    dealerships = build_dealerships()
     return Repositories(
-        learners=learners,
-        assessments=build_assessments(learners),
-        behavior=build_behavior(learners),
+        dealerships=dealerships,
+        area_scores=build_area_scores(dealerships),
+        operations=build_operations(dealerships),
         resources=build_resources(),
         audit=build_audit_rows(),
         seeded_plans=build_seeded_plan_specs(),

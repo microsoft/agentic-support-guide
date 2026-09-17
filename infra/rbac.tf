@@ -3,9 +3,9 @@
 # The backend calls the account endpoint, so this account-scope role is what
 # actually authorizes runtime inference.
 #
-# All workshop roles use for_each over local.workshop_principal_ids so a whole
-# room can be onboarded in one apply. Pass an Entra group object ID in
-# additional_principal_ids for larger groups.
+# All workshop roles use for_each over local.workshop_principal_ids. That is
+# normally just the person running apply - each learner deploys their own
+# stack - plus anyone listed in additional_principal_ids.
 resource "azurerm_role_assignment" "cognitive_openai_user" {
   for_each = local.workshop_principal_ids
 
@@ -26,13 +26,14 @@ resource "azurerm_role_assignment" "project_user" {
 
 # ---- Knowledge plane (Foundry IQ) ------------------------------------------
 #
-# SECURITY NOTE, read before running a shared workshop:
+# SECURITY NOTE, read before reusing this outside the workshop:
 # `Search Service Contributor` is scoped to the WHOLE search service. Azure AI
 # Search has no per-index RBAC. Index name prefixes are a naming convention,
-# not an authorization boundary: any learner holding this role can list, read,
-# and DELETE every other learner's index.
-# Acceptable only in a throwaway workshop subscription. Otherwise set
-# grant_search_control_plane = false and pre-create indexes yourself.
+# not an authorization boundary: any holder of this role can list, read, and
+# DELETE every index on the service.
+# Harmless here, where the service has exactly one owner. Not harmless where
+# several teams or customers share one search service - there, set
+# grant_search_control_plane = false and pre-create indexes out of band.
 
 resource "azurerm_role_assignment" "search_service_contributor" {
   for_each = (

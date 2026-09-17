@@ -83,20 +83,36 @@ if ($health) {
 
 # 7. Recommendation endpoint works end-to-end using synthetic data.
 if (-not $SkipRecommendation -and $health -and $health.customer_demo_ready) {
-    try {
-        $recBody = @{
-            district_id   = "DIST-A"
-            learner_id    = "LRN-0001"
-            category      = "early-literacy"
-            concern_text  = "Letter-sound fluency below expected pace."
-        } | ConvertTo-Json
-        $rec = Invoke-RestMethod -Uri "$baseUrl/api/recommendations/support-plan" `
-            -Method Post -Body $recBody -ContentType "application/json" -TimeoutSec 60
-        $ok = ($rec.status -eq "ok" -and $null -ne $rec.recommendation)
-        Add-Result "recommendation_ok" $ok "status = $($rec.status)"
-    } catch {
-        Add-Result "recommendation_ok" $false "recommendation call failed"
+    $recBody = @{
+        dealer_group_id = "GROUP-A"
+        dealership_id   = "DLR-0001"
+        category        = "lead-response"
+        concern_text    = "First response to online enquiries is slower than the standard."
+    } | ConvertTo-Json
+
+    # Role assignments created moments ago may not have propagated, so a
+    # correct deployment can fail this check once. Retry on auth failures
+    # only; anything else is a real fault and should fail immediately.
+    $delays = @(0, 20, 40, 60)
+    $ok = $false
+    $detail = ""
+    foreach ($delay in $delays) {
+        if ($delay -gt 0) {
+            Write-Host "  waiting ${delay}s for role assignments to propagate ..."
+            Start-Sleep -Seconds $delay
+        }
+        try {
+            $rec = Invoke-RestMethod -Uri "$baseUrl/api/recommendations/support-plan" `
+                -Method Post -Body $recBody -ContentType "application/json" -TimeoutSec 60
+            $ok = ($rec.status -eq "ok" -and $null -ne $rec.recommendation)
+            $detail = "status = $($rec.status)"
+            if ($ok) { break }
+            if ($rec.error_code -notlike "*AUTH*") { break }
+        } catch {
+            $detail = "recommendation call failed: $($_.Exception.Message)"
+        }
     }
+    Add-Result "recommendation_ok" $ok $detail
 } elseif ($SkipRecommendation) {
     Add-Result "recommendation_ok" $true "skipped (--SkipRecommendation)"
 }

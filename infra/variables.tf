@@ -38,7 +38,7 @@ variable "foundry_project_display_name" {
 }
 
 variable "model_deployment_name" {
-  description = "Name for the model deployment. The API references this via AZURE_AI_FOUNDRY_DEPLOYMENT."
+  description = "Name for the model deployment. The API references this via the FOUNDRY_MODEL_DEPLOYMENT_* settings."
   type        = string
   default     = "asg-chat"
 }
@@ -112,9 +112,11 @@ variable "additional_principal_ids" {
   description = <<EOT
 Extra Entra Object IDs that get the same workshop roles as `principal_id`.
 
-Use this to onboard a room of learners in one apply. An Entra *group* object
-ID also works and is the better option above ~10 people, because group
-membership changes do not require a re-apply.
+Leave this empty for the normal case. Each learner deploys their own copy of
+this stack, so the roles granted to whoever runs `apply` are already enough.
+Set it only to deliberately let someone else into YOUR environment - a
+colleague pairing with you, or a service principal that needs to call your
+deployment.
 
   az ad user show --id someone@example.invalid --query id -o tsv
   az ad group show --group "ASG Workshop" --query id -o tsv
@@ -150,7 +152,7 @@ variable "api_evidence_source" {
   description = <<EOT
 Which evidence retriever the deployed API uses: `fixtures` or `foundry_iq`.
 
-Starts as fixtures so the app runs before Module 3 exists. Module 3 flips it
+Starts as fixtures so the app runs before Module 6 exists. Module 6 flips it
 to foundry_iq once the learner has provisioned a knowledge base.
 EOT
   type        = string
@@ -185,7 +187,7 @@ EOT
 }
 
 variable "api_knowledge_base_name" {
-  description = "Foundry IQ knowledge base the deployed API queries. Set after Module 3 provisions it."
+  description = "Foundry IQ knowledge base the deployed API queries. Set after Module 6 provisions it."
   type        = string
   default     = ""
 }
@@ -207,10 +209,10 @@ variable "log_analytics_retention_days" {
   default     = 30
 }
 
-# ---- Knowledge plane (Foundry IQ, Module 3) --------------------------------
+# ---- Knowledge plane (Foundry IQ, Module 6) --------------------------------
 
 variable "enable_knowledge_plane" {
-  description = "Create the Azure AI Search service and blob container that back Foundry IQ. Set false to skip Module 3 infrastructure."
+  description = "Create the Azure AI Search service and blob container that back Foundry IQ. Set false to skip Module 6 infrastructure."
   type        = bool
   default     = true
 }
@@ -225,16 +227,19 @@ variable "knowledge_storage_public_access" {
   description = <<EOT
 Allow public network access to the knowledge storage account.
 
-Learners upload district documents from their own machines in Module 3, which
-needs this. Entra auth is still enforced because shared keys are disabled.
+Module 6 has learners upload dealer group documents from their own machines,
+which needs this. Entra auth is still enforced either way, because shared keys
+are disabled.
 
-Many tenants force this off with Azure Policy. The `SecurityControl = Ignore`
-tag in var.tags exempts this workshop environment. If your tenant does not
-honour that tag, set this false and expect `terraform plan` to show no drift;
-Module 3 then documents the alternative ingestion paths.
+Defaults to **false** because many tenants force it off with Azure Policy, and
+asking for `true` where policy forbids it does not fail loudly - it leaves
+`terraform plan` reporting drift forever. Module 6 documents a File knowledge
+source that needs no storage access at all.
+
+Set it true if you know your subscription allows it.
 EOT
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "search_location" {
@@ -244,7 +249,9 @@ Region for the Azure AI Search service. Leave empty to use var.location.
 Search capacity is exhausted per-region independently of Foundry capacity, so
 `basic` is often unavailable in the region you picked for Foundry. If apply
 fails with `ResourcesForSkuUnavailable` or `InsufficientResourcesAvailable`,
-set this to another region. Cross-region only costs retrieval latency.
+raise `search_sku` FIRST and re-apply; only move `search_location` if a larger
+SKU fails too. Cross-region costs retrieval latency for the whole workshop; a
+larger SKU only costs money while the environment exists.
 EOT
   type        = string
   default     = ""
@@ -264,8 +271,11 @@ variable "search_sku" {
 variable "search_replica_count" {
   description = <<EOT
 Search replicas. One replica serves roughly three concurrent semantic
-requests plus a short queue. A workshop of 30 learners querying at once
-will throttle on a single replica; raise this or run learners in waves.
+requests plus a short queue.
+
+One is enough for the workshop: this search service serves one learner, not a
+room - everybody deploys their own. Raise it only if you point something with
+real concurrency at it.
 EOT
   type        = number
   default     = 1
@@ -276,10 +286,10 @@ EOT
   }
 }
 
-# ---- Model router (Module 5) ------------------------------------------------
+# ---- Model router (Module 7) ------------------------------------------------
 
 variable "enable_model_router" {
-  description = "Deploy the model-router deployment used by Module 5. Availability is region-dependent."
+  description = "Deploy the model-router deployment used by Module 7. Availability is region-dependent."
   type        = bool
   default     = true
 }
@@ -308,10 +318,10 @@ variable "router_capacity" {
   default     = 10
 }
 
-# ---- Judge model (Module 8 evaluations) -------------------------------------
+# ---- Judge model (Module 9 evaluations) -------------------------------------
 
 variable "enable_judge_deployment" {
-  description = "Deploy a separate model used only to grade agent output in Module 8."
+  description = "Deploy a separate model used only to grade agent output in Module 9."
   type        = bool
   default     = true
 }
@@ -349,9 +359,12 @@ indexes, indexers, and knowledge sources.
 
 This role covers the ENTIRE search service. Azure AI Search has no per-index
 RBAC, so index name prefixes are a convention, not an isolation boundary: any
-holder can delete any other learner's index. Keep this true only in a
-throwaway workshop subscription. Set it false and provision indexes through a
-facilitator-owned path for shared or long-lived environments.
+holder can delete any index on the service.
+
+That is harmless here, because this search service belongs to one learner and
+nobody else holds the role on it. It stops being harmless the moment several
+teams, tenants, or customers share one search service - then set this false
+and provision indexes out of band.
 EOT
   type        = bool
   default     = true
@@ -381,9 +394,16 @@ variable "tags" {
   default = {
     project = "agentic-support-guide"
     tier    = "prototype"
-    # Exempts this throwaway workshop environment from the tenant security
-    # policy that otherwise forces storage public network access off, which
-    # blocks learners uploading district documents from their machines.
-    SecurityControl = "Ignore"
   }
+}
+
+variable "additional_tags" {
+  description = <<EOT
+Extra tags merged over `tags`, for anything your organisation requires on
+created resources.
+
+  additional_tags = { CostCenter = "1234" }
+EOT
+  type        = map(string)
+  default     = {}
 }

@@ -11,20 +11,19 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.models import SavedPlan
 from app.plans_store import SavedPlansStore, _stub_recommendation
-from app.telemetry import TelemetryRecorder
 
 
 def _plan(plan_id: str) -> SavedPlan:
     return SavedPlan(
         plan_id=plan_id,
-        learner_id="LRN-0001",
-        district_id="DIST-001",
-        category="early-literacy",
+        dealership_id="DLR-0001",
+        dealer_group_id="GROUP-A",
+        category="lead-response",
         concern_text="synthetic concern",
-        selected_smart_goal="",
+        selected_goal="",
         selected_strategies=[],
         created_at="2026-01-05T09:00:00Z",
-        recommendation=_stub_recommendation("early-literacy"),
+        recommendation=_stub_recommendation("lead-response"),
         human_review_state="pending_review",
     )
 
@@ -41,17 +40,3 @@ def test_saved_plans_store_is_bounded() -> None:
     for _ in range(50):
         store.add(_plan(store.next_plan_id()))
     assert len(store.list()) == 5
-
-
-def test_telemetry_recorder_is_bounded() -> None:
-    recorder = TelemetryRecorder(None, max_events=10)
-    for i in range(100):
-        recorder.record("agent_call", {"district_id": f"D{i}"})
-    assert len(recorder.events) == 10
-
-
-def test_telemetry_clear_empties_the_buffer() -> None:
-    recorder = TelemetryRecorder(None)
-    recorder.record("agent_call", {"district_id": "D1"})
-    assert recorder.clear() == 1
-    assert recorder.events == []

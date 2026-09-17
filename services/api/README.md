@@ -63,8 +63,8 @@ Canonical list lives in [`.env.example`](.env.example).
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional. Empty = telemetry no-ops. |
 | `DEMO_RESET_ENABLED` | Development-only. `true` enables `POST /api/demo/reset`. Default `false`. |
 
-Remote assistant IDs are not environment variables. They live in
-`scripts/validate_agent_definitions.py`.
+There are no remote assistant IDs. Each role is assembled in-process from
+`agents/<id>/agent.md` on every call.
 
 ## Azure provider behavior
 
@@ -93,7 +93,7 @@ Remote assistant IDs are not environment variables. They live in
 | `provider_throttling` | Provider throttled the request. |
 | `provider_content_filter` | Content-safety block. |
 | `provider_error` | Generic provider failure. |
-| `evidence_missing` | District-scoped evidence retrieval returned nothing usable. |
+| `evidence_missing` | Dealer-group-scoped evidence retrieval returned nothing usable. |
 | `invalid_model_json` | Model returned invalid or off-schema JSON. |
 | `validation_failed` | Validator failed after one repair pass. No recommendation returned. |
 | `orchestration_budget_exhausted` | Coordinator hit the 120 s budget. |
@@ -104,9 +104,9 @@ Remote assistant IDs are not environment variables. They live in
 - `GET  /api/health/details`
 - `POST /api/demo/reset` (guarded by `DEMO_RESET_ENABLED=true`)
 - `GET  /api/dashboard/summary`
-- `GET  /api/learners`
-- `GET  /api/assessments/summary`
-- `GET  /api/behavior/summary`
+- `GET  /api/dealerships`
+- `GET  /api/scores/summary`
+- `GET  /api/operations/summary`
 - `GET  /api/supports/options`
 - `POST /api/recommendations/support-plan`
 - `GET  /api/supports/plans`

@@ -4,8 +4,8 @@ This is what makes the running app stop serving in-memory fixtures. The
 coordinator does not know or care which retriever it holds - the protocol
 is the seam.
 
-District isolation is enforced by an OData filter on a `filterable` index
-field, not by asking a model nicely. A cross-district citation is
+Dealer group isolation is enforced by an OData filter on a `filterable` index
+field, not by asking a model nicely. A cross-group citation is
 impossible here, not merely discouraged.
 """
 
@@ -16,12 +16,15 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import ValidationError
+
 from ..agents.shared.contracts import Citation, CitationSourceType
 from .retrieval import EvidenceBundle, EvidenceRequest, EvidenceRetrievalError
 
 # Agentic retrieval costs latency; keep it modest for an interactive demo.
 DEFAULT_REASONING_EFFORT = "minimal"
 MAX_RUNTIME_SECONDS = 30
+RERANKER_THRESHOLD = 1.5
 
 
 def _derive_source_name(knowledge_base: str) -> str:
@@ -36,10 +39,10 @@ def _derive_source_name(knowledge_base: str) -> str:
 
 
 class FoundryIQEvidenceRetriever:
-    """Retrieves district-scoped evidence from a Foundry IQ knowledge base."""
+    """Retrieves dealer-group-scoped evidence from a Foundry IQ knowledge base."""
 
     provider_name = "foundry_iq"
-    # has_district cannot prove anything about a remote knowledge base without
+    # has_dealer_group cannot prove anything about a remote knowledge base without
     # a network call, so readiness must not be reported as verified.
     evidence_verifiable = False
 
@@ -48,7 +51,6 @@ class FoundryIQEvidenceRetriever:
         *,
         endpoint: str,
         knowledge_base: str,
-        index_name: str = "",
         knowledge_source: str = "",
         credential_factory: Any = None,
     ) -> None:
@@ -67,19 +69,19 @@ class FoundryIQEvidenceRetriever:
         self._knowledge_source = knowledge_source or _derive_source_name(knowledge_base)
         self._credential_factory = credential_factory or _default_credential
 
-    def has_district(self, district_id: str) -> bool:
+    def has_dealer_group(self, dealer_group_id: str) -> bool:
         # Local check only. This retriever talks to a remote service, so it
         # cannot answer "is there evidence" without network I/O, and
         # /api/health/details is polled on every page load. Reporting True
         # here would make readiness green with a deleted knowledge base, so
         # callers must treat it as "configured", not "verified".
-        return bool(district_id)
+        return bool(dealer_group_id)
 
     async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
-        if not request.district_id:
+        if not request.dealer_group_id:
             raise EvidenceRetrievalError(
-                "MISSING_DISTRICT_ID",
-                "Evidence request is missing a district_id.",
+                "MISSING_DEALER_GROUP_ID",
+                "Evidence request is missing a dealer_group_id.",
             )
 
         # The SDK client is synchronous, so keep it off the event loop.
@@ -95,11 +97,11 @@ class FoundryIQEvidenceRetriever:
 
         citations = tuple(
             c
-            for c in (_to_citation(doc, request.district_id) for doc in documents)
+            for c in (_to_citation(doc, request.dealer_group_id) for doc in documents)
             # Defence in depth: the filter should make this impossible.
-            if c is not None and c.district_id == request.district_id
+            if c is not None and c.dealer_group_id == request.dealer_group_id
         )
-        return EvidenceBundle(district_id=request.district_id, citations=citations)
+        return EvidenceBundle(dealer_group_id=request.dealer_group_id, citations=citations)
 
     def _retrieve_sync(self, request: EvidenceRequest) -> list[dict[str, Any]]:
         from azure.search.documents.knowledgebases import KnowledgeBaseRetrievalClient
@@ -126,8 +128,13 @@ class FoundryIQEvidenceRetriever:
                         knowledge_source_name=self._knowledge_source,
                         include_references=True,
                         include_reference_source_data=True,
-                        # Engine-enforced district isolation.
-                        filter_add_on=f"district_id eq '{_escape_odata(request.district_id)}'",
+                        # The demo corpus is a handful of short documents per group,
+                        # so the service default threshold discards valid matches.
+                        reranker_threshold=RERANKER_THRESHOLD,
+                        # Engine-enforced dealer group isolation.
+                        filter_add_on=(
+                            f"dealer_group_id eq '{_escape_odata(request.dealer_group_id)}'"
+                        ),
                     )
                 ],
             )
@@ -164,7 +171,7 @@ def _flatten_references(response: Any) -> list[dict[str, Any]]:
     return out
 
 
-def _to_citation(doc: dict[str, Any], district_id: str) -> Citation | None:
+def _to_citation(doc: dict[str, Any], dealer_group_id: str) -> Citation | None:
     citation_id = str(doc.get("citation_id") or "").strip()
     summary = str(doc.get("evidence_summary") or "").strip()
     # Citation enforces non-empty fields. A partial document is dropped
@@ -172,30 +179,36 @@ def _to_citation(doc: dict[str, Any], district_id: str) -> Citation | None:
     if not citation_id or not summary:
         return None
     # A knowledge base can hold blob and web sources alongside the index, and
-    # those carry no district_id. Scoping the request to the index source does
-    # NOT stop them contributing - verified against a live knowledge base.
-    # Defaulting to the caller's district here would relabel unscoped content
-    # as theirs, which is exactly the cross-district citation this class claims
+    # those carry no dealer_group_id. Scoping the request to the index source
+    # does NOT stop them contributing - verified against a live knowledge base.
+    # Defaulting to the caller's group here would relabel unscoped content
+    # as theirs, which is exactly the cross-group citation this class claims
     # to make impossible. Ownership must be proven, not assumed.
-    doc_district = str(doc.get("district_id") or "").strip()
-    if doc_district != district_id:
+    doc_group = str(doc.get("dealer_group_id") or "").strip()
+    if doc_group != dealer_group_id:
         return None
     raw_type = str(doc.get("source_type") or "").strip()
     try:
         source_type = CitationSourceType(raw_type)
     except ValueError:
         source_type = CitationSourceType.STRUCTURED_DATA
-    return Citation(
-        citation_id=citation_id,
-        district_id=doc_district,
-        source_type=source_type,
-        source_title=str(doc.get("source_title") or "Untitled source"),
-        section_or_page=str(doc.get("section_or_page") or "section 1"),
-        evidence_summary=summary,
-        source_ref=str(doc.get("source_ref") or f"foundry-iq://{citation_id}"),
-        retrieved_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        confidence=0.8,
-    )
+    try:
+        return Citation(
+            citation_id=citation_id,
+            dealer_group_id=doc_group,
+            source_type=source_type,
+            source_title=str(doc.get("source_title") or "Untitled source"),
+            section_or_page=str(doc.get("section_or_page") or "section 1"),
+            evidence_summary=summary,
+            source_ref=str(doc.get("source_ref") or f"foundry-iq://{citation_id}"),
+            retrieved_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            confidence=0.8,
+        )
+    except ValidationError:
+        # An over-long field is as unusable as a missing one, and letting the
+        # error escape would put document text into the exception and from
+        # there onto a span. Drop the document instead.
+        return None
 
 
 def _default_credential() -> Any:

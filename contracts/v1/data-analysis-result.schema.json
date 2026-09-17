@@ -25,15 +25,15 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["district_id", "detected_need", "evidence_bullets", "missing_data_flags", "analysis_confidence"],
+      "required": ["dealer_group_id", "detected_need", "evidence_bullets", "missing_data_flags", "analysis_confidence"],
       "properties": {
-        "district_id": {
+        "dealer_group_id": {
           "type": "string",
           "minLength": 2,
           "maxLength": 32,
           "pattern": "^[A-Z0-9][A-Z0-9\\-]{1,31}$"
         },
-        "detected_need": { "type": "string", "maxLength": 500 },
+        "detected_need": { "type": "string", "maxLength": 300 },
         "evidence_bullets": {
           "type": "array",
           "maxItems": 12,
@@ -51,10 +51,10 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["citation_id", "district_id", "source_type", "source_title", "evidence_summary", "source_ref", "retrieved_at", "confidence"],
+            "required": ["citation_id", "dealer_group_id", "source_type", "source_title", "evidence_summary", "source_ref", "retrieved_at", "confidence"],
             "properties": {
               "citation_id": { "type": "string", "minLength": 1, "maxLength": 64 },
-              "district_id": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^[A-Z0-9][A-Z0-9\\-]{1,31}$" },
+              "dealer_group_id": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^[A-Z0-9][A-Z0-9\\-]{1,31}$" },
               "source_type": { "type": "string", "enum": ["structured_data", "document", "policy", "resource", "synthetic_fixture"] },
               "source_title": { "type": "string", "minLength": 1, "maxLength": 200 },
               "section_or_page": { "type": "string", "maxLength": 80 },

@@ -1,13 +1,16 @@
-"""Synthetic per-district evidence fixtures.
+"""Synthetic per-dealer-group evidence fixtures.
 
 Every entry is deterministic and generic. Nothing here references real
-customer, district, school, staff, or document names. Districts are
-named `DIST-A`, `DIST-B`, and `DIST-DEMO` to reinforce that these are
+customer, group, dealership, staff, or document names. Groups are named
+`GROUP-A`, `GROUP-B`, and `GROUP-DEMO` to reinforce that these are
 placeholders.
 
+A dealer group is an ownership boundary, not a franchise brand, so two
+groups selling the same brand must never see each other's evidence.
+
 Production replacement: a Fabric-backed retriever that reads from the
-per-district lakehouse and optionally the district's approved PDF
-library. That retriever should keep the same interface.
+per-group lakehouse and optionally the group's approved document library.
+That retriever should keep the same interface.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ from datetime import UTC, datetime
 
 from ..agents.shared.contracts import Citation, CitationSourceType
 from .retrieval import (
-    CrossDistrictEvidenceError,
+    CrossDealerGroupEvidenceError,
     EvidenceBundle,
     EvidenceRequest,
     EvidenceRetrievalError,
@@ -28,242 +31,276 @@ def _iso_now() -> str:
 
 
 def _fixture(
-    district: str,
+    group: str,
     cid: str,
     kind: CitationSourceType,
     title: str,
     summary: str,
 ) -> Citation:
     return Citation(
-        citation_id=f"{district}-{cid}",
-        district_id=district,
+        citation_id=f"{group}-{cid}",
+        dealer_group_id=group,
         source_type=kind,
         source_title=title,
         section_or_page="section 1",
         evidence_summary=summary,
-        source_ref=f"fixture://{district.lower()}/{cid}",
+        source_ref=f"fixture://{group.lower()}/{cid}",
         retrieved_at=_iso_now(),
         confidence=0.8,
     )
 
 
-_DISTRICTS: dict[str, dict[str, list[Citation]]] = {
-    "DIST-A": {
-        "early-literacy": [
+_DEALER_GROUPS: dict[str, dict[str, list[Citation]]] = {
+    "GROUP-A": {
+        "lead-response": [
             _fixture(
-                "DIST-A",
-                "el-01",
+                "GROUP-A",
+                "lead-01",
                 CitationSourceType.STRUCTURED_DATA,
-                "District A - Early Literacy Benchmarks",
+                "Group A - Enquiry Response Benchmarks",
                 (
-                    "Synthetic benchmark points to a targeted letter-sound intervention plan "
-                    "for the current review window."
+                    "Synthetic benchmark describing the expected first-response window "
+                    "for the current review period."
                 ),
             ),
             _fixture(
-                "DIST-A",
-                "el-02",
+                "GROUP-A",
+                "lead-02",
                 CitationSourceType.RESOURCE,
-                "District A - Approved Phonemic Awareness Routines",
+                "Group A - Approved Enquiry Handling Routines",
                 (
-                    "Synthetic resource catalog entry describing an allowed daily phonemic "
-                    "awareness routine."
+                    "Synthetic resource catalog entry describing an allowed daily "
+                    "enquiry triage routine."
                 ),
             ),
         ],
-        "reading-below-grade": [
+        "test-drive-conversion": [
             _fixture(
-                "DIST-A",
-                "rbg-01",
+                "GROUP-A",
+                "drive-01",
                 CitationSourceType.POLICY,
-                "District A - Reading Support Tier Policy",
-                "Synthetic policy summary describing how targeted reading support is authorized.",
+                "Group A - Test Drive Booking Standard",
+                "Synthetic policy summary describing confirmation and preparation steps.",
             ),
         ],
-        "attendance-support": [
+        "listing-completeness": [
             _fixture(
-                "DIST-A",
-                "att-01",
+                "GROUP-A",
+                "listing-01",
                 CitationSourceType.POLICY,
-                "District A - Attendance Intervention Policy",
+                "Group A - Listing Publication Checklist",
                 (
-                    "Synthetic policy summary describing the attendance thresholds that "
-                    "trigger a check-in routine."
+                    "Synthetic checklist describing the photo and specification fields "
+                    "required before a listing publishes."
                 ),
             ),
         ],
-        "math-acceleration": [
+        "inventory-ageing": [
             _fixture(
-                "DIST-A",
-                "math-01",
+                "GROUP-A",
+                "ageing-01",
                 CitationSourceType.STRUCTURED_DATA,
-                "District A - Math Enrichment Benchmarks",
+                "Group A - Inventory Review Cadence",
                 (
-                    "Synthetic benchmark points to enrichment planning for learners "
-                    "exceeding grade-level checks."
+                    "Synthetic reference describing how often each vehicle is reviewed "
+                    "and who signs the review off."
                 ),
             ),
         ],
-        "multi-domain": [
+        "price-data-freshness": [
             _fixture(
-                "DIST-A",
-                "md-01",
+                "GROUP-A",
+                "price-01",
                 CitationSourceType.POLICY,
-                "District A - Multi-Domain Support Coordination Policy",
+                "Group A - Advertised Price Refresh Standard",
+                "Synthetic policy summary describing the price refresh cadence and owner.",
+            ),
+        ],
+        "multi-area": [
+            _fixture(
+                "GROUP-A",
+                "multi-01",
+                CitationSourceType.POLICY,
+                "Group A - Coordinated Process Review Policy",
                 (
-                    "Synthetic policy summary describing how supports across literacy, "
-                    "math, and attendance are coordinated in one plan."
+                    "Synthetic policy summary describing how enquiry handling, test "
+                    "drives, and listing quality are reviewed in one plan."
                 ),
             ),
         ],
     },
-    "DIST-B": {
-        "early-literacy": [
+    "GROUP-B": {
+        "lead-response": [
             _fixture(
-                "DIST-B",
-                "el-01",
+                "GROUP-B",
+                "lead-01",
                 CitationSourceType.DOCUMENT,
-                "District B - Early Literacy Handbook",
+                "Group B - Enquiry Handling Handbook",
                 (
-                    "Synthetic handbook excerpt describing the district's small-group "
-                    "early literacy model."
+                    "Synthetic handbook excerpt describing response-time expectations "
+                    "by enquiry channel."
                 ),
             ),
         ],
-        "reading-below-grade": [
+        "test-drive-conversion": [
             _fixture(
-                "DIST-B",
-                "rbg-01",
+                "GROUP-B",
+                "drive-01",
                 CitationSourceType.DOCUMENT,
-                "District B - Reading Support Handbook",
-                "Synthetic handbook excerpt describing tiered reading support entry criteria.",
+                "Group B - Test Drive Handbook",
+                "Synthetic handbook excerpt describing rebooking after a no-show.",
             ),
         ],
-        "attendance-support": [
+        "listing-completeness": [
             _fixture(
-                "DIST-B",
-                "att-01",
+                "GROUP-B",
+                "listing-01",
                 CitationSourceType.DOCUMENT,
-                "District B - Attendance Handbook",
-                "Synthetic handbook excerpt describing the district's attendance outreach ladder.",
+                "Group B - Listing Standards Handbook",
+                "Synthetic handbook excerpt describing the required listing field set.",
             ),
         ],
-        "math-acceleration": [
+        "inventory-ageing": [
             _fixture(
-                "DIST-B",
-                "math-01",
+                "GROUP-B",
+                "ageing-01",
                 CitationSourceType.RESOURCE,
-                "District B - Approved Math Enrichment Catalog",
-                "Synthetic resource catalog entry describing allowed math enrichment routines.",
+                "Group B - Approved Review Cadence Catalog",
+                "Synthetic resource catalog entry describing allowed review routines.",
             ),
         ],
-        "multi-domain": [
+        "price-data-freshness": [
             _fixture(
-                "DIST-B",
-                "md-01",
+                "GROUP-B",
+                "price-01",
                 CitationSourceType.DOCUMENT,
-                "District B - Coordinated Supports Handbook",
-                "Synthetic handbook excerpt describing coordinated multi-domain planning.",
+                "Group B - Price Data Handbook",
+                "Synthetic handbook excerpt describing the price refresh exception report.",
+            ),
+        ],
+        "multi-area": [
+            _fixture(
+                "GROUP-B",
+                "multi-01",
+                CitationSourceType.DOCUMENT,
+                "Group B - Coordinated Improvement Handbook",
+                "Synthetic handbook excerpt describing coordinated multi-area planning.",
             ),
         ],
     },
-    "DIST-DEMO": {
-        "early-literacy": [
+    "GROUP-DEMO": {
+        "lead-response": [
             _fixture(
-                "DIST-DEMO",
-                "el-01",
+                "GROUP-DEMO",
+                "lead-01",
                 CitationSourceType.SYNTHETIC_FIXTURE,
-                "Demo district - Early Literacy Fixture",
-                "Illustrative synthetic reference used only for the customer demo.",
+                "Demo group - Enquiry Response Benchmarks",
+                "Synthetic benchmark describing the expected first-response window for online "
+                "enquiries and the median response time recorded this review period.",
             ),
             _fixture(
-                "DIST-DEMO",
-                "el-02",
+                "GROUP-DEMO",
+                "lead-02",
                 CitationSourceType.SYNTHETIC_FIXTURE,
-                "Demo district - Progress Monitoring Fixture",
-                "Illustrative synthetic reference for a weekly probe cadence.",
-            ),
-        ],
-        "reading-below-grade": [
-            _fixture(
-                "DIST-DEMO",
-                "rbg-01",
-                CitationSourceType.SYNTHETIC_FIXTURE,
-                "Demo district - Reading Tier Fixture",
-                "Illustrative synthetic reference for tiered reading support.",
+                "Demo group - Follow-up Monitoring Guide",
+                "Synthetic guide describing a weekly follow-up cadence for unanswered enquiries "
+                "and how leads awaiting a reply are escalated.",
             ),
         ],
-        "attendance-support": [
+        "test-drive-conversion": [
             _fixture(
-                "DIST-DEMO",
-                "att-01",
+                "GROUP-DEMO",
+                "drive-01",
                 CitationSourceType.SYNTHETIC_FIXTURE,
-                "Demo district - Attendance Fixture",
-                "Illustrative synthetic reference for an attendance check-in routine.",
+                "Demo group - Test Drive Conversion Notes",
+                "Synthetic notes describing how booked test drive appointments are confirmed "
+                "and how attendance converts to completed sales conversations.",
             ),
         ],
-        "math-acceleration": [
+        "listing-completeness": [
             _fixture(
-                "DIST-DEMO",
-                "math-01",
+                "GROUP-DEMO",
+                "listing-01",
                 CitationSourceType.SYNTHETIC_FIXTURE,
-                "Demo district - Math Enrichment Fixture",
-                "Illustrative synthetic reference for enrichment planning.",
+                "Demo group - Listing Completeness Standard",
+                "Synthetic standard describing the photographs, specification fields, and "
+                "pricing detail a vehicle listing must carry before publication.",
             ),
         ],
-        "multi-domain": [
+        "inventory-ageing": [
             _fixture(
-                "DIST-DEMO",
-                "md-01",
+                "GROUP-DEMO",
+                "ageing-01",
                 CitationSourceType.SYNTHETIC_FIXTURE,
-                "Demo district - Coordinated Supports Fixture",
-                "Illustrative synthetic reference for coordinating supports across domains.",
+                "Demo group - Inventory Ageing Review",
+                "Synthetic review describing how ageing stock is identified by days in "
+                "inventory and how on-time review cadence is tracked.",
+            ),
+        ],
+        "price-data-freshness": [
+            _fixture(
+                "GROUP-DEMO",
+                "price-01",
+                CitationSourceType.SYNTHETIC_FIXTURE,
+                "Demo group - Price Data Freshness Policy",
+                "Synthetic policy describing how often advertised price data is refreshed "
+                "against market guidance and what counts as stale pricing.",
+            ),
+        ],
+        "multi-area": [
+            _fixture(
+                "GROUP-DEMO",
+                "multi-01",
+                CitationSourceType.SYNTHETIC_FIXTURE,
+                "Demo group - Coordinated Review Policy",
+                "Synthetic policy summary describing how enquiry handling, test drives, and "
+                "listing quality are reviewed together rather than area by area.",
             ),
         ],
     },
 }
 
 
-def list_available_districts() -> tuple[str, ...]:
-    return tuple(sorted(_DISTRICTS.keys()))
+def list_available_dealer_groups() -> tuple[str, ...]:
+    return tuple(sorted(_DEALER_GROUPS.keys()))
 
 
 class FixtureEvidenceRetriever:
-    """Synthetic-only retriever, keyed strictly by district_id."""
+    """Synthetic-only retriever, keyed strictly by dealer_group_id."""
 
     provider_name = "fixture"
     provider_model = "synthetic"
     evidence_verifiable = True
 
     def __init__(self, catalog: dict[str, dict[str, list[Citation]]] | None = None) -> None:
-        self._catalog = catalog if catalog is not None else _DISTRICTS
+        self._catalog = catalog if catalog is not None else _DEALER_GROUPS
 
-    def has_district(self, district_id: str) -> bool:
-        return district_id in self._catalog
+    def has_dealer_group(self, dealer_group_id: str) -> bool:
+        return dealer_group_id in self._catalog
 
     async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
-        if not request.district_id:
+        if not request.dealer_group_id:
             raise EvidenceRetrievalError(
-                "MISSING_DISTRICT_ID",
-                "Evidence request is missing a district_id.",
+                "MISSING_DEALER_GROUP_ID",
+                "Evidence request is missing a dealer_group_id.",
             )
-        if request.district_id not in self._catalog:
+        if request.dealer_group_id not in self._catalog:
             raise EvidenceRetrievalError(
-                "UNKNOWN_DISTRICT",
-                f"No synthetic evidence configured for district '{request.district_id}'.",
+                "UNKNOWN_DEALER_GROUP",
+                f"No synthetic evidence configured for group '{request.dealer_group_id}'.",
             )
-        by_category = self._catalog[request.district_id]
+        by_category = self._catalog[request.dealer_group_id]
         items = list(by_category.get(request.category, ()))
-        # Defensive: refuse to return any item whose district tag disagrees.
+        # Defensive: refuse to return any item whose group tag disagrees.
         for c in items:
-            if c.district_id != request.district_id:
-                raise CrossDistrictEvidenceError(
-                    "CROSS_DISTRICT_CITATION",
-                    "Fixture returned a citation from a different district.",
+            if c.dealer_group_id != request.dealer_group_id:
+                raise CrossDealerGroupEvidenceError(
+                    "CROSS_DEALER_GROUP_CITATION",
+                    "Fixture returned a citation from a different dealer group.",
                 )
         if request.max_items > 0:
             items = items[: request.max_items]
         return EvidenceBundle(
-            district_id=request.district_id,
+            dealer_group_id=request.dealer_group_id,
             citations=tuple(items),
         )

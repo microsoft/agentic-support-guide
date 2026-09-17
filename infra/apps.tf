@@ -22,7 +22,7 @@ resource "azurerm_service_plan" "api" {
   os_type             = "Linux"
   sku_name            = var.app_service_sku
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_service_plan" "web" {
@@ -34,7 +34,7 @@ resource "azurerm_service_plan" "web" {
   os_type             = "Linux"
   sku_name            = var.app_service_sku
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_linux_web_app" "api" {
@@ -100,7 +100,7 @@ resource "azurerm_linux_web_app" "api" {
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
 
     AZURE_SEARCH_ENDPOINT = var.enable_knowledge_plane ? "https://${azurerm_search_service.knowledge[0].name}.search.windows.net" : ""
-    # Module 3 flips this to foundry_iq once a knowledge base exists.
+    # Module 6 flips this to foundry_iq once a knowledge base exists.
     EVIDENCE_SOURCE           = var.api_evidence_source
     FOUNDRY_IQ_KNOWLEDGE_BASE = var.api_knowledge_base_name
     # Set this when the source name is not <kb name with kb->ks>, which is
@@ -116,7 +116,7 @@ resource "azurerm_linux_web_app" "api" {
     ALLOWED_ORIGINS = local.web_url
   }
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_linux_web_app" "web" {
@@ -172,5 +172,5 @@ resource "azurerm_linux_web_app" "web" {
     API_SHARED_KEY = local.api_shared_key
   }
 
-  tags = var.tags
+  tags = local.tags
 }

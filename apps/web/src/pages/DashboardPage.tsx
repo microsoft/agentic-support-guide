@@ -66,10 +66,10 @@ export function DashboardPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card title="Proficiency trend (synthetic)">
+        <Card title="Process score trend (synthetic)">
           <div className="h-64">
             <ResponsiveContainer>
-              <LineChart data={data.proficiency_trend}>
+              <LineChart data={data.process_score_trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                 <XAxis dataKey="period" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" />
@@ -89,9 +89,9 @@ export function DashboardPage() {
         <Card title="Domain distribution (synthetic)">
           <div className="h-64">
             <ResponsiveContainer>
-              <BarChart data={data.domain_distribution}>
+              <BarChart data={data.area_distribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="domain" stroke="#94a3b8" tick={{ fontSize: 10 }} />
+                <XAxis dataKey="process_area" stroke="#94a3b8" tick={{ fontSize: 10 }} />
                 <YAxis stroke="#94a3b8" />
                 <Tooltip
                   contentStyle={{

@@ -14,10 +14,10 @@ import {
   supportOptionsFixture,
 } from "./fixtures";
 
-function renderWithDistricts(districts: string[], children: ReactNode) {
+function renderWithDealerGroups(dealer_groups: string[], children: ReactNode) {
   vi.spyOn(api, "supportOptions").mockResolvedValue({
     ...supportOptionsFixture,
-    districts,
+    dealer_groups,
   });
   return render(<MemoryRouter>{children}</MemoryRouter>);
 }
@@ -30,16 +30,16 @@ describe("SupportsPage", () => {
     vi.spyOn(api, "savedPlans").mockResolvedValue(savedPlansFixture);
     vi.spyOn(api, "recommendation").mockResolvedValue(envelopeOkFixture);
 
-    renderWithDistricts(["DIST-A"], <SupportsPage />);
+    renderWithDealerGroups(["GROUP-A"], <SupportsPage />);
 
-    await waitFor(() => expect(screen.getByLabelText(/learner/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(/dealership/i)).toBeInTheDocument());
     expect(screen.getByTestId("agent-workflow")).toBeInTheDocument();
 
-    await userEvent.selectOptions(screen.getByLabelText(/learner/i), "LRN-0001");
-    await userEvent.selectOptions(screen.getByLabelText(/category/i), "early-literacy");
+    await userEvent.selectOptions(screen.getByLabelText(/dealership/i), "DLR-0001");
+    await userEvent.selectOptions(screen.getByLabelText(/category/i), "lead-response");
     await userEvent.type(
       screen.getByLabelText(/concern text/i),
-      "Letter-sound fluency behind pace.",
+      "First response to online enquiries behind target.",
     );
 
     await userEvent.click(screen.getByRole("button", { name: /generate recommendation/i }));
@@ -47,7 +47,7 @@ describe("SupportsPage", () => {
     await waitFor(() =>
       expect(screen.getByTestId("completeness")).toHaveTextContent(/complete/i),
     );
-    expect(screen.getByText(/Intensive support/i)).toBeInTheDocument();
+    expect(screen.getByText(/Intensive/i)).toBeInTheDocument();
     // Three agent rows visible.
     expect(screen.getByTestId("agent-step-1")).toBeInTheDocument();
     expect(screen.getByTestId("agent-step-2")).toBeInTheDocument();
@@ -61,14 +61,14 @@ describe("SupportsPage", () => {
     vi.spyOn(api, "savedPlans").mockResolvedValue(savedPlansFixture);
     vi.spyOn(api, "recommendation").mockResolvedValue(envelopeErrorFixture);
 
-    renderWithDistricts(["DIST-A"], <SupportsPage />);
+    renderWithDealerGroups(["GROUP-A"], <SupportsPage />);
 
-    await waitFor(() => expect(screen.getByLabelText(/learner/i)).toBeInTheDocument());
-    await userEvent.selectOptions(screen.getByLabelText(/learner/i), "LRN-0001");
-    await userEvent.selectOptions(screen.getByLabelText(/category/i), "early-literacy");
+    await waitFor(() => expect(screen.getByLabelText(/dealership/i)).toBeInTheDocument());
+    await userEvent.selectOptions(screen.getByLabelText(/dealership/i), "DLR-0001");
+    await userEvent.selectOptions(screen.getByLabelText(/category/i), "lead-response");
     await userEvent.type(
       screen.getByLabelText(/concern text/i),
-      "Letter-sound fluency behind pace.",
+      "First response to online enquiries behind target.",
     );
     await userEvent.click(screen.getByRole("button", { name: /generate recommendation/i }));
 
@@ -77,7 +77,7 @@ describe("SupportsPage", () => {
     expect(screen.queryByTestId("completeness")).not.toBeInTheDocument();
   });
 
-  it("sends the district the API offered rather than a hardcoded one", async () => {
+  it("sends the dealer group the API offered rather than a hardcoded one", async () => {
     vi.spyOn(api, "health").mockResolvedValue(healthFixture);
     vi.spyOn(api, "healthDetails").mockResolvedValue(healthDetailsReadyFixture);
     vi.spyOn(api, "supportOptions").mockResolvedValue(supportOptionsFixture);
@@ -86,18 +86,18 @@ describe("SupportsPage", () => {
       .spyOn(api, "recommendation")
       .mockResolvedValue(envelopeOkFixture);
 
-    renderWithDistricts(["DIST-B"], <SupportsPage />);
+    renderWithDealerGroups(["GROUP-B"], <SupportsPage />);
 
-    await waitFor(() => expect(screen.getByLabelText(/learner/i)).toBeInTheDocument());
-    await userEvent.selectOptions(screen.getByLabelText(/learner/i), "LRN-0001");
-    await userEvent.selectOptions(screen.getByLabelText(/category/i), "early-literacy");
+    await waitFor(() => expect(screen.getByLabelText(/dealership/i)).toBeInTheDocument());
+    await userEvent.selectOptions(screen.getByLabelText(/dealership/i), "DLR-0001");
+    await userEvent.selectOptions(screen.getByLabelText(/category/i), "lead-response");
     await userEvent.type(
       screen.getByLabelText(/concern text/i),
-      "Letter-sound fluency behind pace.",
+      "First response to online enquiries behind target.",
     );
     await userEvent.click(screen.getByRole("button", { name: /generate recommendation/i }));
 
     await waitFor(() => expect(recommendation).toHaveBeenCalled());
-    expect(recommendation.mock.calls[0][0]).toMatchObject({ district_id: "DIST-B" });
+    expect(recommendation.mock.calls[0][0]).toMatchObject({ dealer_group_id: "GROUP-B" });
   });
 });

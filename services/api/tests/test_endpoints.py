@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.config import COUNTS
+
 from .conftest import make_default_client
 
 
@@ -17,24 +19,24 @@ def test_dashboard_summary_shape() -> None:
     assert len(body["kpi_cards"]) == 4
 
 
-def test_assessments_summary_shape() -> None:
+def test_scores_summary_shape() -> None:
     client = make_default_client()
-    body = client.get("/api/assessments/summary").json()
+    body = client.get("/api/scores/summary").json()
     assert body["generated_by"].startswith("Generated from local rules")
 
 
-def test_behavior_and_learners() -> None:
+def test_operations_and_dealerships() -> None:
     client = make_default_client()
-    behavior = client.get("/api/behavior/summary").json()
-    assert behavior["total_records"] == 150
-    learners = client.get("/api/learners").json()
-    assert learners["total"] == 120
+    behavior = client.get("/api/operations/summary").json()
+    assert behavior["total_records"] == COUNTS.dealerships * COUNTS.score_periods
+    dealerships = client.get("/api/dealerships").json()
+    assert dealerships["total"] == 120
 
 
 def test_supports_options() -> None:
     client = make_default_client()
     body = client.get("/api/supports/options").json()
-    assert len(body["learners"]) == 120
+    assert len(body["dealerships"]) == 120
 
 
 def test_openapi() -> None:
@@ -43,29 +45,29 @@ def test_openapi() -> None:
     assert schema["info"]["title"] == "Agentic Support Guide API"
 
 
-def test_recommendation_envelope_carries_correlation_and_district() -> None:
+def test_recommendation_envelope_carries_correlation_and_dealer_group() -> None:
     client = make_default_client()
     before_audit = client.get("/api/audit/events").json()["total"]
 
     resp = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "dealer_group_id": "GROUP-DEMO",
         },
     )
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["district_id"] == "DIST-DEMO"
+    assert body["dealer_group_id"] == "GROUP-DEMO"
     assert body["correlation_id"]
     assert body["recommendation"] is not None
-    assert body["recommendation"]["district_id"] == "DIST-DEMO"
+    assert body["recommendation"]["dealer_group_id"] == "GROUP-DEMO"
     assert body["recommendation"]["human_review_state"] == "pending_review"
     assert body["recommendation"]["citations"]
     for c in body["recommendation"]["citations"]:
-        assert c["district_id"] == "DIST-DEMO"
+        assert c["dealer_group_id"] == "GROUP-DEMO"
     assert len(body["agent_trace"]) == 4
 
     after_audit = client.get("/api/audit/events").json()["total"]
@@ -75,64 +77,64 @@ def test_recommendation_envelope_carries_correlation_and_district() -> None:
     events = client.get("/api/audit/events").json()["events"]
     last = events[-1]
     assert last["correlation_id"] == body["correlation_id"]
-    assert last["district_id"] == "DIST-DEMO"
+    assert last["dealer_group_id"] == "GROUP-DEMO"
     assert last["evidence_count"] >= 1
     assert last["citation_count"] >= 1
     assert last["validator_status"]
 
 
-def test_save_plan_persists_district_and_review_state() -> None:
+def test_save_plan_persists_dealer_group_and_review_state() -> None:
     client = make_default_client()
     rec = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()["recommendation"]
 
     saved = client.post(
         "/api/supports/plans",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "selected_smart_goal": "SG-early-literacy-1",
-            "selected_strategies": ["ST-early-literacy-1"],
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "selected_goal": "GOAL-lead-response-1",
+            "selected_strategies": ["ST-lead-response-1"],
             "recommendation": rec,
-            "district_id": "DIST-DEMO",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()
-    assert saved["district_id"] == "DIST-DEMO"
+    assert saved["dealer_group_id"] == "GROUP-DEMO"
     assert saved["human_review_state"] == "pending_review"
 
 
-def test_save_plan_rejects_recommendation_from_another_district() -> None:
+def test_save_plan_rejects_recommendation_from_another_dealer_group() -> None:
     """The save endpoint does not re-run the pipeline, so it must re-check."""
 
     client = make_default_client()
     rec = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()["recommendation"]
 
     resp = client.post(
         "/api/supports/plans",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "selected_smart_goal": None,
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "selected_goal": None,
             "selected_strategies": [],
             "recommendation": rec,
-            "district_id": "DIST-A",
+            "dealer_group_id": "GROUP-A",
         },
     )
     assert resp.status_code == 422
@@ -143,10 +145,10 @@ def test_save_plan_rejects_oversized_rationale() -> None:
     rec = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "district_id": "DIST-DEMO",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "dealer_group_id": "GROUP-DEMO",
         },
     ).json()["recommendation"]
     rec["rationale"] = "x" * 5000
@@ -154,39 +156,39 @@ def test_save_plan_rejects_oversized_rationale() -> None:
     resp = client.post(
         "/api/supports/plans",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
-            "concern_text": "Letter-sound fluency below expected pace.",
-            "selected_smart_goal": None,
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
+            "concern_text": "Median first response to online enquiries slipped past one hour.",
+            "selected_goal": None,
             "selected_strategies": [],
             "recommendation": rec,
-            "district_id": "DIST-DEMO",
+            "dealer_group_id": "GROUP-DEMO",
         },
     )
     assert resp.status_code == 422
 
 
-def test_unknown_learner_returns_404() -> None:
+def test_unknown_dealership_returns_404() -> None:
     client = make_default_client()
     resp = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-9999",
-            "category": "early-literacy",
+            "dealership_id": "DLR-9999",
+            "category": "lead-response",
             "concern_text": "test",
-            "district_id": "DIST-DEMO",
+            "dealer_group_id": "GROUP-DEMO",
         },
     )
     assert resp.status_code == 404
 
 
-def test_missing_district_id_rejected_with_422() -> None:
+def test_missing_dealer_group_id_rejected_with_422() -> None:
     client = make_default_client()
     resp = client.post(
         "/api/recommendations/support-plan",
         json={
-            "learner_id": "LRN-0001",
-            "category": "early-literacy",
+            "dealership_id": "DLR-0001",
+            "category": "lead-response",
             "concern_text": "test",
         },
     )

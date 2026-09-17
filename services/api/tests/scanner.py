@@ -1,7 +1,8 @@
 """Privacy guardrail: rule-based scan of tracked source/text.
 
 Rules enforced (any hit = test failure):
-- Any RFC-shaped email whose domain is not `example.invalid`.
+- Any RFC-shaped email whose domain is not `example.invalid`, apart from a
+  short allowlist of published Microsoft contact addresses.
 - Any http(s) URL whose host is not in a small allowlist of localhost or
   Microsoft/Azure documentation hosts.
 - US-style phone numbers.
@@ -32,8 +33,14 @@ LOCAL_DENYLIST_FILE = API_ROOT / "denylist.local.txt"
 EMAIL_REGEX = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 URL_REGEX = re.compile(r"https?://([A-Za-z0-9._-]+)(?::\d+)?(?:/|\s|$|[\"'`)])")
 PHONE_REGEX = re.compile(r"(?<!\d)(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)")
+# Trade suffixes only count when a proper name precedes them: "Northside Auto
+# Group" identifies a customer, while "dealership" is this domain's ordinary
+# type noun and appears in almost every file. Bare "Dealerships" is excluded
+# for the same reason - it matched the "Active Dealerships" KPI label.
 ORG_SUFFIX_REGEX = re.compile(
-    r"\b(?:Inc\.?|LLC|Ltd\.?|Corp\.?|Unified|School\s+District|ISD|County\s+Schools|Academy)\b"
+    r"\b(?:Inc\.?|LLC|Ltd\.?|Corp\.?|GmbH|PLC)\b"
+    r"|\b[A-Z][A-Za-z]{2,}\s+(?:Auto\s+Group|Motor\s+Group|Dealer\s+Group|"
+    r"Automotive\s+Group|Motors)\b"
 )
 LONG_SECRET_REGEX = re.compile(r"[A-Za-z0-9+/=]{40,}")
 
@@ -70,6 +77,10 @@ _SENSITIVE_ID_KEYWORDS = (
 
 ALLOWED_EMAIL_DOMAIN = "example.invalid"
 
+# Microsoft's public Code of Conduct contact. Fixed, published, and required
+# verbatim by the standard open-source README boilerplate - not a person.
+ALLOWED_EMAILS = {"opencode@microsoft.com"}
+
 ALLOWED_HOSTS = {
     "example.invalid",
     "localhost",
@@ -95,13 +106,25 @@ ALLOWED_HOSTS = {
     "www.terraform.io",
     "github.com",
     "raw.githubusercontent.com",
+    # Microsoft open-source governance: Code of Conduct and the CLA bot. Both
+    # are required verbatim by the standard README boilerplate.
+    "opensource.microsoft.com",
+    "cla.opensource.microsoft.com",
+    # GitHub's OIDC issuer. Module 1's optional CI section must quote it
+    # verbatim: it is the `issuer` of the federated credential, not a link.
+    "token.actions.githubusercontent.com",
     "opentelemetry.io",
     "json-schema.org",
-    # Public reference site used as the Module 3 Web IQ allow-list example.
-    # A web knowledge source needs a real, stable public domain to be worth
-    # demonstrating; this one is a well-known non-profit reference and
-    # carries no customer or personal data.
-    "dyslexiaida.org",
+    # Public reference sites used as the Module 6 Web IQ allow-list. A web
+    # knowledge source needs real, stable public domains to be worth
+    # demonstrating. These are US government statistics and the franchised
+    # new-car dealer trade body; none carries customer or personal data.
+    "www.census.gov",
+    "census.gov",
+    "www.nada.org",
+    "nada.org",
+    "www.fueleconomy.gov",
+    "fueleconomy.gov",
     # Rendering service called by scripts/render-architecture-diagram.ps1.
     "plantuml.com",
     "www.plantuml.com",
@@ -261,7 +284,7 @@ def scan_text(name: str, text: str, denylist: list[str]) -> list[str]:
 
     for match in EMAIL_REGEX.findall(text):
         domain = match.split("@", 1)[1].lower()
-        if domain != ALLOWED_EMAIL_DOMAIN:
+        if match.lower() not in ALLOWED_EMAILS and domain != ALLOWED_EMAIL_DOMAIN:
             violations.append(f"{name}: disallowed email domain -> {match}")
 
     for host in URL_REGEX.findall(text):

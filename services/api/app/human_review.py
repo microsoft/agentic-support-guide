@@ -54,7 +54,7 @@ class ReviewTransitionAuditEntry:
     """
 
     correlation_id: str
-    district_id: str
+    dealer_group_id: str
     user_label: str
     timestamp: str
     previous_state: str

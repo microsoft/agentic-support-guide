@@ -9,42 +9,39 @@ import {
   YAxis,
 } from "recharts";
 import { api } from "../api/client";
-import type { AssessmentsSummary } from "../api/types";
+import type { ScoresSummary } from "../api/types";
 import { Card } from "../components/Card";
 import { ApiUnavailable, EmptyState, LoadingState } from "../components/States";
 
 interface Filters {
-  school: string;
-  grade: string;
-  domain: string;
-  group: string;
+  region: string;
+  process_area: string;
+  segment: string;
 }
 
-const SCHOOL_OPTIONS = ["SCH-001", "SCH-002", "SCH-003", "SCH-004"];
-const GRADE_OPTIONS = ["1", "2", "3", "4", "5", "6", "7", "8"];
-const DOMAIN_OPTIONS = [
-  "early-literacy",
-  "reading-comprehension",
-  "math-foundations",
-  "math-acceleration",
-  "attendance-engagement",
-  "multi-domain",
+const REGION_OPTIONS = ["REG-001", "REG-002", "REG-003", "REG-004"];
+const AREA_OPTIONS = [
+  "lead-response",
+  "test-drive-conversion",
+  "listing-completeness",
+  "inventory-ageing",
+  "price-data-freshness",
+  "multi-area",
 ];
-const GROUP_OPTIONS = ["GRP-A", "GRP-B", "GRP-C"];
+const SEGMENT_OPTIONS = ["SEG-VOLUME", "SEG-PREMIUM", "SEG-COMMERCIAL"];
 
 type State =
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "ready"; data: AssessmentsSummary };
+  | { kind: "ready"; data: ScoresSummary };
 
-type SortField = "learner_id" | "domain" | "proficiency" | "score" | "period";
+type SortField = "dealership_id" | "process_area" | "band" | "score" | "period";
 
 export function AssessmentsPage() {
   const [filters, setFilters] = useState<Filters>({
-    school: "",
-    grade: "",
-    domain: "",
-    group: "",
+    region: "",
+    process_area: "",
+    segment: "",
   });
   const [state, setState] = useState<State>({ kind: "loading" });
   const [sortField, setSortField] = useState<SortField>("score");
@@ -53,11 +50,10 @@ export function AssessmentsPage() {
   const load = () => {
     setState({ kind: "loading" });
     api
-      .assessmentsSummary({
-        school: filters.school || undefined,
-        grade: filters.grade || undefined,
-        domain: filters.domain || undefined,
-        group: filters.group || undefined,
+      .scoresSummary({
+        region: filters.region || undefined,
+        process_area: filters.process_area || undefined,
+        segment: filters.segment || undefined,
       })
       .then((data) => setState({ kind: "ready", data }))
       .catch(() => setState({ kind: "error" }));
@@ -97,33 +93,27 @@ export function AssessmentsPage() {
           className="grid grid-cols-1 gap-3 md:grid-cols-4"
         >
           <FilterSelect
-            label="School"
-            value={filters.school}
-            onChange={(v) => setFilters((f) => ({ ...f, school: v }))}
-            options={SCHOOL_OPTIONS}
+            label="Region"
+            value={filters.region}
+            onChange={(v) => setFilters((f) => ({ ...f, region: v }))}
+            options={REGION_OPTIONS}
           />
           <FilterSelect
-            label="Grade"
-            value={filters.grade}
-            onChange={(v) => setFilters((f) => ({ ...f, grade: v }))}
-            options={GRADE_OPTIONS}
+            label="Process area"
+            value={filters.process_area}
+            onChange={(v) => setFilters((f) => ({ ...f, process_area: v }))}
+            options={AREA_OPTIONS}
           />
           <FilterSelect
-            label="Domain"
-            value={filters.domain}
-            onChange={(v) => setFilters((f) => ({ ...f, domain: v }))}
-            options={DOMAIN_OPTIONS}
-          />
-          <FilterSelect
-            label="Group"
-            value={filters.group}
-            onChange={(v) => setFilters((f) => ({ ...f, group: v }))}
-            options={GROUP_OPTIONS}
+            label="Segment"
+            value={filters.segment}
+            onChange={(v) => setFilters((f) => ({ ...f, segment: v }))}
+            options={SEGMENT_OPTIONS}
           />
         </div>
       </Card>
 
-      {state.kind === "loading" && <LoadingState label="Loading assessments..." />}
+      {state.kind === "loading" && <LoadingState label="Loading process scores..." />}
       {state.kind === "error" && <ApiUnavailable onRetry={load} />}
       {state.kind === "ready" && state.data.total_records === 0 && (
         <EmptyState label="No records match the current filters." />
@@ -132,9 +122,9 @@ export function AssessmentsPage() {
       {state.kind === "ready" && state.data.total_records > 0 && (
         <>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card title="Proficiency distribution">
+            <Card title="Process score distribution">
               <ul className="space-y-2 text-sm">
-                {state.data.proficiency_distribution.map((bucket) => (
+                {state.data.band_distribution.map((bucket) => (
                   <li key={bucket.label} className="flex justify-between text-slate-300">
                     <span>{bucket.label}</span>
                     <span>
@@ -149,15 +139,15 @@ export function AssessmentsPage() {
               <div className="h-64">
                 <ResponsiveContainer>
                   <BarChart
-                    data={state.data.domain_trends.map((d) => ({
-                      domain: d.domain,
+                    data={state.data.area_trends.map((d) => ({
+                      process_area: d.process_area,
                       value:
                         d.points.reduce((s, p) => s + p.value, 0) /
                         (d.points.length || 1),
                     }))}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="domain" stroke="#94a3b8" tick={{ fontSize: 10 }} />
+                    <XAxis dataKey="process_area" stroke="#94a3b8" tick={{ fontSize: 10 }} />
                     <YAxis stroke="#94a3b8" />
                     <Tooltip
                       contentStyle={{
@@ -194,7 +184,7 @@ export function AssessmentsPage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-slate-400">
-                    {(["learner_id", "domain", "proficiency", "score", "period"] as SortField[]).map(
+                    {(["dealership_id", "process_area", "band", "score", "period"] as SortField[]).map(
                       (field) => (
                         <th key={field} scope="col" className="py-2 pr-4">
                           <button
@@ -217,9 +207,9 @@ export function AssessmentsPage() {
                       key={`${row.record_id}-${idx}`}
                       className="border-t border-slate-800 text-slate-300"
                     >
-                      <td className="py-2 pr-4">{row.learner_id}</td>
-                      <td className="py-2 pr-4">{row.domain}</td>
-                      <td className="py-2 pr-4">{row.proficiency}</td>
+                      <td className="py-2 pr-4">{row.dealership_id}</td>
+                      <td className="py-2 pr-4">{row.process_area}</td>
+                      <td className="py-2 pr-4">{row.band}</td>
                       <td className="py-2 pr-4">{row.score}</td>
                       <td className="py-2 pr-4">{row.period}</td>
                     </tr>

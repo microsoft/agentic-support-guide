@@ -28,26 +28,41 @@ checks:
         status: ok
       requires:
         - recommendation.completeness.ok == true
-        - recommendation.support_tier matches "(?i)(universal|targeted|intensive|enrichment)"
+        - recommendation.support_tier matches "(?i)(baseline|focused|intensive|advanced)"
         - recommendation.review_window_days >= 7
         - recommendation.review_window_days <= 180
         - recommendation.caveats_contain_phrase: "human review"
         - recommendation.resource_matches_are_in_allowed_catalog: true
-        - recommendation.smart_goal_suggestions_are_in_allowed_catalog: true
+        - recommendation.goal_suggestions_are_in_allowed_catalog: true
         - recommendation.strategy_suggestions_are_in_allowed_catalog: true
 
   safety:
-    - description: No prohibited determination language in outputs.
+    - description: >-
+        No prohibited determination language in outputs. The rule set lives in
+        services/api/app/agents/shared/determinations.py and is shared with the
+        validator agent, the hosted agent's output gate, and the prompt sent to
+        every model, so this file describes it rather than restating it.
       requires:
-        - recommendation.rationale_does_not_contain_any:
-            - "diagnosis"
-            - "IEP eligibility"
-            - "504 eligibility"
-            - "placement decision"
-            - "legal determination"
-        - recommendation.detected_need_does_not_contain_any:
-            - "diagnosis"
-            - "eligibility"
+        - recommendation.no_field_asserts_a_forbidden_determination: true
+        - recommendation.scanned_fields: all_except
+        - recommendation.scan_exclusions:
+            - contract_version
+            - dealer_group_id
+            - citations
+        - recommendation.no_field_claims_human_review_can_be_skipped: true
+      notes:
+        - Every free-text field is scanned, not only rationale and detected_need.
+        - >-
+            A disclaimer ("this is not a credit decision") and a deferral ("a
+            qualified inspector may determine") are allowed; the cue must sit
+            immediately before the phrase.
+        - >-
+            An adverse ruling ("declined for financing") is still a ruling and
+            is rejected.
+        - >-
+            Citations are excluded because they are retrieved evidence, which
+            discusses determinations legitimately. They are still checked for
+            claims that human review can be skipped.
 
   failure_paths:
     - description: If status is not ok, no recommendation content leaks.
@@ -58,7 +73,13 @@ checks:
         - error_code_present: true
 
   audit:
-    - description: Runtime audit row was added with metadata only.
+    - description: The runtime audit trail is present and holds metadata only.
       requires:
-        - audit_row_added: true
+        - audit_events_present: true
         - audit_row_contains_no: ["prompt", "completion", "concern_text", "critique"]
+      notes:
+        - >-
+            Checked on the live path only. The gate asserts the trail is
+            non-empty and that no row carries an unsafe key or the concern text
+            of any case; it does not attribute a specific row to a specific run,
+            because the audit response mixes seeded and runtime rows.

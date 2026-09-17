@@ -25,7 +25,13 @@ permissions:
 
 concurrency:
   # Two overlapping deploys to one App Service make the first fail to start.
-  group: deploy-${{ github.ref }}
+  # Keyed on the deployment target, not the branch: every branch deploys to
+  # the same apps, so a per-ref lock does not actually serialise anything.
+  # `vars` here resolves REPOSITORY variables only - the group is computed
+  # before any job declares an environment. Module 1 sets AZURE_RESOURCE_GROUP
+  # with `gh variable set` (no --env) for this reason; moving it onto the
+  # `workshop` environment silently degrades the group to `deploy-`.
+  group: deploy-${{ vars.AZURE_RESOURCE_GROUP }}
   cancel-in-progress: false
 
 env:
@@ -86,8 +92,12 @@ jobs:
       - name: Deploy API
         if: inputs.component != 'web'
         run: |
+          # `az webapp deploy` exits non-zero on a healthy but slow build, and
+          # zero on a build whose code never starts serving. The build_id
+          # check below is the authority, so this must not fail the job.
           az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$API_APP" \
-            --src-path build/api.zip --type zip --async false
+            --src-path build/api.zip --type zip --async false || \
+            echo "::warning::az webapp deploy reported failure; the build_id check decides"
 
       - uses: actions/setup-node@v4
         if: inputs.component != 'api'
@@ -116,7 +126,8 @@ jobs:
           echo '{ "type": "module" }' > build/web/package.json
           (cd build/web && zip -qr ../../web.zip .)
           az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$WEB_APP" \
-            --src-path web.zip --type zip --async false
+            --src-path web.zip --type zip --async false || \
+            echo "::warning::az webapp deploy reported failure; the smoke test decides"
 
       # A green deploy step does not mean the new code is live: Oryx can skip
       # the rebuild and the old worker can keep answering.

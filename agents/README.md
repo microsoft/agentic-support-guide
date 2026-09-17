@@ -4,11 +4,16 @@ This folder is the **source of truth for agent configuration**, and it is
 what the runtime actually loads. It is intentionally protocol- and
 configuration-only: no Python implementation lives here.
 
-Agents are **ephemeral**. On every call the backend composes a role's
-instructions from `agent.md` (body plus the behavioural rules in its YAML
-frontmatter) and runs it against the Foundry project's Responses API via
-Microsoft Agent Framework. Nothing is published to Foundry, so the version
-that runs is exactly the version on your branch. See
+Agents are **ephemeral at runtime**. On every call the backend composes a
+role's instructions from `agent.md` (body plus the behavioural rules in its
+YAML frontmatter) and runs it against the Foundry project's Responses API via
+Microsoft Agent Framework. The runtime never calls a published copy, so the
+version that runs is exactly the version on your branch.
+
+Publishing is a separate GenAIOps step: `scripts/publish_prompt_agents.py`
+pushes these same definitions to Foundry as versioned **prompt agents** so
+they are visible in the portal. See
+[ADR 0006](../docs/adr/0006-published-prompt-agents.md), which supersedes
 [ADR 0005](../docs/adr/0005-agent-framework-ephemeral-agents.md).
 
 The loader is
@@ -36,7 +41,7 @@ which composes instructions through
 - `schemas/input.schema.json` and `schemas/output.schema.json` describe
   the **agent-local** payloads - exactly what the model is asked to emit.
   They deliberately omit fields the coordinator injects from trusted
-  context (for example `district_id`). Cross-agent envelope messages,
+  context (for example `dealer_group_id`). Cross-agent envelope messages,
   which do carry those fields, live in
   [`/contracts/v1/`](../contracts/v1/).
 - Agent behavior is tested from the FastAPI suite in
@@ -48,7 +53,9 @@ which composes instructions through
 - `agent.md` is authoritative for prompt content. Python must not
   duplicate role-specific prompt text.
 - `manifest.yaml` is authoritative for runtime metadata: model
-  deployment name, timeouts, output-format hints, contract versions.
+  deployment name, temperature, `max_output_tokens`, output-format hints,
+  contract versions. Request timeouts are not per agent — one wall-clock
+  budget governs the whole orchestration.
 - `/contracts/v1/*.schema.json` is authoritative for **inter-agent**
   messages. Compatibility rules are documented in
   [`/contracts/README.md`](../contracts/README.md).

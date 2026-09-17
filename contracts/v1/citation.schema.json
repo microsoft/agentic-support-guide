@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/contracts/v1/citation.schema.json",
-  "title": "Citation - district-scoped evidence pointer",
+  "title": "Citation - dealer group-scoped evidence pointer",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "citation_id",
-    "district_id",
+    "dealer_group_id",
     "source_type",
     "source_title",
     "evidence_summary",
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "citation_id": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "district_id": {
+    "dealer_group_id": {
       "type": "string",
       "minLength": 2,
       "maxLength": 32,

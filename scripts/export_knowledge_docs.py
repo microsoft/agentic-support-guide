@@ -1,6 +1,6 @@
-"""Export the district evidence fixtures as documents for Foundry IQ.
+"""Export the dealer group evidence fixtures as documents for Foundry IQ.
 
-Module 3 needs real files in blob storage to index. The in-repo fixtures
+Module 6 needs real files in blob storage to index. The in-repo fixtures
 are the same evidence the agents already use, so grounding the agent on
 these exports means the knowledge base and the coordinator see the same
 facts.
@@ -25,18 +25,18 @@ DEFAULT_OUT = REPO_ROOT / "evals" / "knowledge"
 
 async def _export(out_dir: Path) -> int:
     from app.evidence import EvidenceRequest, FixtureEvidenceRetriever
-    from app.evidence.fixtures import list_available_districts
+    from app.evidence.fixtures import list_available_dealer_groups
     from app.mock_data import CATEGORY_IDS
 
     retriever = FixtureEvidenceRetriever()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     written = 0
-    for district in list_available_districts():
+    for group in list_available_dealer_groups():
         for category in CATEGORY_IDS:
             bundle = await retriever.retrieve(
                 EvidenceRequest(
-                    district_id=district,
+                    dealer_group_id=group,
                     category=category,
                     detected_need_hint="",
                 )
@@ -45,13 +45,14 @@ async def _export(out_dir: Path) -> int:
                 continue
 
             lines = [
-                f"# {district} - {category}",
+                f"# {group} - {category}",
                 "",
-                "District: " + district,
+                "Dealer group: " + group,
                 "Category: " + category,
                 "",
-                "> Synthetic data. Nothing here is an educational, clinical, legal,",
-                "> or placement determination. A human reviews every recommendation.",
+                "> Synthetic data. Nothing here is a pricing, financing, credit,",
+                "> compliance, safety, or staffing determination. A human reviews",
+                "> every recommendation.",
                 "",
             ]
             for c in bundle.citations:
@@ -59,7 +60,7 @@ async def _export(out_dir: Path) -> int:
                     f"## {c.source_title}",
                     "",
                     f"- Citation ID: {c.citation_id}",
-                    f"- District: {c.district_id}",
+                    f"- Dealer group: {c.dealer_group_id}",
                     f"- Source type: {c.source_type.value}",
                     f"- Section: {c.section_or_page}",
                     "",
@@ -67,7 +68,7 @@ async def _export(out_dir: Path) -> int:
                     "",
                 ]
 
-            path = out_dir / f"{district.lower()}-{category}.md"
+            path = out_dir / f"{group.lower()}-{category}.md"
             path.write_text("\n".join(lines), encoding="utf-8")
             written += 1
 
@@ -75,7 +76,7 @@ async def _export(out_dir: Path) -> int:
     print("\nUpload with:")
     print("  az storage blob upload-batch \\")
     print("    --account-name <storage-account> \\")
-    print("    --destination district-knowledge \\")
+    print("    --destination group-knowledge \\")
     print(f"    --source {out_dir.relative_to(REPO_ROOT)} \\")
     print("    --auth-mode login")
     return 0

@@ -43,7 +43,7 @@ def test_scanner_flags_us_phone() -> None:
 
 
 def test_scanner_flags_org_suffix_outside_microsoft_context() -> None:
-    text = "Deployed to Northside Unified for pilot."
+    text = "Deployed to Northside Auto Group for pilot."
     violations = scan_text("planted.md", text, [])
     assert any("org suffix pattern" in v for v in violations), violations
 

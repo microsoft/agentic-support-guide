@@ -5,8 +5,8 @@ server-side. The browser never sees the key: a React bundle cannot keep a
 secret, so anything the SPA carried would be readable in DevTools.
 
 This authenticates the *web tier*, not a person. There is no user identity
-here and therefore no per-caller district authorization - the UI chooses a
-district and the API validates that it exists. In this workshop each learner
+here and therefore no per-caller dealer group authorization - the UI chooses a
+dealer group and the API validates that it exists. In this workshop each user
 deploys their own stack, so there is no second user to isolate from. Anyone
 who can reach the web tier can drive the API through it; the key only stops
 the API's own hostname being called directly.

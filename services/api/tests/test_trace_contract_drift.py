@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from app.models import AgentTraceStep
-from app.workflows.coordinator import PROVIDER_ERROR_TO_STATUS
+from app.workflows.failures import PROVIDER_ERROR_TO_STATUS
 
 _SCHEMA_PATH = Path(__file__).resolve().parents[3] / "contracts" / "v1" / "agent-trace.schema.json"
 
@@ -31,7 +31,7 @@ _EMITTED_STATUSES = {
     "passed",
     "failed",
     "evidence_missing",
-    "budget_exhausted",
+    "orchestration_budget_exhausted",
     "invalid_model_json",
 }
 
@@ -54,6 +54,17 @@ def test_schema_agent_enum_covers_every_emitted_agent() -> None:
 def test_schema_status_enum_covers_every_emitted_status() -> None:
     provider_statuses = {status for status, _code in PROVIDER_ERROR_TO_STATUS.values()}
     assert _enum("status") >= (_EMITTED_STATUSES | provider_statuses)
+
+
+def test_schema_status_enum_has_nothing_the_app_cannot_emit() -> None:
+    """The subset check above is why `budget_exhausted` survived with 0 producers.
+
+    Drift runs both ways: a value left in the schema after its producer was
+    renamed reads as supported and is never exercised.
+    """
+
+    provider_statuses = {status for status, _code in PROVIDER_ERROR_TO_STATUS.values()}
+    assert _enum("status") == (_EMITTED_STATUSES | provider_statuses)
 
 
 def test_schema_declares_every_trace_step_field() -> None:

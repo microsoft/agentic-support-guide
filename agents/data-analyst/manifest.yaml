@@ -3,7 +3,7 @@ name: Data Analyst Agent
 version: 1.0.0
 
 # Remote Foundry Agent Service binding. The remote agent is created and
-# updated by scripts/validate_agent_definitions.py from agent.md + this manifest.
+# updated by scripts/publish_prompt_agents.py from agent.md + this manifest.
 foundry:
   model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_ANALYST
   response_format: json_object
@@ -12,7 +12,6 @@ foundry:
 
 runtime:
   provider: azure_foundry_responses
-  timeout_seconds: 30
 
 contracts:
   input:
@@ -33,12 +32,13 @@ handoff:
 safety:
   human_review_required: true
   determinations_forbidden:
-    - educational
-    - clinical
+    - pricing
+    - financing
+    - credit
     - legal
-    - disability
     - compliance
-    - placement
+    - safety
+    - staffing
   untrusted_data_delimiter: "<<<UNTRUSTED_DATA>>>"
 
 tags:

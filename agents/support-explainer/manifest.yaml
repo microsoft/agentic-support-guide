@@ -12,23 +12,19 @@ foundry:
 
 runtime:
   provider: azure_foundry_responses
-  timeout_seconds: 30
   kind: prompt_agent
 
-contracts:
-  input:
-    schema_ref: data-analysis-request.schema.json
-    schema_version: 1.0.0
-  output:
-    schema_ref: data-analysis-result.schema.json
-    schema_version: 1.0.0
+# No contracts block: this agent answers in prose, not JSON.
 
 handoff: []
 
 safety:
   human_review_required: true
   determinations_forbidden:
-    - educational
-    - clinical
+    - pricing
+    - financing
+    - credit
     - legal
-    - disability
+    - compliance
+    - safety
+    - staffing

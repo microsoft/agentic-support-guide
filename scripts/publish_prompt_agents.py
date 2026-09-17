@@ -22,7 +22,10 @@ import asyncio
 import os
 import re
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "services" / "api"))
@@ -31,6 +34,7 @@ from app.foundry_agents.maf_client import aclose_foundry_client
 from app.foundry_agents.maf_runtime import RoleDefinition
 from app.foundry_agents.role_definitions import (
     ALL_AGENT_DIRS,
+    ROLE_DIRS,
     WORKSHOP_AGENT_DIRS,
     load_agent_definitions,
 )
@@ -44,8 +48,8 @@ PUBLISH_BACKOFF_SECONDS = 10
 def _agent_name(role: str, suffix: str, variant: str = "") -> str:
     """Learner-suffixed so a whole workshop can share one Foundry project.
 
-    `variant` gives Module 4 two independently addressable agents from one
-    definition. Publishing twice under the same name would only add versions,
+    `variant` gives Module 8 a second independently addressable agent alongside
+    the base name. Publishing twice under the same name would only add versions,
     and the newest would win - there would be nothing to compare.
     """
 
@@ -71,21 +75,13 @@ def _endpoint() -> str:
     )
 
 
-async def _publish_role(
-    endpoint: str,
-    definition: RoleDefinition,
-    *,
-    suffix: str,
-    apply: bool,
-    variant: str = "",
-) -> str:
+async def _build_prompt_agent(endpoint: str, definition: RoleDefinition, agent_name: str) -> Any:
+    """Turn a local agent.md definition into a publishable prompt agent."""
+
     from agent_framework import Agent
     from agent_framework.foundry import FoundryChatClient, to_prompt_agent
-    from azure.ai.projects import AIProjectClient
-    from azure.identity import DefaultAzureCredential
     from azure.identity.aio import DefaultAzureCredential as AsyncCredential
 
-    agent_name = _agent_name(definition.role, suffix, variant)
     credential = AsyncCredential()
     client = None
     try:
@@ -105,7 +101,7 @@ async def _publish_role(
             instructions=definition.instructions,
             default_options=options or None,
         ) as agent:
-            prompt_agent = to_prompt_agent(agent)
+            return to_prompt_agent(agent)
     finally:
         # Exiting the Agent context does NOT close FoundryChatClient's own
         # HTTP sessions, so this has to be explicit or the script leaks a
@@ -114,19 +110,45 @@ async def _publish_role(
             await aclose_foundry_client(client)
         await _aclose(credential)
 
-    if not apply:
-        return f"[dry-run] would publish {agent_name} (model={definition.model_deployment})"
 
-    project = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
-    # create_version intermittently exceeds its read timeout on a freshly
-    # provisioned project. Retrying is safe: a repeat call just adds a version.
+@contextmanager
+def _project_client(endpoint: str) -> Iterator[Any]:
+    """An AIProjectClient that closes its own credential.
+
+    Neither the client nor the credential releases its HTTP session on
+    garbage collection, so every entry point that builds one has to close it.
+    """
+
+    from azure.ai.projects import AIProjectClient
+    from azure.identity import DefaultAzureCredential
+
+    credential = DefaultAzureCredential()
+    client = AIProjectClient(endpoint=endpoint, credential=credential)
+    try:
+        yield client
+    finally:
+        client.close()
+        credential.close()
+
+
+async def _create_version(endpoint: str, agent_name: str, prompt_agent: Any) -> str:
+    """create_version, retried.
+
+    It intermittently exceeds its read timeout on a freshly provisioned
+    project. Retrying is safe: a repeat call just adds another version.
+    """
+
     last_exc: Exception | None = None
-    for attempt in range(1, PUBLISH_ATTEMPTS + 1):
-        try:
-            version = project.agents.create_version(agent_name=agent_name, definition=prompt_agent)
-        except Exception as exc:  # noqa: BLE001 - retried, then reported
-            last_exc = exc
-            if attempt < PUBLISH_ATTEMPTS:
+    with _project_client(endpoint) as project:
+        for attempt in range(1, PUBLISH_ATTEMPTS + 1):
+            try:
+                version = project.agents.create_version(
+                    agent_name=agent_name, definition=prompt_agent
+                )
+            except Exception as exc:  # noqa: BLE001 - retried, then reported
+                last_exc = exc
+                if attempt == PUBLISH_ATTEMPTS:
+                    break
                 delay = PUBLISH_BACKOFF_SECONDS * attempt
                 print(
                     f"  [retry {attempt}/{PUBLISH_ATTEMPTS - 1}] {agent_name}: "
@@ -135,13 +157,27 @@ async def _publish_role(
                 )
                 await asyncio.sleep(delay)
                 continue
-            break
-        return f"published {agent_name} version={getattr(version, 'version', '?')}"
+            return f"published {agent_name} version={getattr(version, 'version', '?')}"
 
     raise RuntimeError(
         f"{agent_name} failed after {PUBLISH_ATTEMPTS} attempts: "
         f"{type(last_exc).__name__}: {last_exc}"
     )
+
+
+async def _publish_role(
+    endpoint: str,
+    definition: RoleDefinition,
+    *,
+    suffix: str,
+    apply: bool,
+    variant: str = "",
+) -> str:
+    agent_name = _agent_name(definition.role, suffix, variant)
+    prompt_agent = await _build_prompt_agent(endpoint, definition, agent_name)
+    if not apply:
+        return f"[dry-run] would publish {agent_name} (model={definition.model_deployment})"
+    return await _create_version(endpoint, agent_name, prompt_agent)
 
 
 async def _aclose(obj: object) -> None:
@@ -166,37 +202,37 @@ def _delete_agents(endpoint: str, suffix: str, variants: tuple[str, ...] = ()) -
     `--variant`, which is how they were created in the first place.
     """
 
-    from azure.ai.projects import AIProjectClient
-    from azure.identity import DefaultAzureCredential
+    if variants:
+        # Scoped to the named variant only. Seeding the base names here too
+        # would make `--variant strict --delete` wipe every agent for the
+        # suffix, which is the opposite of naming one explicitly.
+        targets: set[str] = set()
+        for variant in variants:
+            targets |= {_agent_name(role, suffix, variant) for role in ALL_AGENT_DIRS.values()}
+    else:
+        targets = {_agent_name(role, suffix) for role in ALL_AGENT_DIRS.values()}
 
-    project = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
-    targets = {_agent_name(role, suffix) for role in ALL_AGENT_DIRS.values()}
-    for variant in variants:
-        targets |= {_agent_name(role, suffix, variant) for role in ALL_AGENT_DIRS.values()}
-
-    present = {str(getattr(a, "name", "") or "") for a in project.agents.list()}
-    mine = sorted(present & targets)
-    if not mine:
-        print(f"No agents found for suffix {suffix!r}. Nothing to delete.")
-        skipped = sorted(n for n in present if n.startswith(f"{AGENT_NAME_PREFIX}"))
-        if skipped:
-            print("Present but not deleted (not an exact match for this suffix):")
-            for name in skipped:
-                print(f"  {name}")
-            print("Pass --variant <name> to delete a variant.")
-        return 0
-    for name in mine:
-        project.agents.delete(name)
-        print(f"deleted {name}")
+    with _project_client(endpoint) as project:
+        present = {str(getattr(a, "name", "") or "") for a in project.agents.list()}
+        mine = sorted(present & targets)
+        if not mine:
+            print(f"No agents found for suffix {suffix!r}. Nothing to delete.")
+            skipped = sorted(n for n in present if n.startswith(f"{AGENT_NAME_PREFIX}"))
+            if skipped:
+                print("Present but not deleted (not an exact match for this suffix):")
+                for name in skipped:
+                    print(f"  {name}")
+                print("Pass --variant <name> to delete a variant.")
+            return 0
+        for name in mine:
+            project.agents.delete(name)
+            print(f"deleted {name}")
     return 0
 
 
 def _list_agents(endpoint: str) -> int:
-    from azure.ai.projects import AIProjectClient
-    from azure.identity import DefaultAzureCredential
-
-    project = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
-    found = list(project.agents.list())
+    with _project_client(endpoint) as project:
+        found = list(project.agents.list())
     if not found:
         print("No agents in this Foundry project.")
         return 0
@@ -206,20 +242,14 @@ def _list_agents(endpoint: str) -> int:
     return 0
 
 
-async def _main_async(
+async def _publish_all(
+    endpoint: str,
+    *,
     apply: bool,
     suffix: str,
     dirs: dict[str, str],
     variant: str = "",
 ) -> int:
-    endpoint = _endpoint()
-    if not endpoint:
-        print(
-            "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set. Run .\\scripts\\populate-env.ps1 first.",
-            file=sys.stderr,
-        )
-        return 2
-
     roles = load_agent_definitions(dirs)
     if not roles:
         print(
@@ -267,10 +297,7 @@ async def _main_async(
     return 0
 
 
-def main() -> int:
-    # Must precede argparse: the --suffix default reads the environment.
-    _load_env()
-
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Publish a new version of each agent.")
     parser.add_argument("--list", action="store_true", help="List agents in the project and exit.")
@@ -287,28 +314,58 @@ def main() -> int:
             "project never collide. Defaults to WORKSHOP_LEARNER_SUFFIX."
         ),
     )
-    parser.add_argument(
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument(
         "--workshop-only",
         action="store_true",
         help="Publish only the standalone workshop agents, not the coordinator roles.",
+    )
+    scope.add_argument(
+        "--roles-only",
+        action="store_true",
+        help="Publish only the coordinator roles, leaving the explainer untouched.",
     )
     parser.add_argument(
         "--variant",
         default="",
         help=(
-            "Extra name segment, e.g. --variant strict. Use it to publish the "
-            "same definition as two comparable agents in Module 4."
+            "Extra name segment, e.g. --variant baseline. Publishes the same "
+            "definition under a second name, for the Module 8 comparison."
         ),
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def _require_endpoint() -> str | None:
+    endpoint = _endpoint()
+    if not endpoint:
+        print(
+            "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set. Run .\\scripts\\populate-env.ps1 first.",
+            file=sys.stderr,
+        )
+        return None
+    return endpoint
+
+
+def _selected_dirs(args: argparse.Namespace) -> dict[str, str]:
+    if args.workshop_only:
+        return WORKSHOP_AGENT_DIRS
+    if args.roles_only:
+        return ROLE_DIRS
+    return ALL_AGENT_DIRS
+
+
+def main() -> int:
+    # Must precede argparse: the --suffix default reads the environment.
+    _load_env()
+    args = _parse_args()
 
     if args.list:
-        endpoint = _endpoint()
-        if not endpoint:
-            print("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.", file=sys.stderr)
-            return 2
-        return _list_agents(endpoint)
+        endpoint = _require_endpoint()
+        return _list_agents(endpoint) if endpoint else 2
 
+    # Argument validation first: a bad --suffix is the caller's to fix, and
+    # reporting a missing endpoint instead would send them down the wrong path.
     suffix = args.suffix.strip().lower()
     if not suffix:
         print(
@@ -324,25 +381,24 @@ def main() -> int:
         )
         return 2
 
-    if args.delete:
-        endpoint = _endpoint()
-        if not endpoint:
-            print("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.", file=sys.stderr)
-            return 2
-        requested = (args.variant.strip().lower(),) if args.variant.strip() else ()
-        return _delete_agents(endpoint, suffix, requested)
-
     variant = args.variant.strip().lower()
     if variant and not re.fullmatch(r"[a-z0-9-]{1,16}", variant):
         print(f"Invalid variant {variant!r}. Use 1-16 chars of a-z, 0-9 or '-'.", file=sys.stderr)
         return 2
 
-    dirs = WORKSHOP_AGENT_DIRS if args.workshop_only else ALL_AGENT_DIRS
+    endpoint = _require_endpoint()
+    if endpoint is None:
+        return 2
+
+    if args.delete:
+        return _delete_agents(endpoint, suffix, (variant,) if variant else ())
+
     return asyncio.run(
-        _main_async(
+        _publish_all(
+            endpoint,
             apply=args.apply,
             suffix=suffix,
-            dirs=dirs,
+            dirs=_selected_dirs(args),
             variant=variant,
         )
     )

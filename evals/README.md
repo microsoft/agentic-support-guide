@@ -1,7 +1,7 @@
 # Evaluations
 
 Synthetic evaluation cases and structural/safety checks for the three
-agents. All cases use synthetic learners only. Evaluation runs never
+agents. All cases use synthetic dealerships only. Evaluation runs never
 capture full prompts or full completions in committed files.
 
 ## Layout
@@ -45,18 +45,18 @@ model versions; the checks that matter are:
 
 - the envelope is well formed and the trace contains all three agents
 - `status=ok` carries a recommendation with `completeness.ok == true`
-- support tier uses universal / targeted / intensive / enrichment framing
+- support tier uses baseline / focused / intensive / advanced framing
 - `review_window_days` is between 7 and 180
 - caveats contain the literal phrase `human review`
 - at least one citation is present, and every citation belongs to the
-  same district as the recommendation
-- rationale and detected need contain no determination language
-  (diagnosis, eligibility, placement decision, legal determination)
+  same dealer group as the recommendation
+- every free-text field contains no determination language
+  (pricing, financing, credit, compliance, safety, staffing)
 - on a non-ok status, no recommendation body leaks and an `error_code`
   is present
 
 Adding a case is one line in `synthetic_cases.jsonl`. It must include
-`district_id`, and its district/category pair must have evidence
+`dealer_group_id`, and its dealer group/category pair must have evidence
 fixtures, or the run is ungrounded by construction.
 `services/api/tests/test_eval_cases.py` enforces both.
 

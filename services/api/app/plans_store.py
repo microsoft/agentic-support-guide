@@ -11,9 +11,9 @@ import threading
 
 from .human_review import HumanReviewState
 from .mock_data import (
-    AssessmentRecord,
-    BehaviorRecord,
-    Learner,
+    AreaScoreRecord,
+    Dealership,
+    OperationsRecord,
     ResourceItem,
     SeededPlanSpec,
 )
@@ -29,12 +29,12 @@ _STUB_CAVEATS = (
     "Human review is required before any decision or communication.",
 )
 
-_STUB_DISTRICT = "DIST-DEMO"
+_STUB_DEALER_GROUP = "GROUP-DEMO"
 
 
 def _stub_recommendation(category: str) -> Recommendation:
     return Recommendation(
-        district_id=_STUB_DISTRICT,
+        dealer_group_id=_STUB_DEALER_GROUP,
         detected_need=f"Seeded example for category '{category}'.",
         evidence_summary=[
             "Synthetic seeded evidence line 1.",
@@ -44,28 +44,28 @@ def _stub_recommendation(category: str) -> Recommendation:
             "Seeded example recommendation. Regenerate via the plan builder "
             "for a live agent-produced version."
         ),
-        support_tier="Targeted support (Tier 2)",
-        recommended_frequency="3x weekly, 20-25 min",
-        grouping_guidance="small group of 3-5",
+        support_tier="Focused",
+        recommended_frequency="weekly review, 20-25 min",
+        grouping_guidance="single dealership with group oversight",
         resource_matches=[
-            RecommendationResource(id="RES-001", label="Seeded Kit 001", kind="guide"),
+            RecommendationResource(id="RES-001", label="Seeded Kit 001", kind="playbook"),
         ],
-        educator_next_steps=["Coordinate scheduling.", "Communicate with the support team."],
-        progress_monitoring=["Weekly 3-minute probe."],
+        manager_next_steps=["Confirm the review slot.", "Brief the sales manager."],
+        progress_monitoring=["Weekly check on the agreed measure."],
         review_window_days=28,
         decision_rule="Seeded stub - see the coordinator for live decision rules.",
         caveats=list(_STUB_CAVEATS),
-        smart_goal_suggestions=[f"SG-{category}-1"],
+        goal_suggestions=[f"GOAL-{category}-1"],
         strategy_suggestions=[f"ST-{category}-1"],
         citations=[
             RecommendationCitation(
-                citation_id=f"{_STUB_DISTRICT}-seed-{category}",
-                district_id=_STUB_DISTRICT,
+                citation_id=f"{_STUB_DEALER_GROUP}-seed-{category}",
+                dealer_group_id=_STUB_DEALER_GROUP,
                 source_type="synthetic_fixture",
                 source_title="Seeded synthetic fixture",
                 section_or_page="",
                 evidence_summary="Seeded synthetic citation attached to a stub plan.",
-                source_ref=f"fixture://{_STUB_DISTRICT.lower()}/{category}/seed",
+                source_ref=f"fixture://{_STUB_DEALER_GROUP.lower()}/{category}/seed",
                 retrieved_at="2026-01-05T09:00:00Z",
                 confidence=0.7,
             )
@@ -93,28 +93,28 @@ class SavedPlansStore:
     def seed(
         self,
         specs: list[SeededPlanSpec],
-        learners: list[Learner],
-        assessments: list[AssessmentRecord],
-        behavior: list[BehaviorRecord],
+        dealerships: list[Dealership],
+        area_scores: list[AreaScoreRecord],
+        operations: list[OperationsRecord],
         resources: list[ResourceItem],
     ) -> None:
-        del assessments, behavior, resources
-        learners_by_id = {learner.learner_id: learner for learner in learners}
+        del area_scores, operations, resources
+        dealerships_by_id = {d.dealership_id: d for d in dealerships}
         # Every other mutator takes the lock. `demo/reset` calls this while
         # other requests are reading and appending, so without it the list and
         # the id counter can diverge.
         with self._lock:
             for spec in specs:
-                if spec.learner_id not in learners_by_id:
+                if spec.dealership_id not in dealerships_by_id:
                     continue
                 self._plans.append(
                     SavedPlan(
                         plan_id=spec.plan_id,
-                        learner_id=spec.learner_id,
-                        district_id=_STUB_DISTRICT,
+                        dealership_id=spec.dealership_id,
+                        dealer_group_id=_STUB_DEALER_GROUP,
                         category=spec.category,
                         concern_text=spec.concern_text,
-                        selected_smart_goal=spec.selected_smart_goal_id,
+                        selected_goal=spec.selected_goal_id,
                         selected_strategies=list(spec.selected_strategy_ids),
                         created_at=spec.created_at,
                         recommendation=_stub_recommendation(spec.category),

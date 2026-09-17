@@ -1,7 +1,7 @@
 """Invoke a deployed hosted agent over the Responses protocol.
 
-Module 7 uses this to prove the hosted agent works, and to compare it
-against the Module 2 prompt agent. Auth is Entra: the managed endpoint
+Module 5 uses this to prove the hosted agent works, and to compare it
+against the Module 4 prompt agent. Auth is Entra: the managed endpoint
 accepts a token for the Foundry scope, so no key is involved.
 
 Usage:
@@ -21,8 +21,8 @@ ENV_FILE = REPO_ROOT / "services" / "api" / ".env"
 AGENT_NAME_PREFIX = "asg-hosted-explainer-"
 
 DEFAULT_QUESTION = (
-    "What does the district say about supporting a learner whose "
-    "letter-sound fluency is behind pace?"
+    "What does the dealer group standard say about enquiry response when "
+    "first-response times are behind target?"
 )
 
 
@@ -86,7 +86,7 @@ def main() -> int:
             if isinstance(identity, dict)
             else getattr(identity, "principal_id", None)
         )
-        # Module 7 step 6: this principal is the agent's own, not the caller's.
+        # Module 5 step 6: this principal is the agent's own, not the caller's.
         print(f"Identity : {principal or '(none reported)'}")
     except Exception as exc:  # noqa: BLE001 - informational only
         print(f"Identity : unavailable ({type(exc).__name__})")

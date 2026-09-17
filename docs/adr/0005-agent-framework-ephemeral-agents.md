@@ -24,7 +24,7 @@ file. Three problems surfaced in practice:
    "Update your agents". Accepting that prompt copies agents to new IDs and
    orphans the bindings file.
 3. **Persisted agents are a shared namespace.** This repo is used by dozens
-   of learners, frequently in the same subscription. Server-side agent names
+   of dealerships, frequently in the same subscription. Server-side agent names
    are one more thing that can collide, and one more thing to clean up.
 
 ## Decision
@@ -40,7 +40,7 @@ This produces *ephemeral* agents: the definition is assembled in-process from
 - No MAF session or `conversation_id` is reused across roles or across the
   repair pass, preserving the isolation boundary between agents.
 - The deterministic Python coordinator is unchanged in role: it still owns
-  ordering, contract validation, budgets, district scoping, and the one-shot
+  ordering, contract validation, budgets, dealer group scoping, and the one-shot
   repair loop. It is not an agent and does not call a model.
 
 ## Consequences

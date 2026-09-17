@@ -2,9 +2,9 @@
 
 Loads all JSON Schemas at process start and validates payloads on demand.
 The runtime uses this as the sole protocol boundary: every inter-agent
-message is validated here before flowing downstream. No relative `$ref`
-resolution based on CWD - the registry rewrites in-repo `$ref` values
-into a stable in-memory reference before validation.
+message is validated here before flowing downstream. The schemas are
+self-contained - none of them carries a `$ref` - so there is no relative
+reference resolution and nothing depends on the working directory.
 """
 
 from __future__ import annotations

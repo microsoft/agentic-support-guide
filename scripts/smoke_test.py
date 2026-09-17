@@ -145,7 +145,7 @@ class Smoke:
         unauthenticated API would sail through every other check.
         """
 
-        for path in ("/api/supports/plans", "/api/learners", "/api/health/details"):
+        for path in ("/api/supports/plans", "/api/dealerships", "/api/health/details"):
             # No redirect following: a 302 to a login page returns 200 for the
             # login HTML, which would read as a successful API response.
             req = urllib.request.Request(f"{self.api}{path}")
@@ -204,10 +204,10 @@ class Smoke:
         status, data = post(
             f"{self.api}/api/recommendations/support-plan",
             {
-                "district_id": "DIST-A",
-                "learner_id": "LRN-0001",
-                "category": "early-literacy",
-                "concern_text": "Letter-sound fluency below expected pace.",
+                "dealer_group_id": "GROUP-A",
+                "dealership_id": "DLR-0001",
+                "category": "lead-response",
+                "concern_text": "Median first response to online enquiries slipped past one hour.",
             },
         )
         assert status == 200, status
@@ -237,14 +237,14 @@ class Smoke:
             f"trace says provider={step.get('provider')}, expected {self.expect_evidence}"
         )
 
-    def district_isolation(self) -> None:
+    def dealer_group_isolation(self) -> None:
         rec = (self.state.get("rec") or {}).get("recommendation") or {}
         stray = [
             c
             for c in (rec.get("citations") or [])
-            if c.get("district_id") not in (None, "", "DIST-A")
+            if c.get("dealer_group_id") not in (None, "", "GROUP-A")
         ]
-        assert not stray, f"citations leaked from another district: {stray}"
+        assert not stray, f"citations leaked from another dealer group: {stray}"
 
     def audit(self) -> None:
         status, body = get(f"{self.api}/api/audit/events")
@@ -270,7 +270,7 @@ class Smoke:
         self.check("support-plan request succeeds", self.recommendation)
         self.check("recommendation carries citations", self.citations)
         self.check("trace names the real evidence provider", self.trace_reports_expected_provider)
-        self.check("no cross-district citations", self.district_isolation)
+        self.check("no cross-group citations", self.dealer_group_isolation)
         self.check("audit trail recorded the call", self.audit)
 
         print()

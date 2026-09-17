@@ -10,7 +10,6 @@ foundry:
 
 runtime:
   provider: azure_foundry_responses
-  timeout_seconds: 30
 
 contracts:
   input:
@@ -32,12 +31,13 @@ safety:
   llm_critique_advisory_only: true
   advisory_code_regex: "^[A-Z][A-Z0-9_]{3,59}$"
   determinations_forbidden:
-    - educational
-    - clinical
+    - pricing
+    - financing
+    - credit
     - legal
-    - disability
     - compliance
-    - placement
+    - safety
+    - staffing
 
 tags:
   - synthetic-data-only

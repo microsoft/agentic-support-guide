@@ -1,4 +1,4 @@
-"""Module 8: grade the agents instead of guessing whether they are good.
+"""Module 9: grade the agents instead of guessing whether they are good.
 
 `scripts/run_evals.py` answers "is the output structurally valid and safe?"
 with deterministic checks. That is necessary but it cannot tell you whether
@@ -70,7 +70,7 @@ async def _build_context(case: dict[str, Any]) -> str:
 
     bundle = await FixtureEvidenceRetriever().retrieve(
         EvidenceRequest(
-            district_id=case["district_id"],
+            dealer_group_id=case["dealer_group_id"],
             category=case["category"],
             detected_need_hint="",
         )
@@ -106,37 +106,25 @@ def _list_evaluators() -> int:
     return 0
 
 
-async def _run(evaluator_names: tuple[str, ...], apply: bool) -> int:
-    endpoint = _endpoint()
-    if not endpoint:
-        print(
-            "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set. Run .\\scripts\\populate-env.ps1 first.",
-            file=sys.stderr,
-        )
-        return 2
+def _grounded_prompt(query: str, context: str) -> str:
+    """The fenced block matches what the runtime envelope tells the agent to trust."""
 
-    agent_model = os.environ.get("FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER", "")
-    judge_model = os.environ.get("FOUNDRY_MODEL_DEPLOYMENT_JUDGE", "") or agent_model
-    if not agent_model:
-        print("FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER is not set.", file=sys.stderr)
-        return 2
+    return f"<<<UNTRUSTED_DATA>>>\n{context}\n<<<END_UNTRUSTED_DATA>>>\n\n{query}"
 
-    cases = _load_cases()
-    queries = [str(c["concern_text"]) for c in cases]
-    contexts = [await _build_context(c) for c in cases]
 
-    print(f"Evaluating {len(cases)} case(s)")
-    print(f"  agent model : {agent_model}")
-    print(f"  judge model : {judge_model}")
-    print(f"  evaluators  : {', '.join(evaluator_names)}")
+async def _grade_all(
+    endpoint: str,
+    *,
+    agent_model: str,
+    judge_model: str,
+    evaluator_names: tuple[str, ...],
+    cases: list[dict[str, Any]],
+    queries: list[str],
+    contexts: list[str],
+) -> int:
+    """Returns the number of cases that regressed."""
 
-    if not apply:
-        print("\nDry run. Nothing was sent to Azure. Re-run with --apply to grade.")
-        for case, context in zip(cases, contexts, strict=True):
-            print(f"  {case['id']}: {len(context)} chars of grounding context")
-        return 0
-
-    from agent_framework import Agent, evaluate_agent
+    from agent_framework import Agent, Message, evaluate_agent
     from agent_framework.foundry import FoundryChatClient, FoundryEvals
     from app.foundry_agents.role_definitions import (
         WORKSHOP_AGENT_DIRS,
@@ -168,14 +156,21 @@ async def _run(evaluator_names: tuple[str, ...], apply: bool) -> int:
             instructions=definition.instructions,
         ) as agent:
             for case, query, context in zip(cases, queries, contexts, strict=True):
+                # evaluate_agent(queries=...) sends the bare query to the agent
+                # and attaches `context` to the grading item only, so the agent
+                # would answer blind and groundedness would score it against
+                # evidence it never saw. Run it ourselves with the evidence,
+                # then grade that response against the clean question.
+                response = await agent.run([Message("user", [_grounded_prompt(query, context)])])
                 results = await evaluate_agent(
                     agent=agent,
                     queries=query,
+                    responses=response,
                     evaluators=grader,
                     context=context,
                     eval_name=f"asg-{case['id']}",
                 )
-                if _report(case["id"], results):
+                if _report(str(case["id"]), results):
                     failures += 1
     finally:
         # Exiting the Agent context leaves the chat client's inner sessions
@@ -183,29 +178,60 @@ async def _run(evaluator_names: tuple[str, ...], apply: bool) -> int:
         for attr in ("client", "project_client"):
             await _aclose(getattr(client, attr, None))
         await _aclose(credential)
+    return failures
 
+
+async def _run(evaluator_names: tuple[str, ...], apply: bool) -> int:
+    endpoint = _endpoint()
+    if not endpoint:
+        print(
+            "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set. Run .\\scripts\\populate-env.ps1 first.",
+            file=sys.stderr,
+        )
+        return 2
+
+    agent_model = os.environ.get("FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER", "")
+    # Grading with the model under test is the cheap default, but a separate
+    # judge deployment keeps the grader honest when one is configured.
+    judge_model = os.environ.get("FOUNDRY_MODEL_DEPLOYMENT_JUDGE", "") or agent_model
+    if not agent_model:
+        print("FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER is not set.", file=sys.stderr)
+        return 2
+
+    cases = _load_cases()
+    queries = [str(c["concern_text"]) for c in cases]
+    contexts = [await _build_context(c) for c in cases]
+
+    print(f"Evaluating {len(cases)} case(s)")
+    print(f"  agent model : {agent_model}")
+    print(f"  judge model : {judge_model}")
+    print(f"  evaluators  : {', '.join(evaluator_names)}")
+
+    if not apply:
+        print("\nDry run. Nothing was sent to Azure. Re-run with --apply to grade.")
+        for case, context in zip(cases, contexts, strict=True):
+            print(f"  {case['id']}: {len(context)} chars of grounding context")
+        return 0
+
+    failures = await _grade_all(
+        endpoint,
+        agent_model=agent_model,
+        judge_model=judge_model,
+        evaluator_names=evaluator_names,
+        cases=cases,
+        queries=queries,
+        contexts=contexts,
+    )
     print(f"\n{len(cases) - failures}/{len(cases)} case(s) passed the quality gate.")
     return 1 if failures else 0
 
 
-def _report(case_id: str, results: Any) -> bool:
-    """Print one line per case. Returns True if this case regressed.
+def _collect_scores(runs: list[Any]) -> list[tuple[str, float, bool | None]]:
+    """Flatten `EvalResults -> items -> scores` into (name, score, passed).
 
-    `EvalResults` exposes `items -> scores -> EvalScoreResult(name, score,
-    passed)`. A run that produced no scores is a FAILURE, not a pass: it
-    means the grader did not actually grade anything.
+    Booleans are excluded because `isinstance(True, int)` is True and a
+    pass/fail flag is not a score.
     """
-
-    runs = results if isinstance(results, list) else [results]
-
-    status_errors = [
-        f"{getattr(r, 'status', '?')}: {getattr(r, 'error', '') or 'no detail'}"
-        for r in runs
-        if getattr(r, "status", "completed") != "completed"
-    ]
-    if status_errors:
-        print(f"  [fail] {case_id}: grader did not complete - {'; '.join(status_errors)}")
-        return True
 
     scores: list[tuple[str, float, bool | None]] = []
     for run in runs:
@@ -220,7 +246,28 @@ def _report(case_id: str, results: Any) -> bool:
                             getattr(score, "passed", None),
                         )
                     )
+    return scores
 
+
+def _report(case_id: str, results: Any) -> bool:
+    """Print one line per case. Returns True if this case regressed.
+
+    A run that produced no scores is a FAILURE, not a pass: it means the
+    grader did not actually grade anything.
+    """
+
+    runs = results if isinstance(results, list) else [results]
+
+    status_errors = [
+        f"{getattr(r, 'status', '?')}: {getattr(r, 'error', '') or 'no detail'}"
+        for r in runs
+        if getattr(r, "status", "completed") != "completed"
+    ]
+    if status_errors:
+        print(f"  [fail] {case_id}: grader did not complete - {'; '.join(status_errors)}")
+        return True
+
+    scores = _collect_scores(runs)
     if not scores:
         print(f"  [fail] {case_id}: grader returned no scores - nothing was graded")
         return True

@@ -47,11 +47,11 @@ FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER=$deployment
 FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR=$deployment
 FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER=$deployment
 
-# Module 5 (router) and Module 8 (evaluation judge).
+# Module 7 (router) and Module 9 (evaluation judge).
 FOUNDRY_MODEL_DEPLOYMENT_ROUTER=$router
 FOUNDRY_MODEL_DEPLOYMENT_JUDGE=$judge
 
-# Module 3 (Foundry IQ knowledge plane).
+# Module 6 (Foundry IQ knowledge plane).
 AZURE_SEARCH_ENDPOINT=$searchEndpoint
 KNOWLEDGE_STORAGE_ACCOUNT=$knowledgeStore
 KNOWLEDGE_CONTAINER=$knowledgeBlob

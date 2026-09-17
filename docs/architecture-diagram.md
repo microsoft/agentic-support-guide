@@ -47,21 +47,6 @@ render script. No repo-local Structurizr export chain is installed, so
 the SVG is a hand-maintained companion diagram that matches the DSL by
 convention.
 
-The most recent DSL revision added:
-
-- `Evidence Retriever` (with `EvidenceRetriever` interface, fixture
-  implementation today, Fabric-backed intended for production).
-- `Human Review` (lifecycle: draft → pending → approved / rejected).
-- `Microsoft Fabric (per district)` external system with a
-  workspace + lakehouse container per district.
-- Cross-references to the new ADRs.
-
-These are reflected in the SVG's accessible description text
-(`<desc>`), but the visual layout has not been redrawn to add the new
-boxes. When the operator installs the render toolchain, running
-`./scripts/render-architecture-diagram.ps1` will regenerate the SVG
-from the current DSL.
-
 When the DSL changes, the operator should either:
 
 1. install `structurizr-cli` and `plantuml`, then run
@@ -90,39 +75,37 @@ in use and is not currently applied in the DSL styles.
 - Or load the file into a Structurizr Lite instance to render the
   Container view named `AgenticSupportGuideContainers` or the two
   Component views (`APIServiceComponents`,
-  `RemoteFoundryAgentsComponents`).
+  `EphemeralFoundryAgentsComponents`).
 
 ## What the diagram shows
 
 - One person: `Demo User`.
-- One internal software system, `Agentic Support Guide`, with seven
+- One internal software system, `Agentic Support Guide`, with six
   containers (`Web App`, `API Service`, `Synthetic Data`,
-  `Evidence Retriever`, `Human Review`, `Protocol Contracts`,
-  `Agent Definitions`) plus one C4 component nested inside
-  `API Service`: `Workflow Coordinator`.
+  `Human Review`, `Agent Definitions`, `Protocol Contracts`) plus one
+  C4 component nested inside `API Service`: `Workflow Coordinator`.
 - One external software system, `Azure AI Foundry`, with four
-  containers (`Foundry Project`, `Remote Foundry Agents`,
+  containers (`Foundry Project`, `Ephemeral Foundry Agents`,
   `Model Deployment`, `Observability`) plus three C4 components nested
-  inside `Remote Foundry Agents`: `Data Analyst Agent`,
+  inside `Ephemeral Foundry Agents`: `Data Analyst Agent`,
   `Support Recommendation Agent`, and `Validator Agent`.
-- One external software system, `Microsoft Fabric (per district)`,
-  with a workspace + lakehouse container per district (shown as
-  `District A workspace + lakehouse` and `District B workspace +
-  lakehouse`). This tier is the **target production data plane**;
-  this repo talks to it via the `Evidence Retriever` abstraction, and
-  today only the synthetic fixture implementation is wired up.
 - One external software system, `Deployment & Operations`, with one
-  container: `Terraform & Sync Scripts`.
+  container: `Terraform & Ops Scripts`.
 
-The three remote agents share a single `Model Deployment`, shown by one
+`Ephemeral Foundry Agents` describes the runtime: instructions are composed
+in-process per call, so the application never invokes a stored agent. The
+same definitions are separately published to Foundry as versioned prompt
+agents for portal visibility — see
+[`adr/0006-published-prompt-agents.md`](adr/0006-published-prompt-agents.md).
+
+The three agents share a single `Model Deployment`, shown by one
 grouped arrow labeled *uses shared model deployment* rather than three
 separate connections.
 
-The Fabric workspace-per-district boundary reflects the district
-isolation rule (see
-[`adr/0003-district-isolation-and-grounding.md`](adr/0003-district-isolation-and-grounding.md)).
-The `Evidence Retriever` container is the plug-in point for a
-Fabric-backed retriever (see
+The dealer group isolation rule is enforced in the API and the retrieval
+filter rather than by a container boundary (see
+[`adr/0003-dealer-group-isolation-and-grounding.md`](adr/0003-dealer-group-isolation-and-grounding.md)
+and
 [`adr/0004-grounding-and-citations.md`](adr/0004-grounding-and-citations.md)).
 The `Human Review` container reflects the draft / pending / approved
 / rejected lifecycle enforced by the coordinator and the review

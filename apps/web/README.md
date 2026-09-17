@@ -2,9 +2,8 @@
 
 Local prototype UI. React + TypeScript + Vite + Tailwind CSS + Recharts.
 
-Renders four fully implemented pages (Dashboard, Assessments, Supports,
-AI Audit) plus a shared PlaceholderPage for the other nav items. The
-Supports page shows a live three-agent workflow panel and provider
+Renders five pages: Dashboard, Assessments, Supports, AI Audit and Demo
+Guide. The Supports page shows a live three-agent workflow panel and provider
 status, and handles the full set of typed failure states returned by
 the backend envelope.
 
@@ -55,8 +54,8 @@ Local development already works this way: `vite.config.ts` proxies
 `/api` to `http://127.0.0.1:8000`, so the shape is identical and the API
 skips the key check when it is not on App Service.
 
-The district list comes from `/api/supports/options`, never from a
-constant in the UI. More than one district renders a picker.
+The dealer group list comes from `/api/supports/options`, never from a
+constant in the UI. More than one dealer group renders a picker.
 
 Anyone who can open the UI can use it. See
 [docs/security-and-privacy.md](../../docs/security-and-privacy.md) for
@@ -67,14 +66,13 @@ what that does and does not protect.
 The UI reads `/api/health/details` for setup status. The Demo Guide and
 Supports pages both render a `SetupStatus` component:
 
-- **Customer demo ready (green):** `active_provider = "azure_foundry"`
+- **Customer demo ready (green):** `active_provider = "azure_foundry_responses"`
   and Azure AI Foundry env vars are populated.
-- **Customer demo NOT ready (red):** provider unconfigured or the
-  backend is currently wired to a test-double LLM provider (which only
-  happens inside `pytest`).
+- **Customer demo NOT ready (red):** the provider is unconfigured.
 
 The Supports page renders a distinct error message for each envelope
 status returned by the coordinator: `provider_missing`,
 `provider_timeout`, `provider_throttling`, `provider_content_filter`,
-`provider_error`, `invalid_model_json`, `validation_failed`, and
-`orchestration_budget_exhausted`.
+`provider_error`, `invalid_model_json`, `validation_failed`,
+`orchestration_budget_exhausted`, `orchestration_error`, and
+`evidence_missing`.

@@ -1,8 +1,8 @@
 """Data Analyst Agent - remote Foundry agent invocation.
 
-The Python wrapper attaches `district_id` (from context) to the parsed
+The Python wrapper attaches `dealer_group_id` (from context) to the parsed
 model output. The remote agent itself does not need to know about
-`district_id`; the coordinator is the source of truth for tenant
+`dealer_group_id`; the coordinator is the source of truth for tenant
 boundaries.
 """
 
@@ -12,9 +12,11 @@ import json
 from dataclasses import dataclass
 
 from ...foundry_agents.maf_runtime import MafAgentRuntime
+from ...operations import OperationsSeries
+from ...scores import AreaSeries
 from ..shared.contracts import DataAnalystModelOutput, DataAnalystOutput
+from ..shared.prompt_blocks import wrap_untrusted
 from ..shared.responses import parse_role_response
-from ..shared.sanitization import wrap_untrusted
 
 AGENT_ID = "data-analyst"
 AGENT_NAME = "data-analyst-agent"
@@ -22,19 +24,18 @@ AGENT_NAME = "data-analyst-agent"
 
 @dataclass(frozen=True)
 class DataAnalystContext:
-    district_id: str
-    learner_label: str
-    grade: int
-    school_id: str
-    group: str
-    proficiency_index: float
-    attendance_rate: float
-    behavior_index: float
+    dealer_group_id: str
+    dealership_label: str
+    region_id: str
+    segment: str
+    process_score: float
+    appointment_attendance_rate: float
+    followup_index: float
     engagement_index: float
-    assessment_count: int
-    behavior_record_count: int
+    area_series: AreaSeries
+    operations_series: OperationsSeries
     category: str
-    sanitized_concern_text: str
+    concern_text: str
 
 
 class DataAnalystAgent:
@@ -44,25 +45,39 @@ class DataAnalystAgent:
     async def analyze(
         self, context: DataAnalystContext, *, deadline: float | None = None
     ) -> DataAnalystOutput:
+        # The series, not just their size. Sending only a record count left
+        # the model with nothing to compare across areas or over time, which
+        # is the whole analysis this agent is asked for.
+        areas = context.area_series
+        ops = context.operations_series
         facts = {
-            "learner_label": context.learner_label,
-            "grade": context.grade,
-            "school_id": context.school_id,
-            "group": context.group,
-            "proficiency_index": context.proficiency_index,
-            "attendance_rate": context.attendance_rate,
-            "behavior_index": context.behavior_index,
+            "dealership_label": context.dealership_label,
+            "region_id": context.region_id,
+            "segment": context.segment,
+            "process_score": context.process_score,
+            "appointment_attendance_rate": context.appointment_attendance_rate,
+            "followup_index": context.followup_index,
             "engagement_index": context.engagement_index,
-            "assessment_count": context.assessment_count,
-            "behavior_record_count": context.behavior_record_count,
             "category": context.category,
+            "score_periods": list(areas.periods),
+            "score_by_process_area": {
+                area: list(values) for area, values in areas.scores_by_area.items()
+            },
+            "latest_band_by_process_area": dict(areas.latest_band_by_area),
+            "area_score_count": areas.record_count,
+            "duplicate_area_records": areas.duplicate_count,
+            "operations_periods": list(ops.periods),
+            "appointment_attendance_rate_by_period": list(ops.appointment_attendance_rate),
+            "escalations_by_period": list(ops.escalations),
+            "followup_completion_by_period": list(ops.followup_completion),
+            "operations_record_count": ops.record_count,
         }
         user_prompt = (
-            "Analyze the synthetic learner indicators below and produce the "
+            "Analyze the synthetic dealership indicators below and produce the "
             "structured output required by your instructions.\n"
             + wrap_untrusted("synthetic_facts", json.dumps(facts))
             + "\n"
-            + wrap_untrusted("concern_text", context.sanitized_concern_text)
+            + wrap_untrusted("concern_text", context.concern_text)
         )
         response = await self._runtime.invoke(
             role=AGENT_NAME,
@@ -73,7 +88,7 @@ class DataAnalystAgent:
         output = parse_role_response(response, DataAnalystModelOutput)
         return DataAnalystOutput(
             contract_version=output.contract_version,
-            district_id=context.district_id,
+            dealer_group_id=context.dealer_group_id,
             analysis=output.analysis,
             citations=[],
         )

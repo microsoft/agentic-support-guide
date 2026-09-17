@@ -28,31 +28,31 @@ describe("api client", () => {
 
   it("omits the query string when no assessment filters are set", async () => {
     const fetchSpy = mockFetch(() => jsonResponse({}));
-    await api.assessmentsSummary({});
-    expect(fetchSpy.mock.calls[0][0]).toBe("/api/assessments/summary");
+    await api.scoresSummary({});
+    expect(fetchSpy.mock.calls[0][0]).toBe("/api/scores/summary");
   });
 
   it("encodes only the assessment filters that have values", async () => {
     const fetchSpy = mockFetch(() => jsonResponse({}));
-    await api.assessmentsSummary({ school: "SCH-001", grade: "", domain: "reading" });
+    await api.scoresSummary({ region: "REG-001", segment: "", process_area: "lead-response" });
     expect(fetchSpy.mock.calls[0][0]).toBe(
-      "/api/assessments/summary?school=SCH-001&domain=reading",
+      "/api/scores/summary?region=REG-001&process_area=lead-response",
     );
   });
 
   it("escapes filter values that need encoding", async () => {
     const fetchSpy = mockFetch(() => jsonResponse({}));
-    await api.assessmentsSummary({ group: "group a&b" });
-    expect(fetchSpy.mock.calls[0][0]).toBe("/api/assessments/summary?group=group+a%26b");
+    await api.scoresSummary({ segment: "segment a&b" });
+    expect(fetchSpy.mock.calls[0][0]).toBe("/api/scores/summary?segment=segment+a%26b");
   });
 
   it("posts the recommendation body as JSON", async () => {
     const fetchSpy = mockFetch(() => jsonResponse({ status: "ok" }));
     const body = {
-      learner_id: "LRN-0001",
-      category: "early-literacy",
+      dealership_id: "DLR-0001",
+      category: "lead-response",
       concern_text: "synthetic concern",
-      district_id: "DIST-A",
+      dealer_group_id: "GROUP-A",
     };
     await api.recommendation(body);
     const init = fetchSpy.mock.calls[0][1] as RequestInit;

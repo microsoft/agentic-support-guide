@@ -37,13 +37,17 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Check formatting
-        run: ruff format --check .
+        run: ruff format --check . ../../scripts ../../hosted
 
       - name: Lint
-        run: ruff check .
+        run: ruff check . ../../scripts ../../hosted
 
       - name: Type check
         run: mypy .
+
+      - name: Validate agent definitions
+        working-directory: .
+        run: python scripts/validate_agent_definitions.py
 
       - name: Test
         run: pytest
@@ -53,6 +57,25 @@ jobs:
       - name: Check markdown links
         working-directory: .
         run: python scripts/check_workshop_links.py
+
+      # A removal that lands in code but not in the prose is still valid
+      # markdown, so nothing else catches it.
+      - name: Check for stale references
+        working-directory: .
+        run: python scripts/check_stale_references.py
+
+      # Screenshots can carry tenant names, subscription ids and UPNs. The
+      # OCR pass needs Tesseract plus its Python bindings, so it is a separate
+      # step rather than part of the Python job's dependency set.
+      # CI has no deployment, so it has no portal_redact.config.json and runs
+      # the email and GUID scans only. Run it locally with the real config
+      # before publishing new screenshots.
+      - name: Check screenshots for identifiers
+        working-directory: .
+        run: |
+          sudo apt-get update && sudo apt-get install -y tesseract-ocr
+          python -m pip install pillow pytesseract
+          python scripts/check_screenshot_redaction.py --allow-example-config
 
   frontend:
     name: Frontend (React + Vite)

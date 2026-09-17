@@ -1,7 +1,7 @@
-# Knowledge plane for Foundry IQ (Module 3).
+# Knowledge plane for Foundry IQ (Module 6).
 #
 # Foundry IQ builds a knowledge base over an Azure AI Search index. The
-# blob container holds the district source documents that get indexed.
+# blob container holds the dealer group source documents that get indexed.
 # Both carry the random suffix so a whole workshop can deploy into one
 # subscription.
 
@@ -24,8 +24,9 @@ resource "azurerm_search_service" "knowledge" {
   # Semantic ranker is what agentic retrieval scores with.
   semantic_search_sku = "standard"
 
-  # One replica serves roughly three concurrent semantic requests. Raise
-  # search_replica_count for a live workshop or learners will see throttling.
+  # One replica serves roughly three concurrent semantic requests, which is
+  # ample for the one learner this service belongs to. Raise
+  # search_replica_count only to increase retrieval throughput.
   replica_count   = var.search_replica_count
   partition_count = 1
 
@@ -35,7 +36,7 @@ resource "azurerm_search_service" "knowledge" {
     type = "SystemAssigned"
   }
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_storage_account" "knowledge" {
@@ -57,13 +58,13 @@ resource "azurerm_storage_account" "knowledge" {
   # plan show perpetual drift as Terraform tries to turn it back on.
   public_network_access_enabled = var.knowledge_storage_public_access
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "azurerm_storage_container" "knowledge" {
   count = var.enable_knowledge_plane ? 1 : 0
 
-  name                  = "district-knowledge"
+  name                  = "group-knowledge"
   storage_account_id    = azurerm_storage_account.knowledge[0].id
   container_access_type = "private"
 }

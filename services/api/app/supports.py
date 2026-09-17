@@ -2,75 +2,84 @@
 
 from __future__ import annotations
 
-from .mock_data import ResourceItem
+from .mock_data import PROCESS_AREAS, ResourceItem
 from .models import (
     CategoryOption,
+    GoalOption,
     Option,
     RecommendationResource,
-    SmartGoalOption,
     StrategyOption,
     SupportOptions,
 )
 
 CATEGORIES: tuple[CategoryOption, ...] = (
     CategoryOption(
-        id="early-literacy",
-        label="Early Literacy Support",
-        description="Phonological awareness, phonics, and early decoding support.",
+        id="lead-response",
+        label="Enquiry Response",
+        description="Speed and completeness of the first reply to an online enquiry.",
     ),
     CategoryOption(
-        id="attendance-support",
-        label="Attendance & Engagement",
-        description="Attendance patterns, tardiness, and engagement recovery.",
+        id="test-drive-conversion",
+        label="Test Drives",
+        description="Booking, confirming, and attending scheduled test drives.",
     ),
     CategoryOption(
-        id="math-acceleration",
-        label="Math Acceleration",
-        description="Enrichment planning for learners exceeding grade-level checks.",
+        id="listing-completeness",
+        label="Listing Completeness",
+        description="Required photos, specification, and label data present on a listing.",
     ),
     CategoryOption(
-        id="reading-below-grade",
-        label="Reading Below Grade Level",
-        description="Targeted reading comprehension and fluency support.",
+        id="inventory-ageing",
+        label="Inventory Review Cadence",
+        description="Whether scheduled ageing reviews are completed on time.",
     ),
     CategoryOption(
-        id="multi-domain",
-        label="Multi-Domain Support",
-        description="Coordinated plan across literacy, math, and attendance domains.",
+        id="price-data-freshness",
+        label="Price Data Freshness",
+        description="Keeping advertised price data refreshed on the agreed cadence.",
+    ),
+    CategoryOption(
+        id="multi-area",
+        label="Multi-Area Plan",
+        description="Coordinated plan across enquiry handling, test drives, and listings.",
     ),
 )
 
 
-def _smart_goals() -> list[SmartGoalOption]:
+def _goals() -> list[GoalOption]:
     templates = {
-        "early-literacy": [
-            "Increase letter-sound correspondence accuracy from baseline by 15% in 6 weeks.",
-            "Improve nonsense-word fluency by 10 correct sounds per minute in 8 weeks.",
+        "lead-response": [
+            "Reduce median first response to online enquiries to under 30 minutes in 6 weeks.",
+            "Reply to 90% of enquiries within the same business day for 8 consecutive weeks.",
         ],
-        "attendance-support": [
-            "Achieve 90%+ weekly attendance for 6 consecutive weeks.",
-            "Reduce unexcused tardies by 50% over the next 8 weeks.",
+        "test-drive-conversion": [
+            "Raise attended-to-booked test drive ratio by 15 percentage points in 8 weeks.",
+            "Confirm every booked test drive within 24 hours for 6 consecutive weeks.",
         ],
-        "math-acceleration": [
-            "Complete two enrichment units above current grade with 85%+ accuracy in 8 weeks.",
-            "Present one problem-based project to peers within 6 weeks.",
+        "listing-completeness": [
+            "Publish 95% of new listings with the full required photo set within 6 weeks.",
+            "Carry complete specification and label data on every new listing for 8 weeks.",
         ],
-        "reading-below-grade": [
-            "Raise oral reading fluency by 15 words per minute in 8 weeks.",
-            "Answer grade-level comprehension items at 80%+ across 4 checks.",
+        "inventory-ageing": [
+            "Complete every scheduled ageing review on time for 8 consecutive weeks.",
+            "Close the review backlog to zero outstanding items within 6 weeks.",
         ],
-        "multi-domain": [
-            "Meet attendance 90%+ and raise math/literacy checks by 10% each in 8 weeks.",
-            "Complete a coordinated cross-domain plan review with the support team.",
+        "price-data-freshness": [
+            "Refresh advertised price data on the agreed cadence for 8 consecutive weeks.",
+            "Reduce the count of stale price records to under 5% within 6 weeks.",
+        ],
+        "multi-area": [
+            "Lift enquiry response and test drive attendance by 10% each in 8 weeks.",
+            "Complete a coordinated cross-area process review with the group team.",
         ],
     }
-    goals: list[SmartGoalOption] = []
+    goals: list[GoalOption] = []
     for cat_id, options in templates.items():
         for idx, text in enumerate(options, start=1):
             goals.append(
-                SmartGoalOption(
-                    id=f"SG-{cat_id}-{idx}",
-                    label=f"SMART goal {idx}",
+                GoalOption(
+                    id=f"GOAL-{cat_id}-{idx}",
+                    label=f"Goal {idx}",
                     category_id=cat_id,
                     description=text,
                 )
@@ -80,30 +89,35 @@ def _smart_goals() -> list[SmartGoalOption]:
 
 def _strategies() -> list[StrategyOption]:
     templates = {
-        "early-literacy": [
-            "Daily 15-minute phonemic awareness routine in small groups.",
-            "Structured decoding warm-up before core literacy block.",
-            "Weekly progress check on target letter-sound patterns.",
+        "lead-response": [
+            "Named owner for the enquiry inbox during every opening hour.",
+            "Standard first-reply template covering availability and next step.",
+            "Daily review of enquiries still unanswered after two hours.",
         ],
-        "attendance-support": [
-            "Morning check-in with a designated staff mentor.",
-            "Family communication template shared weekly.",
-            "Success plan review every two weeks.",
+        "test-drive-conversion": [
+            "Confirmation message the day before every booked test drive.",
+            "Prepare and stage the vehicle the evening before the appointment.",
+            "Same-day follow-up on every no-show to rebook.",
         ],
-        "math-acceleration": [
-            "Curated enrichment task rotation with reflection prompts.",
-            "Cross-grade problem-of-the-week collaboration.",
-            "Optional independent inquiry project with a rubric.",
+        "listing-completeness": [
+            "Photo and data checklist signed off before a listing publishes.",
+            "Weekly audit of live listings against the required field set.",
+            "Single owner for label and specification data per listing.",
         ],
-        "reading-below-grade": [
-            "Small-group guided reading three times weekly.",
-            "Comprehension routine using structured question stems.",
-            "Fluency partner-reading with weekly timed check.",
+        "inventory-ageing": [
+            "Calendar the ageing review and protect the slot.",
+            "Escalate any review more than seven days overdue.",
+            "Weekly report of outstanding reviews to the general manager.",
         ],
-        "multi-domain": [
-            "Coordinated care-team meeting every two weeks.",
-            "Shared learner-goal tracker across educators and mentors.",
-            "Bi-weekly family update summarizing progress across domains.",
+        "price-data-freshness": [
+            "Scheduled refresh window for advertised price data.",
+            "Exception report listing records not refreshed on cadence.",
+            "Named owner for price data per vehicle line.",
+        ],
+        "multi-area": [
+            "Coordinated process review meeting every two weeks.",
+            "Shared improvement tracker across managers and the group team.",
+            "Bi-weekly group update summarising movement across areas.",
         ],
     }
     strategies: list[StrategyOption] = []
@@ -121,33 +135,35 @@ def _strategies() -> list[StrategyOption]:
 
 
 def build_support_options(
-    learners_labels: list[tuple[str, str]],
+    dealership_labels: list[tuple[str, str]],
     *,
-    districts: list[str] | None = None,
+    dealer_groups: list[str] | None = None,
 ) -> SupportOptions:
     return SupportOptions(
-        learners=[Option(id=lid, label=label) for lid, label in learners_labels],
+        dealerships=[Option(id=did, label=label) for did, label in dealership_labels],
         categories=list(CATEGORIES),
-        smart_goals=_smart_goals(),
+        goals=_goals(),
         strategies=_strategies(),
-        districts=districts or [],
+        dealer_groups=dealer_groups or [],
     )
 
 
 def resource_matches_for(
     category: str, resources: list[ResourceItem]
 ) -> list[RecommendationResource]:
-    domain_map = {
-        "early-literacy": "early-literacy",
-        "attendance-support": "attendance-engagement",
-        "math-acceleration": "math-acceleration",
-        "reading-below-grade": "reading-comprehension",
-        "multi-domain": "multi-domain",
-    }
-    target_domain = domain_map.get(category, "multi-domain")
-    matches = [
-        RecommendationResource(id=r.resource_id, label=r.label, kind=r.kind)
-        for r in resources
-        if r.domain == target_domain
+    """Resources for a category, spread across areas for a cross-area plan.
+
+    `multi-area` is a plan scope, not a measured area, so nothing is tagged
+    with it. Matching on the name alone returned an empty list.
+    """
+
+    if category in PROCESS_AREAS:
+        matches = [r for r in resources if r.process_area == category]
+    else:
+        first_per_area: dict[str, ResourceItem] = {}
+        for item in resources:
+            first_per_area.setdefault(item.process_area, item)
+        matches = [first_per_area[area] for area in PROCESS_AREAS if area in first_per_area]
+    return [
+        RecommendationResource(id=r.resource_id, label=r.label, kind=r.kind) for r in matches[:5]
     ]
-    return matches[:5]

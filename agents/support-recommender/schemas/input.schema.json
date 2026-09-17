@@ -7,16 +7,16 @@
   "required": [
     "schema_version",
     "category",
-    "sanitized_concern_text",
+    "concern_text",
     "analyst_output",
     "allowed_resource_ids",
-    "allowed_smart_goal_ids",
+    "allowed_goal_ids",
     "allowed_strategy_ids"
   ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "category": { "type": "string", "maxLength": 40 },
-    "sanitized_concern_text": { "type": "string", "maxLength": 1000 },
+    "concern_text": { "type": "string", "maxLength": 1000 },
     "analyst_output": {
       "$ref": "../../data-analyst/schemas/output.schema.json"
     },
@@ -24,7 +24,7 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
     },
-    "allowed_smart_goal_ids": {
+    "allowed_goal_ids": {
       "type": "array",
       "items": { "type": "string", "minLength": 1, "maxLength": 60 }
     },

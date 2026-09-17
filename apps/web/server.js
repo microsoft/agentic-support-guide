@@ -31,8 +31,8 @@ const MAX_BODY_BYTES = 256 * 1024;
 
 // The front door is anonymous, so this is the only thing standing between a
 // stranger with the URL and the model quota. Deliberately enforced here and
-// not in the API: scripts/load_test.py calls the API directly with the key to
-// measure capacity, and that lesson should not be throttled by this.
+// not in the API, so that a caller holding the shared key is not throttled by
+// a limit meant for the anonymous front door.
 //
 // Per instance and in memory. One B1 instance serves this app, so that is the
 // whole picture; scaling out would multiply the effective limit by the
@@ -181,6 +181,23 @@ function proxy(req, res, url, expensive) {
     forwarded.destroy();
   });
   res.on("close", release);
+
+  // The content-length check upstream only sees requests that declare one.
+  // A chunked request carries no length, so count the bytes as they arrive
+  // rather than streaming an unbounded body to the API.
+  let received = 0;
+  req.on("data", (chunk) => {
+    received += chunk.length;
+    if (received > MAX_BODY_BYTES) {
+      release();
+      forwarded.destroy();
+      if (!res.headersSent) {
+        json(res, 413, { detail: "Request body too large." });
+      } else {
+        res.destroy();
+      }
+    }
+  });
   req.pipe(forwarded);
 }
 

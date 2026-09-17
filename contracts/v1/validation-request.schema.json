@@ -24,17 +24,17 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "district_id",
+        "dealer_group_id",
         "analyst_output",
         "recommendation_draft",
         "allowed_resource_ids",
-        "allowed_smart_goal_ids",
+        "allowed_goal_ids",
         "allowed_strategy_ids",
         "required_contract_version",
         "synthetic_only"
       ],
       "properties": {
-        "district_id": {
+        "dealer_group_id": {
           "type": "string",
           "minLength": 2,
           "maxLength": 32,
@@ -52,7 +52,7 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1, "maxLength": 60 }
         },
-        "allowed_smart_goal_ids": {
+        "allowed_goal_ids": {
           "type": "array",
           "items": { "type": "string", "minLength": 1, "maxLength": 60 }
         },

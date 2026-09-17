@@ -53,32 +53,45 @@ None of the above requires reading the model's prose.
 
 - The coordinator generates one `trace_id` per request and stamps it
   on every inter-agent message envelope.
-- Every trace step in the response envelope carries the same
-  `trace_id`, so a failed request can be pulled apart in Application
-  Insights or the UI without touching prompts.
+- The response envelope carries that one id alongside the ordered trace
+  steps, so a failed request can be pulled apart in the UI without touching
+  prompts. The id is deliberately **not** stamped on each individual step —
+  see [What is captured](#what-is-captured) below.
 
 ## How this repo implements metadata-only observability
 
 ### What is captured
 
-When `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, the backend
-records one telemetry event per agent step through
-`TelemetryRecorder.record()` in
-[`services/api/app/telemetry.py`](../services/api/app/telemetry.py):
+Observability is entirely Microsoft Agent Framework instrumentation. The whole
+integration is
+[`services/api/app/observability.py`](../services/api/app/observability.py):
 
-| Field | Example | Purpose |
+```python
+configure_otel_providers(exporters=exporters or None)
+enable_instrumentation()
+```
+
+Agent Framework then emits OpenTelemetry spans for everything it runs. All of
+them are `INTERNAL` or `PRODUCER`, so the Azure Monitor exporter writes them
+to the `dependencies` table with span attributes in `customDimensions`.
+
+| Span | One per | Notable attributes |
 | --- | --- | --- |
-| `agent` | `data-analyst-agent` | Which agent step ran. |
-| `status` | `ok`, `provider_timeout`, `provider_content_filter`, `validation_failed`, `orchestration_budget_exhausted` | Coarse-grained outcome. |
-| `latency_ms` | `842` | Elapsed wall time. |
-| `provider` | `azure_foundry_responses` | Fixed provider bucket. |
-| `token_estimate` | `620` | When the provider returns usage. |
-| `trace_id` | correlation-id-per-request | Ties the three agent steps of one request together. |
+| `workflow.run` | request | `workflow.id`, `workflow.name` |
+| `workflow.build` | graph construction | `workflow.definition` (the full graph as JSON) |
+| `executor.process <id>` | node | `executor.id`, `executor.type` |
+| `edge_group.process …` | edge delivery | `edge_group.delivered`, `edge_group.delivery_status` |
+| `chat` / `invoke_agent` | model call | `gen_ai.response.model`, input/output tokens, `error.type` |
 
-`TelemetryRecorder` also filters out any property key on a small
-denylist (`prompt`, `completion`, `concern_text`, `raw_critique`,
-`secret`, `api_key`, `token`). Even if callers try to attach an
-unsafe field name, it never leaves the process.
+Spans are properly parented, so Application Insights' end-to-end transaction
+view draws one request as a waterfall over the whole graph.
+
+Prompt and completion text is excluded because Agent Framework's
+`enable_sensitive_data` setting defaults to False. This app never calls
+`enable_sensitive_telemetry()`.
+[`tests/test_observability.py`](../services/api/tests/test_observability.py)
+pushes a canary string through a real run and asserts it appears in no span,
+so the guarantee is tested rather than assumed.
 
 ### What is intentionally not captured
 
@@ -90,12 +103,12 @@ unsafe field name, it never leaves the process.
 - Foundry endpoint URLs, project names, deployment names, assistant
   IDs, thread IDs, run IDs, resource IDs, subscription IDs, tenant
   IDs, or region names.
-- Synthetic learner detail (labels, indicators, or scores).
+- Synthetic dealership detail (labels, indicators, or scores).
 
 ### What the audit trail exposes
 
-The `AI Audit` view and the `/api/audit/events` endpoint expose the
-same metadata as the telemetry facade, plus a fixed synthetic user
+The `AI Audit` view and the `/api/audit/events` endpoint expose
+structural metadata only, plus a fixed synthetic user
 label. Every runtime audit row is derived from the coordinator
 result and carries only:
 
@@ -111,23 +124,24 @@ No agent-trace step ever surfaces prompt content, completion content,
 raw validator critique, or issue-code strings that came directly
 from model output. Validator LLM critique text is filtered through
 `enforce_code()` in
-[`services/api/app/agents/shared/sanitization.py`](../services/api/app/agents/shared/sanitization.py),
+[`services/api/app/agents/shared/prompt_blocks.py`](../services/api/app/agents/shared/prompt_blocks.py),
 which requires uppercase snake_case codes of at least four characters
 and drops anything else.
 
 ### How to verify
 
 - Read
-  [`services/api/app/telemetry.py`](../services/api/app/telemetry.py)
-  and confirm the denylist.
+  [`services/api/app/observability.py`](../services/api/app/observability.py)
+  and confirm it never calls `enable_sensitive_telemetry()`.
 - Read
   [`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py)
   and confirm the fixed schema.
-- Read the trace-metadata construction in
-  [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py)
-  and confirm `provider="azure_foundry_responses"` and `model="remote"`
-  are hard-coded rather than derived from endpoint or deployment
-  strings.
+- Read how a trace step is built in
+  [`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py)
+  and confirm the model comes from `served_model or LOCAL_STEP_MODEL` --
+  the deployment that actually answered, not a constant. Module 7's routing
+  demonstration depends on that. `PROVIDER_ID` is a constant, in
+  [`services/api/app/foundry_agents/maf_runtime.py`](../services/api/app/foundry_agents/maf_runtime.py).
 - Run the privacy scanner:
   ```powershell
   cd services\api
@@ -142,23 +156,22 @@ and drops anything else.
 ### Common mistakes to avoid
 
 - Adding `print()` calls that dump `response.text` from
-  `MafAgentRuntime.invoke()`. The denylist protects the
-  telemetry facade, not `stdout`.
+  `MafAgentRuntime.invoke()`. Agent Framework's sensitive-data default
+  governs spans, not `stdout`.
 - Passing the raw endpoint URL into a metric label "so we can filter
   by environment." Use a static environment tag applied at
   Application Insights level instead.
 - Adding a `full_response` custom event to Application Insights for
-  "debugging." Extend the metadata facade with a new coded field
+  "debugging." Add a new coded field to `AgentTraceStep`
   instead.
 
-## Correlation IDs and district context
+## Correlation IDs and dealer group context
 
 The coordinator generates a `correlation_id` (a uuid4 string) per
 recommendation request and stamps it on:
 
 - The `RecommendationEnvelope`.
 - Every runtime audit row.
-- Every telemetry event.
 - Every `review_transition` audit row raised by
   `POST /api/supports/plans/{plan_id}/review`.
 
@@ -170,13 +183,15 @@ The trace step names are `evidence-retrieval`, `data-analyst-agent`,
 `support-recommendation-agent`, `validator-agent`, plus a `…:repair` suffix
 when a step is retried.
 
-Alongside `correlation_id`, the following fields are safe to log and
-are emitted at each hop:
+Alongside `correlation_id`, these fields are safe to log. Only
+`citation_count` is per hop; the rest are on the envelope, once per request:
 
-- `district_id`
-- `evidence_count`
-- `citation_count`
-- `validator_status`
+| Field | Where |
+| --- | --- |
+| `citation_count` | Each `AgentTraceStep` |
+| `dealer_group_id` | Envelope, and each audit row |
+| `evidence_count` | Audit row (`runtime_audit.py`), once per request |
+| `validator_status` | Audit row (`runtime_audit.py`), once per request |
 
 None of these are prompts or completions. They allow a support
 engineer to trace a single request end-to-end (or reconstruct a
@@ -184,28 +199,27 @@ review-and-approval sequence) without ever seeing raw model text.
 
 ## Mapping to production observability
 
-The `TelemetryRecorder.record()` shape is intentionally compatible
-with Application Insights `TrackEvent` and OpenTelemetry span
-attributes. Nothing in the shape needs to change to move to a real
-backend; only the constructor plumbing does.
+Spans are already OpenTelemetry, emitted by Agent Framework against the
+`gen_ai` semantic conventions, so nothing in the shape is this repo's to
+change. Pointing them at a different backend is a matter of passing a
+different exporter to `configure_otel_providers`.
 
 Suggested targets for a production deployment:
 
-- **Azure Monitor** logs (KQL queries over `AgentTraceStep` metadata).
-- **Application Insights** custom events (`agent_call`, `agent_step`,
-  `validation_result`) for aggregate dashboards.
-- **OpenTelemetry** distributed traces across agent hops if the
-  three roles are split into independent services later. Preserve
-  `trace_id` as the root span ID.
+- **Azure Monitor** logs (KQL over the `dependencies` table).
+- **Application Insights** end-to-end transaction view, which renders one
+  request as a waterfall over the whole graph.
+- **Any OTLP collector**, if the three roles are later split into independent
+  services. Span parenting already carries the trace across hops.
 - **Azure Data Explorer / Kusto** for long-term retention of coarse
   operational metrics.
 
 ## Remaining gaps
 
-- No dashboards or workbooks are checked into this repo. Module 9 does
+- No dashboards or workbooks are checked into this repo. Module 10 does
   check in the KQL queries the workshop uses; building saved workbooks on
   top of them is straightforward but is not implemented here.
 - Prompt / completion capture for consented evaluation traffic is
   intentionally not implemented. If needed later, do it as an
   explicit opt-in feature with a separate telemetry sink and a
-  review process — not by widening the metadata-only facade.
+  review process — not by widening `AgentTraceStep`.

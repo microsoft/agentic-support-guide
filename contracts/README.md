@@ -61,12 +61,13 @@ Every message across an agent boundary looks like:
 - All free-text fields carry `maxLength` constraints (typically 300 for
   bullets, 500 for short strings, 2000 for a rationale, 1000 for the
   concern text).
-- Enum-only fields wherever a controlled vocabulary is possible
-  (issue codes, warning codes, categories, tier framings).
+- `source_type` is a closed enum. Support tier and category are
+  constrained in prose and checked by the validator rather than by the
+  schema, so that the allowed catalog can change without a contract bump.
 - `issue_codes` and `warning_codes` fields enforce the pattern
   `^[A-Z][A-Z0-9_]{3,59}$`. Free-text critique from an LLM is stripped
   by the runtime before it can reach these fields (see
-  `services/api/app/agents/shared/sanitization.py`).
+  `services/api/app/agents/shared/prompt_blocks.py`).
 - Every message that ships to the UI or audit trail must have already
   passed schema validation once. If validation fails, the coordinator
   returns a safe typed error and no payload content.
@@ -74,7 +75,7 @@ Every message across an agent boundary looks like:
 ## Never in these files
 
 - Real customer, partner, vendor, or product names.
-- Real learner, staff, or personnel names.
+- Real dealership, staff, or personnel names.
 - Real email addresses (only `@example.invalid` is permitted).
 - Any URL not in the scanner's Microsoft/Azure allowlist or
   `example.invalid`.

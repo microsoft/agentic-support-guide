@@ -38,13 +38,18 @@ model_sku_name = "DataZoneStandard"
 
 # Deployment capacity in thousands of tokens per minute. Requires quota.
 #
-# 10 suits a single developer. For a cohort raise it: each recommendation is
-# four model calls, and at 10 only 2 of 15 concurrent requests succeed - the
-# rest return AGENT_PROVIDER_THROTTLING. At 300, 30 of 30 succeed.
-# Check headroom first: az cognitiveservices usage list -l <region> -o table
+# 10 suits one person working through a module, which is how this workshop is
+# run. Raise it if you see AGENT_PROVIDER_THROTTLING while working, or before
+# pointing anything with real concurrency at the app - each recommendation is
+# four model calls.
+#
+# Quota is pooled PER SUBSCRIPTION and PER REGION, and this is the one thing
+# learners share. Ten people at 10 need 100 in that region, and the last to
+# apply gets InsufficientQuota if it is not free. Agree a number first.
+# Check headroom: az cognitiveservices usage list -l <region> -o table
 model_capacity = 10
-# judge_capacity  = 50    # Module 8 evaluation
-# router_capacity = 100   # Module 5 routing
+# judge_capacity  = 10    # Module 9 evaluation
+# router_capacity = 10   # Module 7 routing
 
 
 # ---- RBAC principal ---------------------------------------------------------
@@ -67,45 +72,50 @@ model_capacity = 10
 principal_id = ""
 
 
-# ---- API authentication -----------------------------------------------------
-# The API sits behind App Service Easy Auth. Every endpoint except /api/health
-# requires an Entra token, and each caller only sees the districts assigned to
-# them here.
+# ---- Knowledge plane (Module 6) ---------------------------------------------
+# Search capacity is exhausted per-region INDEPENDENTLY of Foundry capacity, so
+# your chosen region is often full. When apply fails with
+# ResourcesForSkuUnavailable, raise search_sku FIRST and re-apply; only move
+# search_location if a larger SKU fails too. Cross-region costs retrieval
+# latency for the whole workshop, a larger SKU only costs money while the
+# environment exists. Keep any fallback in a US region.
 #
-# Leave this true. Setting it false does not give you an open API for demos:
-# the app refuses to run unauthenticated on App Service and returns 401 to
-# everyone. If you cannot register an app yourself, run
-# scripts/setup-api-auth.ps1 as someone who can and set api_client_id below.
+# Rejection has two shapes: a fast 400 in seconds, or a slow failure that sits
+# on "Still creating..." for 10 to 15 minutes and leaves a failed service
+# behind that Terraform did not record. Module 0 covers recovering from both.
+# Settle both values before Module 6: changing either one later REPLACES the
+# Search service, and it comes back with an empty index.
+#
+#   search_sku      = "standard"
+#   search_location = "westus2"
 
-enable_api_auth = true
+# Module 6 uploads dealer group documents from your machine, which needs public
+# network access on the storage account. Defaults to false because many tenants
+# forbid it by policy, and asking for it where policy says no leaves
+# `terraform plan` in permanent drift rather than failing loudly.
+# Module 6 documents a File knowledge source that needs no storage access.
+#
+#   knowledge_storage_public_access = true
 
-# App registration for the API. Leave "" to let Terraform create one.
+# Extra tags merged over `tags`, for anything your organisation requires on
+# created resources.
 #
-# Set this when the azuread provider fails to create it - a tenant with
-# Continuous Access Evaluation returns `InvalidAuthenticationToken` on the
-# provider's token but not on the CLI's. In that case run:
-#   .\scripts\setup-api-auth.ps1
-# and paste the client id it prints here.
-api_client_id = ""
+#   additional_tags = { CostCenter = "1234" }
 
-# Object IDs that may use every district and run the demo reset.
-# Empty defaults to whoever runs `terraform apply`.
-#
-# Add the CI service principal here too, otherwise the post-deploy smoke test
-# authenticates successfully and then gets 403 on every district:
-#   az ad sp show --id <deploy-app-client-id> --query id -o tsv
-facilitator_object_ids = []
 
-# Which districts each learner may use. Districts are DIST-A, DIST-B and
-# DIST-DEMO. An unlisted account can sign in but sees nothing, which is the
-# intended default - a blanket grant would hand every account in the tenant
-# access to every district.
+# ---- Front-door access ------------------------------------------------------
+# There is no user sign-in. A shared key stops the API hostname being called
+# directly, but the web tier attaches that key for whoever asks, so anyone
+# with the UI URL can drive your deployment and spend your model quota. The
+# records are synthetic; the quota is not.
 #
-#   district_assignments = {
-#     "00000000-0000-0000-0000-000000000000" = ["DIST-A"]
-#     "11111111-1111-1111-1111-111111111111" = ["DIST-A", "DIST-B"]
-#   }
+# Empty means anyone with the URL. Leave it empty for a working session - you
+# will lock yourself out moving between office, home, and a hotspot. Set it
+# when the deployment will be up longer than that:
 #
-# Look up a learner's Object ID:
-#   az ad user show --id someone@example.invalid --query id -o tsv
-district_assignments = {}
+#   web_allowed_ip_ranges = ["203.0.113.4/32"]
+#
+# The web app's Access Restrictions blade shows the address you are calling
+# from right now.
+
+web_allowed_ip_ranges = []
