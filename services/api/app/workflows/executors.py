@@ -290,8 +290,8 @@ class Validate(Executor):
             payload=envelopes.validator_payload(report),
             agent=VALIDATOR_NAME,
         )
-        # Set after the call returns, so a timeout inside the advisory
-        # critique still counts as "the checks ran".
+        # Set only once a report exists: `step.call` raises on timeout, so a
+        # validator that never returned leaves this false.
         self._run.state.validation_reached = True
         self._run.state.deterministic_checks_total = len(DETERMINISTIC_CHECKS)
         await ctx.send_message(plan.with_(report=report))

@@ -133,6 +133,7 @@ async def test_coordinator_happy_path() -> None:
         "validator-agent",
     ]
     assert result.correlation_id
+    assert result.evidence_count is not None
     assert result.evidence_count >= 1
     assert result.citation_count == result.evidence_count
     # Three remote agent calls (evidence retrieval does not touch client)
@@ -328,6 +329,41 @@ async def test_a_stalled_retriever_is_bounded_by_the_total_budget() -> None:
     assert time.monotonic() - started < 5
 
 
+async def test_a_run_that_dies_early_reports_no_counts_rather_than_zero() -> None:
+    """Found in a browser: the receipt claimed retrieval returned 0 documents.
+
+    Retrieval was never issued. A zero asserts the stage ran and found
+    nothing, so every counter for a stage that never ran must be None.
+    """
+
+    import app.workflows.coordinator as coordinator_module
+
+    class _Stalling:
+        provider_name = "stall"
+        provider_model = "stall"
+
+        async def retrieve(self, *args: Any, **kwargs: Any) -> Any:
+            await asyncio.sleep(30)
+
+    budget = "ORCHESTRATION_TOTAL_BUDGET_SECONDS"
+    original = getattr(coordinator_module, budget)
+    setattr(coordinator_module, budget, 0.3)
+    try:
+        coord, _ = _make_coord(evidence_retriever=cast(Any, _Stalling()))
+        result = await coord.run(_request())
+    finally:
+        setattr(coordinator_module, budget, original)
+
+    assert result.status == "orchestration_budget_exhausted"
+    assert result.evidence_count is None
+    assert result.citation_count is None
+    assert result.citations_proposed is None
+    assert result.citations_accepted is None
+    assert result.attempts is None
+    assert result.deterministic_checks_total is None
+    assert result.validation_reached is False
+
+
 async def test_invented_citation_ids_reach_the_validator() -> None:
     """An uncited draft is the validator's verdict, not an envelope error.
 
@@ -408,9 +444,9 @@ async def test_provider_failure_reports_that_validation_was_not_reached() -> Non
 
     assert result.status != "ok"
     assert result.validation_reached is False
-    assert result.deterministic_checks_total == 0
-    # The in-flight attempt, not 0 -- the trace already shows the call.
-    assert result.attempts == 0
+    # The analyst failed, so neither stage ran. Zero would claim they did.
+    assert result.deterministic_checks_total is None
+    assert result.attempts is None
 
 
 async def test_refusal_reports_the_resource_accounting() -> None:

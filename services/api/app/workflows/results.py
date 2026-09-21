@@ -52,19 +52,20 @@ class CoordinatorResult:
     provider_model: str
     correlation_id: str
     dealer_group_id: str
-    evidence_count: int = 0
-    citation_count: int = 0
+    evidence_count: int | None = None
+    citation_count: int | None = None
     validator_status: str = ""
-    # Enforcement facts for the UI receipt. Defaults are the "not measured"
-    # state, which the UI must render as absent rather than as zero.
-    citations_proposed: int = 0
-    citations_accepted: int = 0
-    resources_proposed: int = 0
-    resources_accepted: int = 0
+    # Enforcement facts for the UI receipt. None means the stage never ran, so
+    # the UI renders absence. A zero here would assert the stage ran and found
+    # nothing, which on a run that died early is a false claim.
+    citations_proposed: int | None = None
+    citations_accepted: int | None = None
+    resources_proposed: int | None = None
+    resources_accepted: int | None = None
     unknown_resource_ids: list[str] = field(default_factory=list)
-    attempts: int = 0
+    attempts: int | None = None
     validation_reached: bool = False
-    deterministic_checks_total: int = 0
+    deterministic_checks_total: int | None = None
 
 
 @dataclass
@@ -77,15 +78,15 @@ class RunState:
     deadline: float
     trace: list[AgentTraceStep] = field(default_factory=list)
     calls: list[CallMetrics] = field(default_factory=list)
-    evidence_count: int = 0
-    citation_count: int = 0
+    evidence_count: int | None = None
+    citation_count: int | None = None
     # `citations_proposed` is the only one of these the executor cannot see:
     # the model's own id list is dropped inside the recommender wrapper.
-    citations_proposed: int = 0
-    citations_accepted: int = 0
-    attempts: int = 0
+    citations_proposed: int | None = None
+    citations_accepted: int | None = None
+    attempts: int | None = None
     validation_reached: bool = False
-    deterministic_checks_total: int = 0
+    deterministic_checks_total: int | None = None
 
     def drain_calls(self, start: int) -> tuple[str, int | None]:
         """Model that served the newest calls, and their total token count."""

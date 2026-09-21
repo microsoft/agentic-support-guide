@@ -141,8 +141,10 @@ async def post_recommendation(
         status=result.status,
         correlation_id=result.correlation_id,
         dealer_group_id=result.dealer_group_id,
-        evidence_count=result.evidence_count,
-        citation_count=result.citation_count,
+        # The audit row is a fixed-shape record, so an unreached stage is
+        # written as zero here. The envelope keeps the None the UI needs.
+        evidence_count=result.evidence_count or 0,
+        citation_count=result.citation_count or 0,
         validator_status=result.validator_status,
     )
     return RecommendationEnvelope(

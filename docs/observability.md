@@ -197,9 +197,14 @@ Alongside `correlation_id`, these fields are safe to log. Only
 | `attempts`, `validation_reached`, `deterministic_checks_total` | Envelope |
 
 The envelope fields drive the UI's enforcement receipt. They are counts and
-enumerated codes only — never prompt or completion text. A field is omitted
-rather than zeroed when it was not measured, so "not reached" stays
+enumerated codes only — never prompt or completion text. A field is `null`
+rather than zero when it was not measured, so "not reached" stays
 distinguishable from "measured zero".
+
+That distinction is load-bearing. A run that exceeds its budget never issues
+retrieval, so reporting `evidence_count` as `0` would claim retrieval ran and
+returned nothing. The audit row is a fixed-shape record and stores `0` for an
+unreached stage; the envelope keeps the `null`.
 
 None of these are prompts or completions. They allow a support
 engineer to trace a single request end-to-end (or reconstruct a
