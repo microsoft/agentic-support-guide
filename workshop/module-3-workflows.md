@@ -211,15 +211,18 @@ Every node does the same four things around its agent call. `Recommend` in
 is representative:
 
 ```python
-draft = await self._run.step.call(
+result = await self._run.step.call(
     agent_name,
-    lambda: self._agent.recommend(
+    lambda: self._agent.recommend_with_counts(
         plan.require_analysis(),
         context,
         repair_guidance=guidance,
         deadline=self._run.state.deadline,
     ),
 )
+# Unwrap immediately: `PlanState.with_` and `recommender_payload` are
+# untyped, so passing the wrapper on would fail silently.
+draft = result.draft
 self._run.check_handoff(
     schema="support-recommendation-result.schema.json",
     source="support-recommendation-agent",
@@ -230,7 +233,19 @@ self._run.check_handoff(
 # Recorded on every attempt, not only on success: a run that failed
 # validation used to audit zero citations, which read as ungrounded.
 self._run.state.citation_count = len(draft.citations)
+self._run.state.citations_proposed = result.citations_proposed
+self._run.state.citations_accepted = result.citations_accepted
 ```
+
+Those last two lines are why the app can tell you *"the model proposed three
+citation ids and two matched the retrieved bundle"*. The wrapper drops an id
+the retriever never returned, so it never reaches the validator and can never
+show up as an issue code. Counting it here is the only way to see it.
+
+You watched all three repair outcomes in sample 7 — accepted first time,
+repaired then accepted, repair exhausted. The **Agent workflow** panel in the
+app renders the same thing from a live run: one row per attempt, with the
+issue codes that sent the recommender back.
 
 `step.call` is in [services/api/app/workflows/steps.py](../services/api/app/workflows/steps.py).
 One call does four jobs that every agent invocation needs:

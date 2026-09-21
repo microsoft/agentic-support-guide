@@ -85,10 +85,23 @@ def _build_prompt(
     )
 
 
+@dataclass(frozen=True)
+class DraftResult:
+    """A draft plus what the citation substitution actually did.
+
+    `citations_proposed` is not recoverable downstream: `_attach_citations`
+    removes the model's own id list before the draft leaves this module.
+    """
+
+    draft: SupportRecommendationDraft
+    citations_proposed: int
+    citations_accepted: int
+
+
 def _attach_citations(
     output: SupportRecommendationModelOutput,
     context: SupportRecommenderContext,
-) -> SupportRecommendationDraft:
+) -> DraftResult:
     """Swap the model's citation *ids* for the retriever's citation *objects*.
 
     The model chooses which evidence supports its draft, but never authors the
@@ -98,7 +111,11 @@ def _attach_citations(
     """
 
     by_id = {c.citation_id: c for c in context.evidence.citations}
-    citations: tuple[Citation, ...] = tuple(by_id[cid] for cid in output.cited_ids if cid in by_id)
+    # `cited_ids` is not de-duplicated by the contract, so count and attach
+    # unique ids only -- otherwise one repeated id inflates both sides of the
+    # accounting and duplicates a Citation in the draft.
+    proposed = list(dict.fromkeys(output.cited_ids))
+    citations: tuple[Citation, ...] = tuple(by_id[cid] for cid in proposed if cid in by_id)
 
     payload = output.model_dump(mode="json")
     payload.pop("cited_ids", None)
@@ -106,14 +123,36 @@ def _attach_citations(
     payload["citations"] = [c.model_dump(mode="json") for c in citations]
 
     try:
-        return SupportRecommendationDraft.model_validate(payload)
+        draft = SupportRecommendationDraft.model_validate(payload)
     except ValidationError as exc:
         raise ValueError("invalid_draft_schema") from exc
+    return DraftResult(
+        draft=draft,
+        citations_proposed=len(proposed),
+        citations_accepted=len(citations),
+    )
 
 
 class SupportRecommendationAgent:
     def __init__(self, runtime: MafAgentRuntime) -> None:
         self._runtime = runtime
+
+    async def recommend_with_counts(
+        self,
+        analysis: DataAnalystOutput,
+        context: SupportRecommenderContext,
+        *,
+        repair_guidance: str = "",
+        deadline: float | None = None,
+    ) -> DraftResult:
+        response = await self._runtime.invoke(
+            role=AGENT_NAME,
+            user_message=_build_prompt(analysis, context, repair_guidance),
+            response_model=SupportRecommendationModelOutput,
+            deadline=deadline,
+        )
+        output = parse_role_response(response, SupportRecommendationModelOutput)
+        return _attach_citations(output, context)
 
     async def recommend(
         self,
@@ -123,11 +162,10 @@ class SupportRecommendationAgent:
         repair_guidance: str = "",
         deadline: float | None = None,
     ) -> SupportRecommendationDraft:
-        response = await self._runtime.invoke(
-            role=AGENT_NAME,
-            user_message=_build_prompt(analysis, context, repair_guidance),
-            response_model=SupportRecommendationModelOutput,
+        result = await self.recommend_with_counts(
+            analysis,
+            context,
+            repair_guidance=repair_guidance,
             deadline=deadline,
         )
-        output = parse_role_response(response, SupportRecommendationModelOutput)
-        return _attach_citations(output, context)
+        return result.draft

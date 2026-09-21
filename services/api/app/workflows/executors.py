@@ -12,7 +12,7 @@ runs and these hold per-request state.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Never
 
 from agent_framework import Executor, WorkflowContext, handler
@@ -27,6 +27,7 @@ from ..agents.support_recommender import (
 from ..agents.support_recommender.agent import AGENT_NAME as RECOMMENDER_NAME
 from ..agents.validator import ValidatorAgent, ValidatorContext, ValidatorInput
 from ..agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
+from ..agents.validator.checks import DETERMINISTIC_CHECKS
 from ..evidence import EvidenceRequest, EvidenceRetrievalError, EvidenceRetriever
 from ..models import AgentTraceStep
 from . import envelopes
@@ -210,15 +211,18 @@ class Recommend(Executor):
         )
         context = self._context(plan)
 
-        draft = await self._run.step.call(
+        result = await self._run.step.call(
             agent_name,
-            lambda: self._agent.recommend(
+            lambda: self._agent.recommend_with_counts(
                 plan.require_analysis(),
                 context,
                 repair_guidance=guidance,
                 deadline=self._run.state.deadline,
             ),
         )
+        # Unwrap immediately: `PlanState.with_` and `recommender_payload` are
+        # untyped, so passing the wrapper on would fail silently.
+        draft = result.draft
         self._run.check_handoff(
             schema="support-recommendation-result.schema.json",
             source="support-recommendation-agent",
@@ -229,6 +233,9 @@ class Recommend(Executor):
         # Recorded on every attempt, not only on success: a run that failed
         # validation used to audit zero citations, which read as ungrounded.
         self._run.state.citation_count = len(draft.citations)
+        self._run.state.citations_proposed = result.citations_proposed
+        self._run.state.citations_accepted = result.citations_accepted
+        self._run.state.attempts = attempts
         await ctx.send_message(plan.with_(draft=draft, attempts=attempts))
 
     def _context(self, plan: PlanState) -> SupportRecommenderContext:
@@ -283,6 +290,10 @@ class Validate(Executor):
             payload=envelopes.validator_payload(report),
             agent=VALIDATOR_NAME,
         )
+        # Set after the call returns, so a timeout inside the advisory
+        # critique still counts as "the checks ran".
+        self._run.state.validation_reached = True
+        self._run.state.deterministic_checks_total = len(DETERMINISTIC_CHECKS)
         await ctx.send_message(plan.with_(report=report))
 
     def _context(self, plan: PlanState) -> ValidatorContext:
@@ -311,6 +322,9 @@ class Finalise(Executor):
     ) -> None:
         state = self._run.state
         report = plan.require_report()
+        resources_proposed, resources_accepted, unknown_resource_ids = _resource_accounting(
+            self._run, plan
+        )
         await ctx.yield_output(
             CoordinatorResult(
                 status="ok",
@@ -330,6 +344,14 @@ class Finalise(Executor):
                 evidence_count=state.evidence_count,
                 citation_count=state.citation_count,
                 validator_status=report.safe_summary or "passed",
+                citations_proposed=state.citations_proposed,
+                citations_accepted=state.citations_accepted,
+                resources_proposed=resources_proposed,
+                resources_accepted=resources_accepted,
+                unknown_resource_ids=unknown_resource_ids,
+                attempts=state.attempts,
+                validation_reached=state.validation_reached,
+                deterministic_checks_total=state.deterministic_checks_total,
             )
         )
 
@@ -344,17 +366,36 @@ class Refuse(Executor):
     @handler
     async def refuse(self, plan: PlanState, ctx: WorkflowContext[Never, CoordinatorResult]) -> None:
         report = plan.require_report()
+        proposed, accepted, unknown = _resource_accounting(self._run, plan)
+        base = self._run.state.failure(
+            status="validation_failed",
+            error_code="VALIDATION_FAILED_AFTER_REPAIR",
+            error_message=(
+                "Recommendation could not be validated after one repair "
+                "attempt. No recommendation is returned."
+            ),
+            validator_status=report.safe_summary or "failed",
+        )
+        # A refusal is the one outcome where an out-of-catalog resource id is
+        # still visible: on the accepted path the validator has already
+        # rejected any draft that carried one.
         await ctx.yield_output(
-            self._run.state.failure(
-                status="validation_failed",
-                error_code="VALIDATION_FAILED_AFTER_REPAIR",
-                error_message=(
-                    "Recommendation could not be validated after one repair "
-                    "attempt. No recommendation is returned."
-                ),
-                validator_status=report.safe_summary or "failed",
+            replace(
+                base,
+                resources_proposed=proposed,
+                resources_accepted=accepted,
+                unknown_resource_ids=unknown,
             )
         )
+
+
+def _resource_accounting(run: PlanRun, plan: PlanState) -> tuple[int, int, list[str]]:
+    """How many referenced resource ids were in the request's allowed catalog."""
+
+    allowed = {r.id for r in run.request.allowed_resources}
+    proposed = list(dict.fromkeys(plan.require_draft().resource_ids))
+    unknown = [rid for rid in proposed if rid not in allowed]
+    return len(proposed), len(proposed) - len(unknown), unknown
 
 
 def _elapsed_ms(started: float) -> int:

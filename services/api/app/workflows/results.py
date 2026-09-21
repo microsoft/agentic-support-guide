@@ -55,6 +55,16 @@ class CoordinatorResult:
     evidence_count: int = 0
     citation_count: int = 0
     validator_status: str = ""
+    # Enforcement facts for the UI receipt. Defaults are the "not measured"
+    # state, which the UI must render as absent rather than as zero.
+    citations_proposed: int = 0
+    citations_accepted: int = 0
+    resources_proposed: int = 0
+    resources_accepted: int = 0
+    unknown_resource_ids: list[str] = field(default_factory=list)
+    attempts: int = 0
+    validation_reached: bool = False
+    deterministic_checks_total: int = 0
 
 
 @dataclass
@@ -69,6 +79,13 @@ class RunState:
     calls: list[CallMetrics] = field(default_factory=list)
     evidence_count: int = 0
     citation_count: int = 0
+    # `citations_proposed` is the only one of these the executor cannot see:
+    # the model's own id list is dropped inside the recommender wrapper.
+    citations_proposed: int = 0
+    citations_accepted: int = 0
+    attempts: int = 0
+    validation_reached: bool = False
+    deterministic_checks_total: int = 0
 
     def drain_calls(self, start: int) -> tuple[str, int | None]:
         """Model that served the newest calls, and their total token count."""
@@ -103,6 +120,11 @@ class RunState:
             evidence_count=self.evidence_count,
             citation_count=self.citation_count,
             validator_status=validator_status,
+            citations_proposed=self.citations_proposed,
+            citations_accepted=self.citations_accepted,
+            attempts=self.attempts,
+            validation_reached=self.validation_reached,
+            deterministic_checks_total=self.deterministic_checks_total,
         )
 
 

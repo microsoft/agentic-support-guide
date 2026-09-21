@@ -184,14 +184,22 @@ The trace step names are `evidence-retrieval`, `data-analyst-agent`,
 when a step is retried.
 
 Alongside `correlation_id`, these fields are safe to log. Only
-`citation_count` is per hop; the rest are on the envelope, once per request:
+`citation_count` is per hop; the rest are once per request:
 
 | Field | Where |
 | --- | --- |
-| `citation_count` | Each `AgentTraceStep` |
+| `citation_count` | Each `AgentTraceStep`, and the envelope |
 | `dealer_group_id` | Envelope, and each audit row |
-| `evidence_count` | Audit row (`runtime_audit.py`), once per request |
-| `validator_status` | Audit row (`runtime_audit.py`), once per request |
+| `evidence_count` | Envelope, and the audit row (`runtime_audit.py`) |
+| `validator_status` | Envelope, and the audit row (`runtime_audit.py`) |
+| `citations_proposed` / `citations_accepted` | Envelope |
+| `resources_proposed` / `resources_accepted` / `unknown_resource_ids` | Envelope |
+| `attempts`, `validation_reached`, `deterministic_checks_total` | Envelope |
+
+The envelope fields drive the UI's enforcement receipt. They are counts and
+enumerated codes only — never prompt or completion text. A field is omitted
+rather than zeroed when it was not measured, so "not reached" stays
+distinguishable from "measured zero".
 
 None of these are prompts or completions. They allow a support
 engineer to trace a single request end-to-end (or reconstruct a

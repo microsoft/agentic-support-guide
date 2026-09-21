@@ -82,6 +82,16 @@ def test_recommendation_envelope_carries_correlation_and_dealer_group() -> None:
     assert last["citation_count"] >= 1
     assert last["validator_status"]
 
+    # The receipt numbers and the audit row are two producers of one truth.
+    assert body["evidence_count"] == last["evidence_count"]
+    assert body["citation_count"] == last["citation_count"]
+    assert body["validator_status"] == last["validator_status"]
+    assert body["validation_reached"] is True
+    assert body["deterministic_checks_total"] >= 1
+    assert body["attempts"] >= 1
+    assert body["citations_accepted"] <= body["citations_proposed"]
+    assert body["unknown_resource_ids"] == []
+
 
 def test_save_plan_persists_dealer_group_and_review_state() -> None:
     client = make_default_client()

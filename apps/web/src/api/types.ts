@@ -190,6 +190,20 @@ export interface RecommendationEnvelope {
   provider_model: string;
   correlation_id: string;
   dealer_group_id: string;
+  // What the application controls did on this run. Optional because the UI
+  // synthesises an envelope on transport failure, where nothing ran and
+  // `undefined` must not render as 0.
+  evidence_count?: number | null;
+  citation_count?: number | null;
+  citations_proposed?: number | null;
+  citations_accepted?: number | null;
+  resources_proposed?: number | null;
+  resources_accepted?: number | null;
+  unknown_resource_ids?: string[];
+  validator_status?: string | null;
+  validation_reached?: boolean;
+  attempts?: number | null;
+  deterministic_checks_total?: number | null;
 }
 
 export interface SavedPlan {

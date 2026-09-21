@@ -7,6 +7,7 @@ import uuid
 from typing import Any, cast
 
 from app.agents.shared.contracts import ResourceRef
+from app.agents.validator.checks import DETERMINISTIC_CHECKS
 from app.contracts_registry import ContractsRegistry, load_registry
 from app.evidence import (
     EvidenceBundle,
@@ -350,3 +351,84 @@ async def test_invented_citation_ids_reach_the_validator() -> None:
     codes = [code for step in result.agent_trace for code in step.issue_codes]
     assert "MISSING_CITATIONS" in codes
     assert result.error_code == "VALIDATION_FAILED_AFTER_REPAIR"
+
+
+async def test_citation_accounting_counts_what_the_wrapper_accepted() -> None:
+    """The receipt's only genuinely observable line on a passing run.
+
+    A dropped citation id never reaches the validator, so it cannot surface
+    as an issue code. Counting it at the wrapper is the only way to show it.
+    """
+
+    coord, _ = _make_coord()
+    result = await coord.run(_request())
+
+    assert result.status == "ok"
+    assert result.citations_proposed == 2
+    assert result.citations_accepted == 2
+    assert result.validation_reached is True
+    assert result.attempts == 1
+    assert result.deterministic_checks_total == len(DETERMINISTIC_CHECKS)
+
+
+async def test_citation_accounting_reports_a_mixed_selection() -> None:
+    """One real id and one the retriever never returned.
+
+    The only shape that proves the counter is not `0` or `len(everything)`.
+    """
+
+    draft = json.loads(json.dumps(canned_recommendation_draft()))
+    draft["cited_ids"] = ["GROUP-DEMO-lead-01", "EV-DOES-NOT-EXIST"]
+
+    coord, _ = _make_coord(recommender_payloads=[draft, draft])
+    result = await coord.run(_request())
+
+    assert result.citations_proposed == 2
+    assert result.citations_accepted == 1
+
+
+async def test_duplicate_citation_ids_are_not_double_counted() -> None:
+    """`cited_ids` has no dedupe in the contract."""
+
+    draft = json.loads(json.dumps(canned_recommendation_draft()))
+    draft["cited_ids"] = ["GROUP-DEMO-lead-01", "GROUP-DEMO-lead-01"]
+
+    coord, _ = _make_coord(recommender_payloads=[draft, draft])
+    result = await coord.run(_request())
+
+    assert result.citations_proposed == 1
+    assert result.citations_accepted == 1
+
+
+async def test_provider_failure_reports_that_validation_was_not_reached() -> None:
+    """`validation_reached` false must be distinguishable from a measured 0."""
+
+    coord, _ = _make_coord(analyst_error=FoundryRunError("RUN_FAILED", "boom"))
+    result = await coord.run(_request())
+
+    assert result.status != "ok"
+    assert result.validation_reached is False
+    assert result.deterministic_checks_total == 0
+    # The in-flight attempt, not 0 -- the trace already shows the call.
+    assert result.attempts == 0
+
+
+async def test_refusal_reports_the_resource_accounting() -> None:
+    """A refusal is the only outcome where an out-of-catalog id is visible.
+
+    On the accepted path the validator has already rejected any draft that
+    carried one, so the accounting there is an invariant, not a measurement.
+    """
+
+    draft = json.loads(json.dumps(canned_recommendation_draft()))
+    draft["resource_ids"] = ["RES-001", "RES-999"]
+
+    coord, _ = _make_coord(recommender_payloads=[draft, draft])
+    result = await coord.run(_request())
+
+    assert result.error_code == "VALIDATION_FAILED_AFTER_REPAIR"
+    assert result.attempts == 2
+    assert result.validation_reached is True
+    assert result.unknown_resource_ids == ["RES-999"]
+    assert result.resources_proposed == 2
+    assert result.resources_accepted == 1

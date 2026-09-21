@@ -10,6 +10,7 @@ import type {
   SupportOptions,
 } from "../api/types";
 import { AgentWorkflowPanel } from "../components/AgentWorkflowPanel";
+import { EnforcementReceipt } from "../components/EnforcementReceipt";
 import { Card } from "../components/Card";
 import { SetupStatus } from "../components/SetupStatus";
 import { ApiUnavailable, LoadingState } from "../components/States";
@@ -185,6 +186,8 @@ export function SupportsPage() {
 
       <AgentWorkflowPanel running={recLoading} trace={trace} />
 
+      {envelope && <EnforcementReceipt envelope={envelope} />}
+
       <Card title="Guided plan builder">
         {data.dealer_groups.length > 1 && (
           <div className="mb-4">
@@ -270,14 +273,37 @@ export function SupportsPage() {
             {envelope && envelope.status !== "ok" && (
               <div
                 role="alert"
-                data-testid="recommendation-error"
-                className="mt-3 rounded border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-100"
+                data-testid={
+                  envelope.status === "validation_failed"
+                    ? "recommendation-withheld"
+                    : "recommendation-error"
+                }
+                className={
+                  envelope.status === "validation_failed"
+                    ? "mt-3 rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100"
+                    : "mt-3 rounded border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-100"
+                }
               >
                 <div className="font-semibold">
+                  {envelope.status === "validation_failed" ? "Withheld after validation. " : ""}
                   {ERROR_MESSAGES[envelope.status] ?? envelope.error_message ?? envelope.status}
                 </div>
+                {envelope.status === "validation_failed" && (
+                  <div className="mt-1 text-xs text-amber-200/80">
+                    The controls worked. The system declined rather than returning a plan it could
+                    not validate.
+                  </div>
+                )}
                 {envelope.error_code && (
-                  <div className="text-xs text-rose-200/80">Code: {envelope.error_code}</div>
+                  <div
+                    className={
+                      envelope.status === "validation_failed"
+                        ? "text-xs text-amber-200/80"
+                        : "text-xs text-rose-200/80"
+                    }
+                  >
+                    Code: {envelope.error_code}
+                  </div>
                 )}
               </div>
             )}

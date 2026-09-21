@@ -259,6 +259,19 @@ class RecommendationEnvelope(BaseModel):
     provider_model: str
     correlation_id: str
     dealer_group_id: str
+    # What the application controls did on this run. `None` means not
+    # measured -- the UI must render absence, not zero.
+    evidence_count: int | None = None
+    citation_count: int | None = None
+    citations_proposed: int | None = None
+    citations_accepted: int | None = None
+    resources_proposed: int | None = None
+    resources_accepted: int | None = None
+    unknown_resource_ids: list[str] = Field(default_factory=list)
+    validator_status: str | None = None
+    validation_reached: bool = False
+    attempts: int | None = None
+    deterministic_checks_total: int | None = None
 
 
 class SavedPlan(BaseModel):
