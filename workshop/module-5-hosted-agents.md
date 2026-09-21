@@ -374,7 +374,7 @@ the model.
 - Step 6 needs permission to create a role assignment on your AI Services
   account. You already have it if you ran Module 0 as `Owner` or
   `User Access Administrator`, which is why that is on the
-  [prerequisites](README.md#before-the-workshop) list.
+  [prerequisites](README.md#prerequisites) list.
 
 ## Check yourself
 

@@ -8,8 +8,9 @@ blob container, in a resource group of your own. Every name carries a random
 suffix so a room of learners can deploy into one subscription without
 colliding.
 
-Work through [Prerequisites](README.md#before-the-workshop) first. Permissions, quota and
-resource-provider registration are the three things that fail this module.
+Work through the [prerequisites](README.md#prerequisites) first. Permissions,
+quota and resource-provider registration are the three things that fail this
+module.
 
 ```powershell
 az login
@@ -172,9 +173,9 @@ az cognitiveservices usage list -l westus3 -o table
 Mind which pool. `asg-chat` and `asg-judge` are both `gpt-4.1-mini` on
 `DataZoneStandard` and share an allowance; the router is a different model on
 `GlobalStandard`. Use the capacity values your facilitator agreed from the
-quota table in [the workshop README](README.md#3-model-quota). The defaults
-below carry every module. Whichever you use, agree it as a group, or the last
-person to `apply` gets `InsufficientQuota`.
+quota table in [Plan this workshop for a group](plan-this-workshop.md#2-model-quota).
+The defaults below carry every module. Whichever you use, agree it as a group,
+or the last person to `apply` gets `InsufficientQuota`.
 
 ```hcl
 model_capacity  = 10   # the three coordinator agents
@@ -449,6 +450,19 @@ terraform -chdir=infra validate
 
 ---
 
+## Turn on New Foundry
+
+Every portal screenshot in this workshop uses the **New Foundry** experience.
+Two UIs sit behind <https://ai.azure.com> and their navigation differs, so
+turn the toggle on now rather than in the middle of a module.
+
+![The Microsoft Foundry header showing a New Foundry toggle in the on
+position, followed by the Home, Discover, Build, Operate, Manage and Docs
+navigation items.](images/portal-new-foundry-toggle.png)
+
+The navigation should read **Home / Discover / Build / Operate / Manage /
+Docs**.
+
 ## Check yourself
 
 - [ ] `.venv` exists and `pytest -q` passes offline.
@@ -457,7 +471,8 @@ terraform -chdir=infra validate
 - [ ] `services/api/.env` exists and contains `WORKSHOP_LEARNER_SUFFIX`.
 - [ ] `validate_agent_definitions.py` reports 4 valid agents.
 - [ ] `verify-demo.ps1` passes with the backend running.
-- [ ] You can open the Foundry portal and see your project.
+- [ ] You can open the Foundry portal, see your project, and the New Foundry
+      toggle is on.
 
 ## Tear down
 
