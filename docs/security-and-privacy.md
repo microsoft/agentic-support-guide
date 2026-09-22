@@ -34,7 +34,9 @@ by design than to remove later.
 4. **Agent-to-agent trust boundaries.** One agent's output is treated
    as untrusted data by the next agent, not as an authoritative
    instruction. Every hop validates against a schema.
-5. **Keyless auth.** The application never holds a static API key.
+5. **Keyless auth to Foundry.** The application holds no static credential
+   for the model provider; it authenticates with Microsoft Entra ID. Inbound
+   API requests are a separate matter and do use a shared key.
 6. **RBAC.** The application principal has the least privilege it
    needs to call the model, and nothing else.
 7. **No prompt / completion logging.** Traces carry structural

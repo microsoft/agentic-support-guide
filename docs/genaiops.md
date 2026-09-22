@@ -236,7 +236,7 @@ against a running backend.
 - Publishing without `--suffix`. The script refuses, because dozens of
   learners share one subscription and unsuffixed names collide.
 - Adding a "just this once" direct model call from the coordinator or
-  a role wrapper. All Agent Framework SDK imports belong in
+  a role wrapper. Agent Framework's *model client* belongs in
   `services/api/app/foundry_agents/maf_client.py`.
 - Renaming the provider identifier in Python only. It is also written
   into YAML manifests, TypeScript, PowerShell, and Markdown, which

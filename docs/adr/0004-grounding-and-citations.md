@@ -104,6 +104,9 @@ intended integration surface.
 ## Remaining gaps
 
 - No Fabric- or Foundry-IQ-backed retriever is implemented.
+  *Since closed for Foundry IQ:* `app/evidence/foundry_iq.py` retrieves from
+  an Azure AI Search knowledge base with dealer-group filtering and a
+  reranker threshold. Fabric remains unimplemented.
 - No PDF ingestion pipeline is included.
 - No signed-source-of-truth checkpoint on citations (they are
   synthetic).

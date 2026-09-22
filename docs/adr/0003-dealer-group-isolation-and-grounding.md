@@ -75,6 +75,10 @@ swap in a Fabric-backed retriever with the same interface.
 
 - Real Fabric-backed retriever (per-dealer group workspace/lakehouse). This
   build only ships the interface + a fixture retriever.
+
+> **Since closed.** `FoundryIQEvidenceRetriever` now implements that
+> interface against Azure AI Search, selected by `EVIDENCE_SOURCE`. Module 6
+> of the workshop builds it.
 - Row- or column-level security on the Fabric side, so a compromised
   application principal cannot read another dealer group's rows.
 - Per-dealer group Foundry projects or per-dealer group agent bindings, if

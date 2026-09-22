@@ -70,5 +70,7 @@ fixtures, or the run is ungrounded by construction.
 
 Committed eval artifacts must be **structural summaries only**:
 per-case pass/fail flags, counts of issue/warning codes, and latency
-buckets. The full model output stays in `/evals/results/` and never
+buckets. The runner prints those summaries and does not persist model
+output; anything you capture yourself belongs in the gitignored
+`results/` directory and never
 gets committed (the `.gitignore` at the repo root excludes it).

@@ -48,8 +48,9 @@ In this workshop, you learn how to:
   **10 units of `model-router` on `GlobalStandard`**, and room for **one Azure
   AI Search service on `basic`**. A quota increase takes business days.
 - Windows 10 or 11, with your own Windows user account, your own clone of this
-  repo, and permission to run local PowerShell scripts. Every script is
-  PowerShell and every path is a Windows path.
+  repo, and permission to run local PowerShell scripts. Every command you
+  type is PowerShell and every path is a Windows path; the scripts those
+  commands run are a mix of PowerShell and Python.
 - Git 2.40, PowerShell 7.4, Azure CLI 2.84 plus its `application-insights`
   extension, Terraform 1.9, Python 3.13, Node.js 22 LTS, and Visual Studio
   Code. Do not pin an older Azure CLI — `az search usage list` is missing from

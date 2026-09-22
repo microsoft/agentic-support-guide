@@ -60,7 +60,7 @@ Multiply by headcount:
 | `model-router` / `GlobalStandard` | 10 | 50 | 100 | 150 |
 
 If attendees hit `429` throttling while working interactively, raise
-`model_capacity` — it carries the two agent calls that do the real work. Do
+`model_capacity` — it carries the three agent calls that do the real work. Do
 that per attendee rather than uniformly; one person re-running a module is not
 the same as the room being under-provisioned.
 

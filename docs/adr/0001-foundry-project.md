@@ -62,12 +62,7 @@ refresh providers within the pinned range, followed by re-running
   `MafAgentRuntime` and `FoundryResponsesClientFactory` on Agent Framework's
   `FoundryChatClient`. Project-scoped routing is active.
 - `foundry_project_name` and `foundry_project_endpoints` are exposed as
-  outputs and read into `.env` for observability and future
-  project-scoped SDK routing.
-- Project-scoped chat routing is not active in this iteration because
-  the openai + azure-identity SDK path used here consumes the AI
-  Services endpoint. This is documented in
-  [`0001-agent-hosting.md`](./0001-agent-hosting.md).
+  outputs and read into `.env`.
 
 ### Rejected alternatives
 

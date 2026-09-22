@@ -302,7 +302,7 @@ the missing piece.
 ## Developer test mode
 
 Automated tests inject a fake Foundry client
-(`services/api/tests/fakes.py::FakeFoundryClient`) into the
+(`services/api/tests/fakes.py::FakeChatClientFactory`) into the
 `MafAgentRuntime` via dependency injection. This is only
 available inside `pytest`; there is no environment variable to enable
 it at runtime. When the runtime cannot find bindings or an endpoint,
@@ -374,7 +374,7 @@ need Azure credentials.
 - Ensure `apps/web/vite.config.ts` still proxies `/api` to
   `http://127.0.0.1:8000` and does not strip the `/api` prefix.
 
-### Missing Azure Foundry environment variables
+### Missing Microsoft Foundry environment variables
 - `POST /api/recommendations/support-plan` returns
   `status: "provider_missing"`. The project endpoint or the per-role
   deployment names are not configured. Populate

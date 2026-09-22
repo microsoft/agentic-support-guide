@@ -98,7 +98,7 @@ it:
 - **Foundry projects.** A project resource that scopes agents, model
   deployments, RBAC, and observability. This repo provisions one
   project as part of Terraform.
-- **Agent Service.** The agent surface in the portal. The three coordinator
+- **Foundry Agent Service.** The agent surface in the portal. The three coordinator
   roles do *not* run here: each is an in-process Agent Framework `Agent` in
   the API backend, built from instructions loaded at startup from the
   on-disk `agent.md` and `manifest.yaml` files, calling a Foundry model
@@ -208,8 +208,7 @@ In summary:
 7. Confirm `GET /api/health/details` reports
    `"customer_demo_ready": true`.
 
-For the demo talk track, see the "What to show in the customer demo"
-section of the root README.
+For the demo talk track, see the [customer demo guide](../demo/README.md).
 
 ## Where to go next
 

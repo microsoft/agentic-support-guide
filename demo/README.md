@@ -13,7 +13,7 @@ README.
 
 ## Confirm the demo is ready
 
-Run all four checks before you present.
+Run all three checks before you present.
 
 1. `GET /api/health/details` returns `"active_provider":
    "azure_foundry_responses"`, `"foundry_project_configured": true`,
