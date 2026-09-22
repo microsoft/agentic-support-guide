@@ -146,11 +146,12 @@ dependency resolution happens on Azure's builders against your uploaded
 source. A dependency that resolves on your laptop but not there fails here,
 and step 4 is where you find out.
 
-In the portal it appears alongside your prompt agents, but typed `hosted`:
+In the portal it appears alongside your prompt agents. Its kind is `hosted`,
+which you can confirm by expanding **Agent info**:
 
-![The hosted agent page showing Version 1, Kind hosted, and tabs for
-Playground, Details, Traces, Monitor, Evaluation and
-Optimize.](images/module-5-hosted-agent.png)
+![The hosted agent page showing Version 1 and tabs for Playground, Details,
+Traces, Monitor, Evaluation and Optimize, with the Agent info section
+collapsed.](images/module-5-hosted-agent.png)
 
 ## 4. Check what the tooling tells you
 

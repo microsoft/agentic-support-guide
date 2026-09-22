@@ -228,3 +228,11 @@ Modules 1 to 10 total 4 hours 25 minutes of hands-on time. Add breaks and
 questions and it fills a 5-hour day with no slack. If you are running short,
 the modules to cut are 7 and 10: both are self-contained, and nothing later
 depends on them.
+
+> [!IMPORTANT]
+> Cutting Module 7 means skipping the module, not the router *deployment*.
+> Module 8's guardrails list shows `asg-router`, so leave
+> `enable_model_router` on. And whatever you cut, send attendees to
+> [Module 10's Clean up](module-10-operate.md#clean-up) at the end — it is
+> the only place that deletes anything, and skipping it leaves the Search
+> service and two App Service plans billing.

@@ -260,6 +260,19 @@ apps, Log Analytics and Application Insights.](images/module-0-resource-group.pn
 The Search service sits in a different region from everything else — that is
 the `search_location` split, and it is expected.
 
+### Turn on New Foundry before you open the portal
+
+Every portal screenshot in this workshop uses the **New Foundry** experience.
+Two UIs sit behind <https://ai.azure.com> and their navigation differs, so
+turn the toggle on now rather than in the middle of a module.
+
+![The Microsoft Foundry header showing a New Foundry toggle in the on
+position, followed by the Home, Discover, Build, Operate, Manage and Docs
+navigation items.](images/portal-new-foundry-toggle.png)
+
+The navigation should read **Home / Discover / Build / Operate / Manage /
+Docs**. Every portal path in this workshop starts from there.
+
 The three model deployments live under **Build → Models → Deployments**:
 
 ![The Foundry deployments list showing asg-judge, asg-router and asg-chat, all
@@ -454,21 +467,6 @@ Run the same two commands locally before every apply:
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
 ```
-
----
-
-## Turn on New Foundry
-
-Every portal screenshot in this workshop uses the **New Foundry** experience.
-Two UIs sit behind <https://ai.azure.com> and their navigation differs, so
-turn the toggle on now rather than in the middle of a module.
-
-![The Microsoft Foundry header showing a New Foundry toggle in the on
-position, followed by the Home, Discover, Build, Operate, Manage and Docs
-navigation items.](images/portal-new-foundry-toggle.png)
-
-The navigation should read **Home / Discover / Build / Operate / Manage /
-Docs**.
 
 ## Check yourself
 

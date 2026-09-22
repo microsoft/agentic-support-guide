@@ -197,6 +197,10 @@ answerable.
 Version 1 beneath it, along with Compare versions and Show all version
 history.](images/module-4-agent-versions.png)
 
+That capture is the state after section 5; once your edit here publishes you
+will have one more version than it shows. The count matters less than the
+fact that each publish is a separate, comparable artifact.
+
 Republishing without editing anything does **not** create a version. The
 publisher is idempotent on identical content, so if you expected a new
 version and did not get one, check that your edit actually reached the

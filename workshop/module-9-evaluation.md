@@ -144,11 +144,14 @@ When the run completes, open it. You get a per-case view with each grader's
 score *and the judge's reasoning* — which is the part a console line cannot
 give you, and the reason this module has you click before it has you script.
 
-Your runs are listed under **Build → Evaluations**:
+Your runs are listed under **Build → Evaluations**. This is the page before
+you have created any — note the **Evaluations**, **Evaluator catalog** and
+**Red team** tabs, and that Evaluations sits under **Optimize** in the left
+rail, not under Build:
 
-![The Foundry Evaluations list showing completed runs named asg-eval-001
-through asg-eval-006, each with a status of Completed and a run
-count.](images/module-9-evaluations.png)
+![The Foundry Evaluations page under Optimize, with the Evaluations,
+Evaluator catalog and Red team tabs, and an empty run list reading "No
+evaluations found".](images/module-9-evaluations.png)
 
 ## 4. See what graders are available
 

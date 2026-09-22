@@ -393,12 +393,10 @@ second swap, and does not depend on a build succeeding.
 Open **Cost Management → Cost analysis** on your resource group. It breaks
 the bill down by service, location and resource, which is the view that
 answers "what is actually costing me money" — and the answer is usually not
-the thing you expected:
-
-![Cost analysis for the workshop resource group showing actual cost of $32.51
-against a $108.93 forecast, with Azure Cognitive Search at $18.48, Microsoft
-Defender at $8.85, Bing Services at $2.58 and App Service at
-$1.30.](images/module-10-cost-analysis.png)
+the thing you expected. One measured run of this environment read $32.51
+actual against a $108.93 forecast, made up of Azure AI Search at $18.48,
+Microsoft Defender at $8.85, Bing Services at $2.58 and App Service at
+$1.30.
 
 Group by **Service name**, then by **Resource**, and find the single most
 expensive thing in your environment before you read the table below.

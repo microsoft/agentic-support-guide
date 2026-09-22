@@ -394,17 +394,18 @@ injection is the one worth your attention here: it covers tool responses as
 well as user input, which is exactly the path a retrieved document takes into
 a prompt.
 
+> [!IMPORTANT]
+> Creating a guardrail and applying it to an agent is a privileged operation.
+> If you provisioned this environment yourself you are the account Owner and
+> **Create** is available. If you were granted narrower access, **Create** is
+> greyed out or applying to an agent fails, and the missing piece is an
+> account-owner-level role. Module 0's closing note has the lookup, because
+> the role name in this family varies between tenants. Module 0 does not
+> grant it as a side effect of `apply` — it is privileged enough to be a
+> deliberate decision.
+
 Apply your guardrail to `-strict`, leave `-baseline` alone, and re-run the
 probe. Does the `strict` column diverge?
-
-Creating a guardrail and applying it to an agent is a privileged operation.
-If you provisioned this environment yourself you are the account Owner and
-**Create** is available. If you were granted narrower access, **Create** is
-greyed out or applying to an agent fails, and the missing piece is an
-account-owner-level role. Module 0's closing note has the lookup, because the
-role name in this family varies between tenants. Module 0 does not grant it as
-a side effect of `apply` — it is privileged enough to be a deliberate
-decision.
 
 > **A dead end worth knowing about.** You might expect to attach a custom
 > content-safety policy programmatically at publish time —

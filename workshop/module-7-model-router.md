@@ -62,7 +62,9 @@ disabled".](images/module-7-router-deployment.png)
 
 Two things on that page matter more than the version. The rate limit is the
 capacity you set in Module 0, in thousands of tokens per minute — it is what
-your requests queue behind under load. And **API key authentication is
+your requests queue behind under load. The screenshot above was captured on a
+higher-capacity deployment and reads 100,000; on the workshop default of
+`router_capacity = 10` yours reads 10,000. And **API key authentication is
 disabled**: every call in this workshop is Entra-authenticated, so there is
 no key to leak.
 
