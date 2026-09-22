@@ -91,8 +91,8 @@ def build_plan_workflow(
             start_executor=retrieve,
             name="support-plan",
             description="Sequential orchestration with one conditional repair edge.",
-            # Only the two terminal nodes produce the result. Without this,
-            # every node's output would surface as a workflow output.
+            # Only these two call yield_output; the rest send_message. Naming
+            # them keeps a future yield hidden rather than joining the result.
             output_from=[finalise, refuse],
         )
         .add_edge(retrieve, analyse)

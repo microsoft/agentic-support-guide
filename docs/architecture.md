@@ -60,7 +60,7 @@ document.
 
 /services/api/                 # Orchestration + FastAPI (no direct model calls)
   app/foundry_agents/          # ONLY place that imports the Foundry SDK
-    maf_client.py              #   the only Agent Framework SDK import
+    maf_client.py              #   the Agent Framework model-client import
     maf_runtime.py             #   MafAgentRuntime (role -> Agent per call)
     role_definitions.py        #   roles from agent.md + deployment env vars
     error_mapping.py           #   provider errors -> app taxonomy

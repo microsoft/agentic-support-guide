@@ -114,9 +114,12 @@ repair once, or give up.
 
 Two details are load-bearing.
 
-**`output_from=[finalise, refuse]`.** Every node yields its output by
-default. Without this, `get_outputs()` returns the analyst's findings and the
-recommender's draft alongside the finished plan.
+**`output_from=[finalise, refuse]`.** Only the two terminal nodes call
+`ctx.yield_output`; the other four hand state on with `ctx.send_message`,
+which never becomes a workflow output. Naming them here states that contract
+rather than relying on it: if a later node started yielding, its payload would
+be hidden instead of quietly joining the result `_single_result` expects to be
+exactly one.
 
 **The workflow is built per request, never cached.** A `Workflow` instance
 refuses a second concurrent run with `WorkflowException: Workflow is already

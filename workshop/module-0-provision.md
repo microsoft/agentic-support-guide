@@ -127,7 +127,8 @@ az search service show -n <name-from-above> -g $rg `
 ```
 
 If a failed service exists, delete it first. Terraform has no record of it, so
-it will try to create the same name again and collide:
+it will try to create the same name again and collide. These commands reuse
+the `$rg` you set above — set it again if you have opened a new terminal:
 
 ```powershell
 az search service delete -n <name-from-above> -g $rg --yes
@@ -138,7 +139,7 @@ too soon fails with a different error:
 
 ```
 409 Conflict ServiceDeleting: Cannot provision service named
-'srch-asg-<suffix>' because a background operation is still in progress
+'<name-from-above>' because a background operation is still in progress
 ```
 
 Wait until the name is actually gone before re-applying. This returns

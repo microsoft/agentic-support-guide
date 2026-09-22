@@ -222,8 +222,11 @@ domain:
 https://www.census.gov/econ/indviz/auto/main.html
 ```
 
-Building it in the portal first would be work the next step throws away, and
-you will see its citations when you query the base in step 9.
+Building it in the portal first would be work the next step throws away. Step
+6 shows you where it lands, and why nothing from it survives the ownership
+check your *application* applies — scoping the request to the index source
+does not stop a web or blob source contributing, so the retriever drops any
+document that cannot prove which dealer group it belongs to.
 
 Two properties make this safe enough to show a customer:
 
@@ -488,7 +491,8 @@ API version and check the current docs — do not assume the feature is gone.
 ## Check yourself
 
 - [ ] Your knowledge source and base exist, named with your suffix.
-- [ ] You added the web allow-list source by hand and saw it cited.
+- [ ] You can say why the web source answers in the base but contributes
+      nothing to your application's retrieval.
 - [ ] `provision_foundry_iq.py --apply` built `asg-evidence-<your-alias>` with
       `dealer_group_id` filterable.
 - [ ] The running app reports `provider=foundry_iq`, not `fixture`.

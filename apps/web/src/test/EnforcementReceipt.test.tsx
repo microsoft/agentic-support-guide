@@ -170,9 +170,7 @@ describe("EnforcementReceipt", () => {
         }}
       />,
     );
-    expect(
-      screen.getByText(/2 advisory warning\(s\) that do not fail validation/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/recorded 2 advisory warning\(s\)/i)).toBeInTheDocument();
     expect(screen.getByText(/MISSING_DATA_FIRST_RESPONSE_TIME/)).toBeInTheDocument();
   });
 
@@ -188,6 +186,54 @@ describe("EnforcementReceipt", () => {
       />,
     );
     expect(screen.queryByText(/advisory warning/i)).not.toBeInTheDocument();
+  });
+
+  it("de-duplicates warnings across both validator attempts", () => {
+    render(
+      <EnforcementReceipt
+        envelope={{
+          ...base,
+          validation_reached: true,
+          deterministic_checks_total: 8,
+          agent_trace: [
+            step({ agent: "validator-agent", warning_codes: ["HUMAN_REVIEW_REQUIRED", "A_CODE"] }),
+            step({ agent: "validator-agent", warning_codes: ["HUMAN_REVIEW_REQUIRED"] }),
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText(/recorded 2 advisory warning\(s\)/i)).toBeInTheDocument();
+  });
+
+  it("reports warnings on a withheld run without implying it passed", () => {
+    render(
+      <EnforcementReceipt
+        envelope={{
+          ...base,
+          status: "validation_failed",
+          validation_reached: true,
+          deterministic_checks_total: 8,
+          validator_status: "Validator failed on: UNKNOWN_CITATION_ID.",
+          agent_trace: [step({ agent: "validator-agent", warning_codes: ["A_CODE"] })],
+        }}
+      />,
+    );
+    expect(screen.getByText(/Validator failed on: UNKNOWN_CITATION_ID/)).toBeInTheDocument();
+    expect(screen.getByText(/which never change the verdict/i)).toBeInTheDocument();
+    expect(screen.queryByText(/do not fail validation/i)).not.toBeInTheDocument();
+  });
+
+  it("still reports warnings when the check total is missing", () => {
+    render(
+      <EnforcementReceipt
+        envelope={{
+          ...base,
+          validation_reached: true,
+          agent_trace: [step({ agent: "validator-agent", warning_codes: ["A_CODE"] })],
+        }}
+      />,
+    );
+    expect(screen.getByText(/recorded 1 advisory warning\(s\)/i)).toBeInTheDocument();
   });
 
   it("states a complete token sum without hedging", () => {

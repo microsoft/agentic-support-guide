@@ -69,9 +69,12 @@ There are no remote assistant IDs. Each role is assembled in-process from
 ## Azure provider behavior
 
 - `FoundryResponsesClientFactory` (`app/foundry_agents/maf_client.py`) is
-  the only module importing Agent Framework. It builds an
+  the only module importing the Agent Framework *model client*. It builds an
   `agent_framework.Agent` on a `FoundryChatClient` per call, with
   `store=False` and a `response_format` bound to the role's contract.
+  Agent Framework is imported in three other places for different
+  primitives: `app/workflows/graph.py` (`WorkflowBuilder`),
+  `app/workflows/executors.py` (`Executor`) and `app/observability.py`.
 - `MafAgentRuntime` (`app/foundry_agents/maf_runtime.py`) resolves a role
   to its definition and enforces the per-run timeout. Agents are
   ephemeral: nothing is created or stored in Foundry.

@@ -60,8 +60,13 @@ export function EnforcementReceipt({ envelope }: Props) {
       `All ${deterministic_checks_total} deterministic checks were applied to this output` +
         (summary ? ` — ${summary}.` : "."),
     );
-    // Advisory only: the validator reports these alongside a pass, so a
-    // receipt that showed the verdict alone read as an all-clear.
+  } else if (validation_reached === false) {
+    lines.push("Validation not reached: the run ended before the checks could be applied.");
+  }
+
+  if (validation_reached) {
+    // Reported alongside the verdict on both the accepted and withheld
+    // paths, so the wording cannot imply the run passed.
     const warnings = [
       ...new Set(
         steps
@@ -71,12 +76,10 @@ export function EnforcementReceipt({ envelope }: Props) {
     ];
     if (warnings.length > 0) {
       lines.push(
-        `The validator also raised ${warnings.length} advisory warning(s) that do not ` +
-          `fail validation: ${warnings.join(", ")}.`,
+        `The validator also recorded ${warnings.length} advisory warning(s), which never ` +
+          `change the verdict: ${warnings.join(", ")}.`,
       );
     }
-  } else if (validation_reached === false) {
-    lines.push("Validation not reached: the run ended before the checks could be applied.");
   }
 
   if (has(attempts) && attempts > 1) {

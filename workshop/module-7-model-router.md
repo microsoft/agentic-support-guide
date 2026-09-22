@@ -210,10 +210,7 @@ FOUNDRY_MODEL_DEPLOYMENT_ANALYST=asg-router
 Restart the backend, then re-run exactly the same three calls from step 3 and
 fill in a second copy of the same table.
 
-**Put the original value back before you move on.** Restore
-`FOUNDRY_MODEL_DEPLOYMENT_ANALYST=asg-chat` and restart the backend — later
-modules assume the analyst is on `asg-chat`. Keep the router only if your own
-numbers argued for it, and then expect those modules to read differently.
+Leave the router in place for now — section 6 still needs it.
 
 ## 5. Now answer the real questions
 
@@ -254,6 +251,13 @@ concluding from a single pass.
 This is what the schema validation in Module 3 buys. Without
 it, a weaker model behind a router silently corrupts data. With it, the same
 event is a named, attributable failure in the trace.
+
+> [!IMPORTANT]
+> Now put the original value back. Restore
+> `FOUNDRY_MODEL_DEPLOYMENT_ANALYST=asg-chat` in `services/api/.env` and
+> restart the backend — later modules assume the analyst is on `asg-chat`.
+> Keep the router only if your own numbers argued for it, and then expect
+> those modules to read differently.
 
 ---
 

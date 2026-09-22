@@ -61,17 +61,18 @@ produce a structured recommendation that a human reviews and approves.
 - **Validator Agent** checks structure, required caveats, and grounding.
   It uses deterministic Python rules, plus an advisory model critique.
 
-Between those three agents sits a **deterministic coordinator** — plain
-Python inside the FastAPI service. It orders the calls, validates each
-inter-agent message against a JSON Schema, enforces timeouts and budgets,
-and runs at most one repair pass if the validator rejects the draft. The
+Between those three agents sits a **deterministic coordinator** — a
+Microsoft Agent Framework `WorkflowBuilder` graph inside the FastAPI
+service. Six executors and six edges order the calls, validate each
+inter-agent message against a JSON Schema, enforce timeouts and budgets,
+and run at most one repair pass if the validator rejects the draft. The
 coordinator is **not** a fourth agent; it does not talk to a language
 model.
 
-This pattern is a small example of a **Microsoft Agent Framework**–style
-workflow: multiple specialized agents exchanging typed messages, with a
-central coordinator, structured output, prompt-injection defenses, and
-metadata-only auditing.
+This is a **Microsoft Agent Framework** workflow, not an imitation of one:
+specialized agents exchanging typed messages across a graph of executors
+and conditional edges, with structured output, deterministic validation,
+and metadata-only auditing.
 
 The three agents run on **Azure AI Foundry** through Microsoft Agent
 Framework, and the same definitions are published to Foundry as **prompt
