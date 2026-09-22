@@ -72,7 +72,9 @@ output (does it use only allowed IDs, does it include the required
 human-review caveat), not the exact wording. This repo's synthetic
 cases live in [`/evals`](../evals) and are scored by
 [`scripts/run_evals.py`](../scripts/run_evals.py), which runs offline on
-every pull request. Nothing grades answer quality against a live model.
+every pull request. Answer quality is graded separately and on demand by
+[`scripts/run_agent_evals.py`](../scripts/run_agent_evals.py), which calls a
+live judge model. Module 9 runs both.
 
 ## GenAIOps
 

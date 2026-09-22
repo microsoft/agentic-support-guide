@@ -128,9 +128,11 @@ because there is no hand-written recorder.
 
 The privacy property is now a **framework default** rather than a list we
 police: `enable_sensitive_data` is False unless you opt in, so prompts and
-completions are never attached to a span. Never call
-`enable_sensitive_telemetry()` here. A workshop runs on a shared subscription
-and a span is forever.
+completions are never attached to a span.
+
+> [!CAUTION]
+> Never call `enable_sensitive_telemetry()` here. A workshop runs on a shared
+> subscription and a span is forever.
 
 That default is checked, not assumed:
 [services/api/tests/test_observability.py](../services/api/tests/test_observability.py)
@@ -163,6 +165,10 @@ the payload:
 parts = list(_walk_json(audit_payload))
 keys = [text.lower() for kind, text in parts if kind == "key"]
 values = " ".join(text.lower() for kind, text in parts if kind == "value")
+
+# An empty audit trail would pass every leak check below vacuously.
+if not (audit_payload.get("events") or []):
+    _fail(result, "audit payload contains no events")
 
 for unsafe in UNSAFE_AUDIT_KEYS:
     if any(unsafe in key for key in keys):

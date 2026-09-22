@@ -325,6 +325,7 @@ every message.
 `step.check_protocol` validates it and raises `StepFailed` with
 `PROTOCOL_VALIDATION_FAILED` naming the schema.
 
+> [!NOTE]
 > **"Handoff" here means passing data.** `check_handoff` and the word
 > "handoff" in the agent manifests mean *this* — a validated hop from one
 > fixed step to the next. Agent Framework also has a **handoff
@@ -470,6 +471,7 @@ Add `--apply` to publish. The three role agents then appear in the portal.
 asg-support-recommendation-agent-demo and
 asg-data-analyst-agent-demo.](images/module-3-three-role-agents.png)
 
+> [!WARNING]
 > **Use `--roles-only`, not a bare `--apply`.** The publisher builds each
 > version from `agent.md` alone, and a bare `--apply` would also republish
 > agents you later create or edit in the portal. Anything added in the portal

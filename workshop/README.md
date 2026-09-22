@@ -51,7 +51,7 @@ In this workshop, you learn how to:
   repo, and permission to run local PowerShell scripts. Every script is
   PowerShell and every path is a Windows path.
 - Git 2.40, PowerShell 7.4, Azure CLI 2.84 plus its `application-insights`
-  extension, Terraform 1.9, Python 3.13, Node.js 20 LTS, and Visual Studio
+  extension, Terraform 1.9, Python 3.13, Node.js 22 LTS, and Visual Studio
   Code. Do not pin an older Azure CLI — `az search usage list` is missing from
   older builds.
 - Network access to the Azure endpoints the SDKs call, including

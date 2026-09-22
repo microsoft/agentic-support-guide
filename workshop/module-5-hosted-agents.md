@@ -54,7 +54,10 @@ app = ResponsesAgentServerHost()
 @app.response_handler
 async def handle(request, context, cancellation_signal):
     question = extract_question(request)
-    answer = gate(await _answer(question))
+    if not question:
+        answer = "Ask a question about dealership support practice."
+    else:
+        answer = gate(await _answer(question))
     async for event in TextResponse(context, request, text=answer):
         yield event
 ```

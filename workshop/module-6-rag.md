@@ -328,6 +328,7 @@ markdown blob. Step 2 is convergent: it deletes index keys no longer in the
 fixtures before uploading, because `upload_documents` is an upsert and would
 otherwise leave deleted evidence queryable.
 
+> [!WARNING]
 > The script rebuilds `asg-ks-<alias>` over the new index, adds
 > `asg-ks-blob-<alias>` and `asg-ks-web-<alias>`, and replaces the base's
 > source list. **The blob and web sources you made by hand are overwritten**,

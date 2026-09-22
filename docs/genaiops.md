@@ -108,7 +108,7 @@ automatically — both are run on demand.
 ### 4. Evaluate structure and safety, not exact prose
 
 - The Validator Agent runs deterministic Python checks in
-  [`services/api/app/agents/validator/agent.py`](../services/api/app/agents/validator/agent.py):
+  [`services/api/app/agents/validator/checks.py`](../services/api/app/agents/validator/checks.py):
   allowed resource / goal / strategy IDs, required caveats
   (including a "human review" clause), required support-tier framing
   (`baseline`, `focused`, `intensive`, or `advanced`), required
@@ -120,8 +120,10 @@ automatically — both are run on demand.
   which drops anything that is not uppercase snake case of at least
   four characters.
 
-**How to verify.** Read the `validate()` method in
-`services/api/app/agents/validator/agent.py` and its unit tests in
+**How to verify.** Read `DETERMINISTIC_CHECKS` in
+`services/api/app/agents/validator/checks.py`, the `validate()` method in
+`services/api/app/agents/validator/agent.py` that runs them, and their unit
+tests in
 [`services/api/tests/test_agents.py`](../services/api/tests/test_agents.py).
 
 ### 5. Track model deployment/config changes

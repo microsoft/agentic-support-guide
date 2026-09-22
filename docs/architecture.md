@@ -51,6 +51,7 @@ document.
     schemas/                   # Agent-local input/output shapes
   support-recommender/
   validator/
+  support-explainer/           # Standalone workshop agent, not a coordinator role
 
 /contracts/v1/                 # Source of truth for inter-agent protocol
   *.schema.json

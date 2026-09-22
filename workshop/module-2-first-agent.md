@@ -13,7 +13,7 @@ runs a three-agent workflow. You have seen it work without seeing how. This
 module and the next build that machinery back up from the smallest thing that
 works, so nothing in it stays a black box.
 
-Five short programs in [code/](code/). Each one runs, prints something, and
+Four short programs in [code/](code/). Each one runs, prints something, and
 adds one idea to the one before it. Module 3 continues with three more.
 
 You should be comfortable with Python — `async`/`await`, dataclasses and type
@@ -45,7 +45,7 @@ az login
 did Module 0, whatever you called yours otherwise. A sample that cannot find
 either setting prints which variable to set and exits.
 
-Run any sample with:
+Run any sample from the repo root with:
 
 ```powershell
 .\services\api\.venv\Scripts\python.exe workshop\code\01_first_agent.py
@@ -99,5 +99,15 @@ Also worth reading alongside these samples:
 [agent concepts](https://learn.microsoft.com/agent-framework/concepts/agents/?pivots=programming-language-python),
 [custom agents](https://learn.microsoft.com/agent-framework/concepts/agents/custom-agents?pivots=programming-language-python),
 and [agent safety](https://learn.microsoft.com/agent-framework/concepts/agents/safety).
+
+## Check yourself
+
+- [ ] All four samples ran and printed an answer.
+- [ ] You changed an instruction in sample 1 and saw the answer change.
+- [ ] You can name the line in sample 2 that makes a Python function callable
+      by the model.
+- [ ] You can explain why sample 3 answers a follow-up question and sample 1
+      cannot.
+- [ ] You can point at where sample 4 puts the retrieved evidence.
 
 Next: [Module 3 — Workflows](module-3-workflows.md)

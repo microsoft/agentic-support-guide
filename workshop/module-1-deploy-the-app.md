@@ -121,6 +121,9 @@ with an object ID that is not yours.
 Object (principal) ID.](images/module-1-managed-identity.png)
 
 ```powershell
+$rg  = terraform -chdir=infra output -raw resource_group_name
+$app = terraform -chdir=infra output -raw api_app_name
+
 az webapp identity show --resource-group $rg --name $app --query principalId -o tsv
 ```
 
@@ -196,6 +199,7 @@ az ad app federated-credential create --id <appId> --parameters '{
 }'
 ```
 
+> [!NOTE]
 > **The subject claim may not be what the documentation says.** On a GitHub
 > Enterprise organization it can carry numeric org and repo IDs:
 > `repo:<org>@<org-id>/<repo>@<repo-id>:environment:workshop`. A mismatch

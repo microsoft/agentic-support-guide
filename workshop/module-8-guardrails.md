@@ -330,10 +330,13 @@ Worth trying:
 - A question that assumes a fact the dealer group evidence does not contain
 
 All of these are request-only: you are changing what you *ask*, not what the
-system *is*. Do not plant an injection string in your knowledge documents to
-test indirect injection — it contaminates the index every later module
-retrieves from, and the tool-response interception point is already described
-in the table above.
+system *is*.
+
+> [!CAUTION]
+> Do not plant an injection string in your knowledge documents to test
+> indirect injection. It contaminates the index every later module retrieves
+> from, and the tool-response interception point is already described in the
+> table above.
 
 ## 7. Configure agent guardrails in the portal
 

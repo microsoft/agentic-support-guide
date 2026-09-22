@@ -172,10 +172,12 @@ az cognitiveservices usage list -l westus3 -o table
 
 Mind which pool. `asg-chat` and `asg-judge` are both `gpt-4.1-mini` on
 `DataZoneStandard` and share an allowance; the router is a different model on
-`GlobalStandard`. Use the capacity values your facilitator agreed from the
-quota table in [Plan this workshop for a group](plan-this-workshop.md#2-model-quota).
-The defaults below carry every module. Whichever you use, agree it as a group,
-or the last person to `apply` gets `InsufficientQuota`.
+`GlobalStandard`. The defaults below carry every module, so keep them unless
+you have a reason not to. If you are one of several people on one
+subscription, agree the numbers as a group first — quota is pooled, and the
+last person to `apply` otherwise gets `InsufficientQuota`. The quota table in
+[Plan this workshop for a group](plan-this-workshop.md#2-model-quota) does
+that arithmetic.
 
 ```hcl
 model_capacity  = 10   # the three coordinator agents
