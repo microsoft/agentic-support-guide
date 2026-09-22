@@ -431,15 +431,13 @@ $0.34 per hour for the same row — about 3.4 times more. Check which tier you
 actually got; it is the largest number on the bill either way.
 
 The two App Service plans and the Search service bill whether or not anyone
-uses them. When you are finished with the **whole** workshop — including the
-optional section below, which needs the resources to still exist:
+uses them. Destroying them is the last step of the workshop — see
+[Clean up](#clean-up) below, after the optional section, which needs the
+resources to still exist.
 
-```powershell
-terraform -chdir=infra destroy
-```
-
-Expect this to take a while. Some resources — Foundry projects especially —
-soft-delete rather than disappear, which is why every name in this repo
+Expect the destroy to take a while. Some resources — Foundry projects
+especially — soft-delete rather than disappear, which is why every name in
+this repo
 carries a random suffix.
 
 ## 7. Optional — turn a query into an alert
@@ -486,7 +484,46 @@ not a query over telemetry the dead process could not send.
 - [ ] Can explain why a staging slot prevents a failed-start outage
 - [ ] Can name what this environment costs while idle
 
+## Clean up
+
+Everything the workshop provisions lives in one resource group and one
+Foundry project, so this is the only place in the workshop that deletes
+anything.
+
+> [!NOTE]
+> The optional CI sections create things Terraform does not own: an Entra app
+> registration and federated credential (Module 1), and GitHub repository
+> variables and a role assignment (Module 9). If you did those, remove them
+> separately.
+
+Delete the agents first, while the project still exists. Each command
+matches your suffix exactly, so a colleague's agents on the same project
+survive:
+
+```powershell
+.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --delete
+.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --delete
+```
+
+The prompt-agent delete leaves **variants** alone. If you did Module 8,
+remove those by name:
+
+```powershell
+.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --variant strict --delete
+.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --variant baseline --delete
+```
+
+Then destroy the infrastructure:
+
+```powershell
+terraform -chdir=infra destroy
+```
+
+> [!NOTE]
+> The Foundry resource and the project's backing workspace soft-delete
+> rather than disappearing. The random suffix in every name is what lets
+> you re-apply later without colliding with a soft-deleted tombstone.
+
 ## You have finished
 
-Back to the [workshop index](README.md), or tear it all down with
-`terraform -chdir=infra destroy`.
+Back to the [workshop index](README.md).

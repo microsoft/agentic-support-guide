@@ -1,14 +1,14 @@
 # Getting started for new teams
 
 This page is the learning-oriented entry point for anyone new to
-agentic applications, Azure AI Foundry, DevOps, MLOps, or GenAIOps.
+agentic applications, Microsoft Foundry, DevOps, MLOps, or GenAIOps.
 Read this first, in order, before opening code. Every term used here
 has a plain-language entry in the [Glossary](glossary.md).
 
 ## Who this repo is for
 
 - Engineers or solution architects who want a working, opinionated
-  example of a multi-agent workflow on Azure AI Foundry.
+  example of a multi-agent workflow on Microsoft Foundry.
 - Teams starting to experiment with agentic patterns and want to see
   how to organize agent instructions, contracts, orchestration, and
   observability without writing everything from scratch.
@@ -59,8 +59,8 @@ Each agent folder contains only configuration:
   temperature, contract references).
 - `schemas/` — agent-local input/output shapes.
 
-The **runtime** for each role is a ephemeral agent hosted on Azure AI
-Foundry Agent Service. The Python code in
+The **runtime** for each role is an in-process Agent Framework `Agent` in
+the API backend, calling a Microsoft Foundry model deployment. The Python code in
 [`services/api/app/agents`](../services/api/app/agents) is a thin
 wrapper that builds the user message and calls the ephemeral agent
 through [`MafAgentRuntime`](../services/api/app/foundry_agents/maf_runtime.py).
@@ -86,9 +86,9 @@ not appear in any prompt. It is regular code that unit tests exercise
 with a fake Foundry client. Anywhere you see "the coordinator does X,"
 substitute "a Python function does X."
 
-## What Azure AI Foundry provides
+## What Microsoft Foundry provides
 
-Azure AI Foundry is Microsoft's Azure-native platform for building and
+Microsoft Foundry is Microsoft's Azure-native platform for building and
 running language-model workloads. This repo relies on three pieces of
 it:
 
@@ -192,8 +192,8 @@ rest by search.
 ## What to run for a customer demo
 
 Only commands that already exist in this repo. Full setup steps live
-in the root [README](../README.md) under **Customer demo setup (Azure
-AI Foundry)**. In summary:
+in the root [README](../README.md) under **Set up Microsoft Foundry**.
+In summary:
 
 1. `az login` and set the subscription.
 2. `terraform apply` in [`/infra`](../infra).

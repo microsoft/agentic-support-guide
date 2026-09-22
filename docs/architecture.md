@@ -3,8 +3,8 @@
 > See also: [High-level architecture diagram](architecture-diagram.md).
 
 `agentic-support-guide` is a customer-demo prototype demonstrating an
-Azure AI Foundry three-agent workflow. All data is synthetic. Every LLM
-call runs against the **Azure AI Foundry** project through Microsoft Agent
+Microsoft Foundry three-agent workflow. All data is synthetic. Every LLM
+call runs against the **Microsoft Foundry** project through Microsoft Agent
 Framework, with each role composed in-process from `/agents/<id>/agent.md`.
 The same definitions are published to Foundry as **prompt agents**, so they
 are visible and versioned in the portal. There is no local model call in the
@@ -74,7 +74,7 @@ document.
   app/contracts_registry.py    # Central JSON Schema registry
 
 /apps/web/                     # React + TS UI
-/infra/                        # Terraform for Azure AI Foundry
+/infra/                        # Terraform for Microsoft Foundry
 /docs/                         # Architecture, security, ADRs, GenAIOps
 /evals/                        # Synthetic evaluation cases
 /scripts/                      # validate_agent_definitions.py, populate-env.ps1, ...

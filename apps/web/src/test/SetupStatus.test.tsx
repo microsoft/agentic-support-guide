@@ -27,7 +27,7 @@ describe("SetupStatus", () => {
       ),
     );
     expect(
-      screen.getByText(/azure ai foundry project endpoint is not configured/i),
+      screen.getByText(/microsoft foundry project endpoint is not configured/i),
     ).toBeInTheDocument();
     expect(screen.getByTestId("setup-check-foundry_project_endpoint")).toBeInTheDocument();
     expect(screen.getByTestId("setup-check-agent_definitions_valid")).toBeInTheDocument();

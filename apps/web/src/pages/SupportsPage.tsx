@@ -24,7 +24,7 @@ interface OptionsState {
 
 const ERROR_MESSAGES: Record<string, string> = {
   provider_missing:
-    "Azure AI Foundry is not configured. Populate AZURE_AI_FOUNDRY_* environment variables and restart the backend.",
+    "Microsoft Foundry is not configured. Populate AZURE_AI_FOUNDRY_* environment variables and restart the backend.",
   provider_timeout: "The model provider timed out. Try again in a moment.",
   provider_throttling: "The model provider throttled the request. Try again shortly.",
   provider_content_filter:
@@ -463,12 +463,12 @@ function RecommendationPanel({
 }) {
   const ok = rec.completeness.ok;
   // Must match PROVIDER_DISPLAY_CONFIGURED in services/api/app/config.py.
-  const isFoundry = providerModel.startsWith("Azure AI Foundry");
+  const isFoundry = providerModel.startsWith("Microsoft Foundry");
   return (
     <div className="mt-3 rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200">
       <p className="text-xs uppercase tracking-wide text-amber-300">
         {isFoundry
-          ? "Three-agent output via Azure AI Foundry"
+          ? "Three-agent output via Microsoft Foundry"
           : `Three-agent output via ${providerModel || "unknown provider"}`}
       </p>
       <div className="mt-2 grid gap-2 md:grid-cols-2">

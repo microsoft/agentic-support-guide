@@ -1,11 +1,11 @@
 # Infra - Terraform for agentic-support-guide
 
-Provisions the minimum Azure AI Foundry resources needed for real LLM
+Provisions the minimum Microsoft Foundry resources needed for real LLM
 calls from the three implemented agents:
 
 - Azure resource group.
 - Azure AI Services account (`kind = "AIServices"`, `project_management_enabled = true`).
-- Azure AI Foundry project (`azurerm_cognitive_account_project`).
+- Microsoft Foundry project (`azurerm_cognitive_account_project`).
 - Three model deployments (`azurerm_cognitive_deployment`): the chat model,
   the Module 9 judge, and the Module 7 router.
 - Azure AI Search plus a storage account and a `group-knowledge` container,

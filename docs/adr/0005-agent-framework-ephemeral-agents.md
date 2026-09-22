@@ -12,7 +12,7 @@ Supersedes: [ADR 0002 — agent hosting on remote Foundry](0002-agent-hosting-re
 
 ## Context
 
-ADR 0002 hosted each role as a **persisted assistant** in Azure AI Foundry,
+ADR 0002 hosted each role as a **persisted assistant** in Microsoft Foundry,
 created by a sync script and referenced by `asst_*` IDs in a local bindings
 file. Three problems surfaced in practice:
 

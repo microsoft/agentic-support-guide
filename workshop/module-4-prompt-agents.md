@@ -106,7 +106,7 @@ Copy it. Then in your Foundry project:
    record holding instructions and a model reference. Creating one calls no
    model and costs nothing.
 2. Name it `asg-support-explainer-agent-<your-alias>`. The name matters —
-   Module 8 and the cleanup in step 7 both match on it.
+   Module 8 and the cleanup in Module 10 both match on it.
 3. Set the model to `asg-chat` — the deployment Module 0 created, not a model
    name.
 4. Paste the composed instructions.
@@ -176,7 +176,7 @@ portal never shows it.
 
 `--suffix` is required, not optional. Module 8 needs a published `-baseline`
 variant addressable alongside the `-strict` agent you build by hand, and the
-cleanup in step 7 matches on the suffix, so it removes exactly what you
+cleanup in Module 10 matches on the suffix, so it removes exactly what you
 published.
 
 `--workshop-only` limits this to the standalone agent. Module 3 publishes the
@@ -206,35 +206,9 @@ You can also edit instructions directly in the portal. Do that and the two
 diverge: the next `--apply` overwrites your portal edit with what is on disk,
 silently. Pick one source of truth. For the rest of this workshop it is disk.
 
-## 7. Clean up — at the end of the workshop, not now
-
-**Do not run this yet.** Module 6 attaches a knowledge base to this exact
-agent, and Modules 3 and 8 publish alongside it. Come back when you are
-finished with the whole path.
-
-In the portal it is **Build → Agents**, select your agents, delete. That is
-fine for four agents and it shows you exactly what is going away.
-
-The scripted equivalent, for when there are more of them:
-
-```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --delete
-```
-
-This matches the suffix exactly — not as a prefix — so an agent published
-under a different suffix survives. That precision is deliberate: a prefix
-match here once deleted more than it was asked to.
-
-It also leaves **variants** alone. If you did Module 8, remove those by name:
-
-```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --variant strict --delete
-.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --variant baseline --delete
-```
-
 ---
 
-## 8. Optional — publish from a pipeline
+## 7. Optional — publish from a pipeline
 
 **Skip this if you are not doing CI.** Nothing later depends on it.
 

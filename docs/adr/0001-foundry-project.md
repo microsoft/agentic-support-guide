@@ -7,7 +7,7 @@ Terraform: `>= 1.9.0`
 
 ## Context
 
-Terraform in `/infra` must deploy the minimum Azure AI Foundry resources
+Terraform in `/infra` must deploy the minimum Microsoft Foundry resources
 needed for real LLM calls from the three implemented agents.
 
 ## Decision

@@ -107,7 +107,7 @@ def _make_coord(
         runtime=runtime,
         contracts=_registry(),
         evidence_retriever=evidence_retriever or FixtureEvidenceRetriever(),
-        provider_display="Azure AI Foundry Agent Service (fake)",
+        provider_display="Microsoft Foundry Agent Service (fake)",
     )
     return coord, client
 

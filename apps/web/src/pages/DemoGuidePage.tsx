@@ -7,7 +7,7 @@ export function DemoGuidePage() {
       <Card title="Demo guide">
         <p className="text-sm text-slate-200">
           This prototype demonstrates a generic dealership support workflow. All values on
-          screen are synthetic. When the backend is connected to Azure AI Foundry, three
+          screen are synthetic. When the backend is connected to Microsoft Foundry, three
           collaborating agents run on real language-model calls to produce a structured
           support recommendation for a chosen dealership and category.
         </p>
@@ -79,7 +79,7 @@ export function DemoGuidePage() {
         </ol>
       </Card>
 
-      <Card title="What Azure AI Foundry is doing">
+      <Card title="What Microsoft Foundry is doing">
         <ul className="list-disc space-y-1 pl-5 text-sm text-slate-200">
           <li>
             Hosting the language-model deployment that each agent calls with a
@@ -90,13 +90,13 @@ export function DemoGuidePage() {
             role-based access.
           </li>
           <li>
-            Sitting inside an Azure AI Foundry project - the same organizational unit
+            Sitting inside a Microsoft Foundry project - the same organizational unit
             used for future hosted agents, evaluations, and safety workflows.
           </li>
         </ul>
       </Card>
 
-      <Card title="How to confirm you are on Azure AI Foundry (not a test double)">
+      <Card title="How to confirm you are on Microsoft Foundry (not a test double)">
         <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-200">
           <li>
             The banner at the top of this page should show{" "}
@@ -109,7 +109,7 @@ export function DemoGuidePage() {
           <li>
             Open the AI Audit page after generating a recommendation. The runtime rows
             should show{" "}
-            <span className="font-mono">Azure AI Foundry (Agent Framework, prompt agents)</span>{" "}
+            <span className="font-mono">Microsoft Foundry (Agent Framework, prompt agents)</span>{" "}
             in the provider/model column.
           </li>
         </ol>

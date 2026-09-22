@@ -1,7 +1,7 @@
 # Backend - agentic-support-guide API
 
 Local prototype FastAPI service that hosts three collaborating agents
-backed by Azure AI Foundry model deployments.
+backed by Microsoft Foundry model deployments.
 
 - Data Analyst Agent
 - Support Recommendation Agent

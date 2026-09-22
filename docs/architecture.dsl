@@ -31,7 +31,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             }
         }
 
-        foundry = softwareSystem "Azure AI Foundry" {
+        foundry = softwareSystem "Microsoft Foundry" {
             foundryProject = container "Foundry Project" "Project boundary for agents, model, and observability" {
                 tags "Azure"
             }

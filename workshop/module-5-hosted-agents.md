@@ -327,15 +327,7 @@ Hosting changes *where code runs* and gives you a place to enforce rules. It
 does nothing for grounding. Grounding needs a knowledge base, which is
 Module 6.
 
-## 9. Clean up
-
-```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --delete
-```
-
----
-
-## 10. Optional — put the hosted agent in a pipeline
+## 9. Optional — put the hosted agent in a pipeline
 
 **Skip this if you are not doing CI.** Nothing later depends on it.
 

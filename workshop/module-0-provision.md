@@ -483,15 +483,9 @@ Docs**.
 
 ## Tear down
 
-At the end of the workshop:
-
-```powershell
-terraform -chdir=infra destroy
-```
-
-Both the Cognitive Services account and the project's backing AML workspace
-soft-delete. The random suffix is what lets you re-apply afterwards without
-colliding with a soft-deleted name, so keep it in the naming.
+At the end of the workshop, Module 10 walks through deleting the agents and
+then destroying the infrastructure. Do not run it now — every later module
+builds on what you just provisioned.
 
 A soft-deleted account also keeps holding its model quota. If you destroy and
 then re-apply, the second apply can fail with `InsufficientQuota` while the

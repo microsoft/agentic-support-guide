@@ -49,7 +49,7 @@ resource "azurerm_cognitive_account_project" "foundry_project" {
   cognitive_account_id = azurerm_cognitive_account.ai_services.id
   location             = azurerm_resource_group.main.location
   display_name         = var.foundry_project_display_name
-  description          = "Azure AI Foundry project hosting the three-agent workflow model deployment."
+  description          = "Microsoft Foundry project hosting the three-agent workflow model deployment."
 
   identity {
     type = "SystemAssigned"

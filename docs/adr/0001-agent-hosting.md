@@ -3,7 +3,7 @@
 > **Superseded by [0002-agent-hosting-remote-foundry.md](0002-agent-hosting-remote-foundry.md).**
 > This ADR captures the original decision to run each agent locally in
 > Python via `LocalManifestAgentAdapter`. That runtime is no longer
-> acceptable; the successor ADR explains the move to remote Azure AI
+> acceptable; the successor ADR explains the move to remote Microsoft
 > Foundry Agent Service agents.
 
 Status: Superseded
@@ -11,14 +11,14 @@ Date: 2026-01-05
 
 ## Context
 
-The prototype needs three collaborating agents backed by Azure AI
+The prototype needs three collaborating agents backed by Microsoft
 Foundry model deployments. Options:
 
 1. Host each agent as a Foundry hosted agent orchestrated by a Foundry
    workflow.
 2. Implement each agent as configuration under `/agents/<id>/` and let
-   a local Python runtime (`LocalManifestAgentAdapter`) call the Azure
-   AI Foundry model deployment directly.
+   a local Python runtime (`LocalManifestAgentAdapter`) call the Microsoft
+   Foundry model deployment directly.
 
 ## Decision
 

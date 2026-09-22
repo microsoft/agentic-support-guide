@@ -110,7 +110,7 @@ async def post_recommendation(
             status="provider_missing",
             error_code="AGENT_PROVIDER_MISSING",
             error_message=(
-                "Azure AI Foundry Agent Service is not configured or bindings "
+                "Microsoft Foundry Agent Service is not configured or bindings "
                 "are missing. Run scripts/validate_agent_definitions.py."
             ),
             recommendation=None,

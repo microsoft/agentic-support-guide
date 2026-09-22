@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 900" width="1700" height="900" role="img" aria-labelledby="asg-title asg-desc">
   <title id="asg-title">Agentic Support Guide - High-level architecture</title>
-  <desc id="asg-desc">A Demo User interacts with a Web App that calls an API Service (FastAPI). Every request carries a dealer_group_id. Inside the API Service, a deterministic Workflow Coordinator generates a correlation_id, retrieves a per-dealer-group evidence bundle from an Evidence Retriever (synthetic fixtures, or Azure AI Search when grounding is enabled), reads Synthetic Data, validates Protocol Contracts, loads Agent Definitions, and invokes three Azure AI Foundry agents in sequence: Data Analyst Agent, then Support Recommendation Agent (with citations attached from the evidence bundle), then Validator Agent (which enforces dealer group isolation, citation integrity, and forbidden determinations). All three agents share one Model Deployment. Every passing recommendation is created in pending_review and moves through the human review lifecycle (approved or rejected) via an audited review endpoint. The API Service emits Agent Framework spans (correlation_id, dealer_group_id, coded status) to Observability. Terraform and Ops Scripts provision Azure AI Foundry and publish Agent Definitions as agent versions.</desc>
+  <desc id="asg-desc">A Demo User interacts with a Web App that calls an API Service (FastAPI). Every request carries a dealer_group_id. Inside the API Service, a deterministic Workflow Coordinator generates a correlation_id, retrieves a per-dealer-group evidence bundle from an Evidence Retriever (synthetic fixtures, or Azure AI Search when grounding is enabled), reads Synthetic Data, validates Protocol Contracts, loads Agent Definitions, and invokes three Microsoft Foundry agents in sequence: Data Analyst Agent, then Support Recommendation Agent (with citations attached from the evidence bundle), then Validator Agent (which enforces dealer group isolation, citation integrity, and forbidden determinations). All three agents share one Model Deployment. Every passing recommendation is created in pending_review and moves through the human review lifecycle (approved or rejected) via an audited review endpoint. The API Service emits Agent Framework spans (correlation_id, dealer_group_id, coded status) to Observability. Terraform and Ops Scripts provision Microsoft Foundry and publish Agent Definitions as agent versions.</desc>
   <rect x="0" y="0" width="1700" height="900" fill="#ffffff" />
   <style type="text/css">
     .title { font: bold 22px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; text-anchor: middle; }
@@ -78,9 +78,9 @@
   <text x="777" y="510" class="container-desc">Source-controlled agent.md</text>
   <text x="777" y="528" class="container-desc">and manifest.yaml files</text>
 
-  <!-- Boundary: Azure AI Foundry -->
+  <!-- Boundary: Microsoft Foundry -->
   <rect x="1000" y="90" width="600" height="620" rx="14" class="boundary" />
-  <text x="1015" y="700" class="boundary-label">Azure AI Foundry</text>
+  <text x="1015" y="700" class="boundary-label">Microsoft Foundry</text>
 
   <!-- Foundry Project -->
   <rect x="1020" y="140" width="260" height="130" rx="10" class="Azure container-stroke" />
@@ -184,7 +184,7 @@
   <rect x="985" y="462" width="150" height="14" class="arrow-label-bg" />
   <text x="1060" y="473" class="arrow-label">emits metadata only</text>
 
-  <!-- 11. Terraform & Ops Scripts -> Azure AI Foundry (provisions and verifies) -->
+  <!-- 11. Terraform & Ops Scripts -> Microsoft Foundry (provisions and verifies) -->
   <line x1="1300" y1="755" x2="1300" y2="706" class="arrow" marker-end="url(#arrow-head)" />
   <rect x="1310" y="715" width="152" height="14" class="arrow-label-bg" />
   <text x="1386" y="726" class="arrow-label">provisions and verifies</text>

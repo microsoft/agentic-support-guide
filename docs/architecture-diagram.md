@@ -23,7 +23,7 @@ Python inside the FastAPI service that:
 - runs a single, bounded repair pass if the Validator Agent rejects
   the draft.
 
-All reasoning happens inside the three remote agents in Azure AI
+All reasoning happens inside the three remote agents in Microsoft
 Foundry. The coordinator does not talk to a language model and does not
 appear as an assistant in Foundry.
 
@@ -84,7 +84,7 @@ in use and is not currently applied in the DSL styles.
   containers (`Web App`, `API Service`, `Synthetic Data`,
   `Human Review`, `Agent Definitions`, `Protocol Contracts`) plus one
   C4 component nested inside `API Service`: `Workflow Coordinator`.
-- One external software system, `Azure AI Foundry`, with four
+- One external software system, `Microsoft Foundry`, with four
   containers (`Foundry Project`, `Ephemeral Foundry Agents`,
   `Model Deployment`, `Observability`) plus three C4 components nested
   inside `Ephemeral Foundry Agents`: `Data Analyst Agent`,

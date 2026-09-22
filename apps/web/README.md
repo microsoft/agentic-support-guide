@@ -67,7 +67,7 @@ The UI reads `/api/health/details` for setup status. The Demo Guide and
 Supports pages both render a `SetupStatus` component:
 
 - **Customer demo ready (green):** `active_provider = "azure_foundry_responses"`
-  and Azure AI Foundry env vars are populated.
+  and Microsoft Foundry env vars are populated.
 - **Customer demo NOT ready (red):** the provider is unconfigured.
 
 The Supports page renders a distinct error message for each envelope

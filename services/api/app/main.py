@@ -107,7 +107,7 @@ def _build_fastapi() -> FastAPI:
         description=(
             "Prototype API demonstrating three collaborating agents. The "
             "coordinator composes each role in-process with Microsoft Agent "
-            "Framework and calls Azure AI Foundry models; the same "
+            "Framework and calls Microsoft Foundry models; the same "
             "definitions are also published to Foundry as prompt agents. "
             "Synthetic data only."
         ),

@@ -82,7 +82,7 @@ retries, no timeouts, no schema validation, no telemetry, no dealer group
 isolation. That is the point. You will meet each of those in a later module,
 at the moment it becomes necessary, so you can see what it cost to add.
 
-## Not covered here
+## Related resources
 
 Two steps of the Microsoft path are left out, because neither is needed to
 understand this repo. Read them when you want them:

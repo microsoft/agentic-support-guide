@@ -32,13 +32,13 @@ model.
 
 ## Agent Service
 
-The **Azure AI Foundry Agent Service** capability. It hosts agents, their
+The **Foundry Agent Service** capability. It hosts agents, their
 versions, and — for hosted agents — the container that runs your code. This
 repo invokes it through [`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py).
 
 ## Foundry Project
 
-A resource inside Azure AI Foundry that scopes agents, model
+A resource inside Microsoft Foundry that scopes agents, model
 deployments, RBAC, and observability for one workload. This repo
 provisions exactly one via Terraform.
 
@@ -88,7 +88,7 @@ DevOps and MLOps. See [genaiops.md](genaiops.md).
 The operating discipline for classical machine-learning workloads.
 Manages training runs, datasets, model registries, deployments, and
 monitoring. This repo does not train a model; the model is served by
-Azure AI Foundry. MLOps concerns here reduce to model-version
+Microsoft Foundry. MLOps concerns here reduce to model-version
 tracking, retirement handling, and deployment binding.
 
 ## DevOps

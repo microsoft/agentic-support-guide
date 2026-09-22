@@ -1,4 +1,4 @@
-"""Azure AI Foundry integration via Microsoft Agent Framework.
+"""Microsoft Foundry integration via Microsoft Agent Framework.
 
 Agents are *ephemeral*: each call assembles the agent in-process from
 `/agents/<id>/agent.md` and runs it against the Foundry project's Responses

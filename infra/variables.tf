@@ -7,7 +7,7 @@ variable "resource_group_name" {
 variable "location" {
   description = <<EOT
 Azure region for the resource group, AI Services account, Foundry project, and
-model deployment. Must be a region that supports Azure AI Foundry and the
+model deployment. Must be a region that supports Microsoft Foundry and the
 selected model / SKU combination. Provide via terraform.tfvars, `-var`, or the
 interactive prompt. No default is set so this decision is explicit.
 EOT
@@ -26,13 +26,13 @@ variable "ai_services_name" {
 }
 
 variable "foundry_project_name" {
-  description = "Base name for the Azure AI Foundry project. A random suffix is appended, because the project's backing workspace name must stay unique across soft-deleted tombstones."
+  description = "Base name for the Microsoft Foundry project. A random suffix is appended, because the project's backing workspace name must stay unique across soft-deleted tombstones."
   type        = string
   default     = "asg-project"
 }
 
 variable "foundry_project_display_name" {
-  description = "Display name for the Azure AI Foundry project."
+  description = "Display name for the Microsoft Foundry project."
   type        = string
   default     = "Agentic Support Guide"
 }

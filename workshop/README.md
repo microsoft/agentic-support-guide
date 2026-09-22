@@ -1,6 +1,6 @@
 # Agentic Support Guide — Workshop
 
-Build a multi-agent system on Azure AI Foundry using the Microsoft Agent
+Build a multi-agent system on Microsoft Foundry using the Microsoft Agent
 Framework, then deploy it, ground it, guard it, evaluate it and operate it.
 
 **Duration:** 4 hours 25 minutes hands-on, plus Module 0 as prework.

@@ -21,17 +21,17 @@ output "ai_services_endpoint" {
 }
 
 output "foundry_project_name" {
-  description = "Azure AI Foundry project name."
+  description = "Microsoft Foundry project name."
   value       = azurerm_cognitive_account_project.foundry_project.name
 }
 
 output "foundry_project_id" {
-  description = "Azure AI Foundry project resource ID."
+  description = "Microsoft Foundry project resource ID."
   value       = azurerm_cognitive_account_project.foundry_project.id
 }
 
 output "foundry_project_endpoint" {
-  description = "Azure AI Foundry project endpoint used by AgentsClient. Set as AZURE_AI_FOUNDRY_PROJECT_ENDPOINT in the backend .env."
+  description = "Microsoft Foundry project endpoint used by AgentsClient. Set as AZURE_AI_FOUNDRY_PROJECT_ENDPOINT in the backend .env."
   value       = "https://${local.custom_subdomain_name}.services.ai.azure.com/api/projects/${azurerm_cognitive_account_project.foundry_project.name}"
 }
 

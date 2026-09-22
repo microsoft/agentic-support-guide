@@ -125,7 +125,7 @@ def _checks(state: SetupState) -> list[HealthCheckItem]:
         ),
         HealthCheckItem(
             name="foundry_project_endpoint",
-            label="Azure AI Foundry project endpoint configured",
+            label="Microsoft Foundry project endpoint configured",
             ok=state.project_configured,
             detail=(
                 "Set. Endpoint value hidden."
@@ -171,7 +171,7 @@ def _checks(state: SetupState) -> list[HealthCheckItem]:
             label="Foundry authentication mode",
             ok=entra,
             detail=(
-                "This API authenticates to Azure AI Foundry with Microsoft Entra ID "
+                "This API authenticates to Microsoft Foundry with Microsoft Entra ID "
                 "(no keys). Separate from api_auth_mode, which is how callers "
                 "authenticate to this API."
                 if entra
@@ -201,7 +201,7 @@ def _warnings(state: SetupState) -> list[str]:
     warnings: list[str] = []
     if not state.project_configured:
         warnings.append(
-            "Azure AI Foundry project endpoint is not configured. Recommendation "
+            "Microsoft Foundry project endpoint is not configured. Recommendation "
             "requests will fail with a typed provider_missing error until "
             "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is set."
         )

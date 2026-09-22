@@ -118,10 +118,10 @@ You now have `asg-support-explainer-agent-<your-alias>-strict` and `…-baseline
 identical in every way. One you built, one you generated; the platform cannot
 tell the difference.
 
-They are separate agents, not versions, so the Module 4 cleanup command does
-not remove them — `--delete` without `--variant` only matches base names.
-Delete each variant by name when you finish the workshop, and note that the
-one you made in the portal needs `--variant strict --delete` even though a
+They are separate agents, not versions, so a plain `--delete` does not remove
+them — without `--variant` it only matches base names. Module 10's clean-up
+deletes each variant by name, and note that the one you made in the portal
+needs `--variant strict --delete` even though a
 script never created it.
 
 ## 2. Measure the boundary

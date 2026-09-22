@@ -405,7 +405,7 @@ scores and exits non-zero on a failure, which is what a gate needs.
 
 ---
 
-## Honest limitations
+## Limitations
 
 Read this before you quote scores to anyone.
 
@@ -419,9 +419,9 @@ Read this before you quote scores to anyone.
 - **`groundedness` measures support, not truth.** An answer perfectly grounded
   in wrong evidence scores 5.0.
 - **Nothing here is a determination.** These are synthetic dealerships and
-  synthetic dealer groups. No output of this system, graded or not, is an
-  pricing, financing, credit, compliance, or safety determination. A human reviews
-  everything.
+  synthetic dealer groups. No output of this system, graded or not, is a
+  pricing, financing, credit, compliance, or safety determination. A human
+  reviews everything.
 
 ## Check yourself
 

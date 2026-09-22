@@ -5,6 +5,20 @@
 **Goal:** a running three-agent workflow, and the ability to point at the
 lines that make each of its guarantees hold.
 
+Agent Framework gives you three words, and this module is only about them:
+
+| Term | What it is |
+| --- | --- |
+| **Executor** | A step. It receives input, does work, emits output. |
+| **Edge** | A connection that routes a value from one executor to the next. |
+| **Workflow** | The graph they form, built with `WorkflowBuilder`. |
+
+That is the whole model. Microsoft Learn covers each in depth —
+[workflow concepts](https://learn.microsoft.com/agent-framework/concepts/workflows/),
+[executors](https://learn.microsoft.com/agent-framework/concepts/workflows/executors),
+and [edges](https://learn.microsoft.com/agent-framework/concepts/workflows/edges)
+— and this module builds one, then shows you the same graph running the app.
+
 ## 1. The smallest workflow
 
 Run [code/05_first_workflow.py](code/05_first_workflow.py). No model, no
@@ -21,7 +35,7 @@ flowchart TD
 ```
 <!-- sample-05:end -->
 
-That is the whole model:
+Those three words are the whole model:
 
 - an **executor** is a step — a class with an `@handler` or a function with
   `@executor`;
@@ -55,9 +69,10 @@ the workflow and calls `WorkflowViz(...).to_mermaid()`, and a test fails if
 what is committed drifts from what the code produces.
 
 `WorkflowViz` also renders images. `--svg` writes
-`apps/web/public/workflow-graph.svg`, which the app shows under **Show the
-workflow graph** on the Supports page, so the picture a learner sees in the
-running UI comes from the same `build_plan_workflow` the request uses:
+`apps/web/public/workflow-graph.svg`, which the app shows under **Workflow
+graph** at the foot of the agent panel on the Supports page, so the picture a
+learner sees in the running UI comes from the same `build_plan_workflow` the
+request uses:
 
 ```powershell
 .\services\api\.venv\Scripts\python.exe scripts\render_workflow_diagram.py --svg
@@ -95,8 +110,8 @@ workflow = (
         start_executor=retrieve,
         name="support-plan",
         description="Sequential orchestration with one conditional repair edge.",
-        # Only the two terminal nodes produce the result. Without this,
-        # every node's output would surface as a workflow output.
+        # Only these two call yield_output; the rest send_message. Naming
+        # them keeps a future yield hidden rather than joining the result.
         output_from=[finalise, refuse],
     )
     .add_edge(retrieve, analyse)
@@ -125,9 +140,9 @@ exactly one.
 refuses a second concurrent run with `WorkflowException: Workflow is already
 running`, and these nodes hold one request's state.
 
-## 3. Read the state that travels the edges
+## 3. The message that travels the edges
 
-A message in a graph is just an object passed along an edge. Ours is
+An edge routes a value. Here that value is one frozen dataclass, in
 [services/api/app/workflows/plan.py](../services/api/app/workflows/plan.py):
 
 ```python
@@ -141,31 +156,26 @@ class PlanState:
     attempts: int = 0
 ```
 
-Each node fills in one more field and passes it on, using `with_()`, which is
-`dataclasses.replace`.
+Each executor fills in one more field and passes it on with `with_()`, which
+is `dataclasses.replace`.
 
-**`frozen=True` is not a style preference.** A node's outgoing edges share
-**one** message object, and each condition is evaluated against it
-independently. When the repair edge mutated the state in place, the sibling
-`passed` condition — already scheduled — re-read the mutated object, saw a
-clean report, and fired too. One run, two outputs. A frozen dataclass makes
-that impossible, because a new object cannot be seen by an already-decided
-edge. There is a test that reproduces the bug in
-[test_sample_workflows.py](../services/api/tests/test_sample_workflows.py).
+> [!IMPORTANT]
+> `frozen=True` is not a style preference. A node's outgoing edges share
+> **one** message object and each condition is evaluated against it. When an
+> earlier version mutated the state in place, the already-scheduled `passed`
+> condition re-read the mutated object, saw a clean report, and fired too —
+> one run, two outputs. A frozen dataclass makes that impossible.
+> [test_sample_workflows.py](../services/api/tests/test_sample_workflows.py)
+> reproduces it.
 
-The three conditions are plain functions in the same file. `repair_exhausted`
-is the same shape with `>=`:
+The three edge conditions are plain functions in the same file:
 
 ```python
 def passed(state: PlanState) -> bool:
-    """Edge condition: the validator accepted the draft."""
-
     return state.report is not None and state.report.passed
 
 
 def needs_repair(state: PlanState) -> bool:
-    """Edge condition: rejected, and a repair attempt is still available."""
-
     return (
         state.report is not None
         and not state.report.passed
@@ -173,44 +183,22 @@ def needs_repair(state: PlanState) -> bool:
     )
 ```
 
-Plain Python. No model decides the route.
+`repair_exhausted` is the same shape with `>=`. No model decides the route.
 
-**The user's text is length-bounded before it enters the graph**, and every
-block of data reaching a prompt is fenced by `wrap_untrusted` in
-[services/api/app/agents/shared/prompt_blocks.py](../services/api/app/agents/shared/prompt_blocks.py),
-which covers prior-agent output too. Filtering obfuscated injections is out
-of scope: the validator, not a text filter, is the control that matters here.
+Two more properties fall out of the graph shape:
 
-**Evidence is retrieved by the first node**, not offered to the analyst as a
-tool it may choose to call. If retrieval returns nothing, the run stops with
-`evidence_missing` and no model is invoked at all.
+- **Evidence is retrieved by the first executor**, not offered to the analyst
+  as a tool it may call. If retrieval returns nothing the run stops with
+  `evidence_missing` and no model is invoked at all.
+- **No executor checks whether the previous one worked.** A failed step
+  raises `StepFailed` carrying a finished result, which propagates out of
+  `workflow.run()` so the coordinator catches it in one place. That is why
+  the graph reads as six edges and nothing else.
 
-**No node checks whether the previous one worked.** A failed step raises
-`StepFailed`, carrying a finished result. Exceptions propagate out of
-`workflow.run()`, so the coordinator catches it in one place:
+## 4. Inside one executor
 
-```python
-try:
-    events = await asyncio.wait_for(
-        built.workflow.run(PlanState(concern=concern)),
-        timeout=max(0.0, state.deadline - time.monotonic()),
-    )
-except StepFailed as failure:
-    return failure.result
-except TimeoutError:
-    return state.failure(error_code="ORCHESTRATION_BUDGET_EXHAUSTED", ...)
-```
-
-The `wait_for` is the whole budget. Per-call timeouts bound each model call,
-but only this bounds the run.
-
-That is why the graph reads as six edges and nothing else. Checking a return
-value after every hop is what buries a workflow in error handling.
-
-## 4. Read one node
-
-Every node does the same four things around its agent call. `Recommend` in
-[services/api/app/workflows/executors.py](../services/api/app/workflows/executors.py)
+Every executor does the same four things around its agent call. `Recommend`
+in [services/api/app/workflows/executors.py](../services/api/app/workflows/executors.py)
 is representative:
 
 ```python
@@ -223,8 +211,6 @@ result = await self._run.step.call(
         deadline=self._run.state.deadline,
     ),
 )
-# Unwrap immediately: `PlanState.with_` and `recommender_payload` are
-# untyped, so passing the wrapper on would fail silently.
 draft = result.draft
 self._run.check_handoff(
     schema="support-recommendation-result.schema.json",
@@ -233,75 +219,49 @@ self._run.check_handoff(
     payload=envelopes.recommender_payload(draft),
     agent=agent_name,
 )
-# Recorded on every attempt, not only on success: a run that failed
-# validation used to audit zero citations, which read as ungrounded.
-self._run.state.citation_count = len(draft.citations)
 self._run.state.citations_proposed = result.citations_proposed
 self._run.state.citations_accepted = result.citations_accepted
 ```
 
-Those last two lines are why the app can tell you *"the model proposed three
+Those last two lines are why the app can say *"the model proposed three
 citation ids and two matched the retrieved bundle"*. The wrapper drops an id
 the retriever never returned, so it never reaches the validator and can never
-show up as an issue code. Counting it here is the only way to see it.
-
-You watched all three repair outcomes in sample 7 — accepted first time,
-repaired then accepted, repair exhausted. The **Agent workflow** panel in the
-app renders the same thing from a live run: one row per attempt, with the
-issue codes that sent the recommender back.
+appear as an issue code. Counting it here is the only way to see it.
 
 `step.call` is in [services/api/app/workflows/steps.py](../services/api/app/workflows/steps.py).
 One call does four jobs that every agent invocation needs:
 
-1. **Budget check.** `_require_budget` refuses to start a step when the
-   deadline has passed, rather than starting one that cannot finish.
-   `max_iterations` counts supersteps, not seconds, so the wall-clock
-   deadline is still ours to enforce.
-2. **Invoke.** The lambda is the actual agent call.
-3. **Trace.** It appends an `AgentTraceStep` recording the agent, status, the
-   model that *actually served the call*, latency, and token estimate. That
-   is what the UI renders.
-4. **Typed failure.** Two exception types become caller-safe statuses:
+1. **Budget check** — refuse to start a step whose deadline has already
+   passed, rather than starting one that cannot finish.
+2. **Invoke** — the lambda is the actual agent call.
+3. **Trace** — append an `AgentTraceStep` recording the agent, status, the
+   model that actually served the call, latency and token estimate. That is
+   what the **Agent workflow** panel renders.
+4. **Typed failure** — turn a provider error or bad model JSON into a
+   caller-safe status. The mapping is `PROVIDER_ERROR_TO_STATUS` in
+   [failures.py](../services/api/app/workflows/failures.py): the caller
+   learns which *class* of thing went wrong, never the provider's message.
 
-```python
-except FoundryProviderError as exc:
-    status, code = classify_provider_error(exc)
-    self._fail_step(agent_name, status=status, code=code, ...)
-except ValueError as exc:
-    # Never put exception text in an issue code. Pydantic quotes the
-    # offending value, which is model output derived from a dealer
-    # group's evidence, and issue codes travel to the response.
-    self._fail_step(agent_name, status="invalid_model_json",
-                    code=invalid_json_code(exc), ...)
-```
+You saw all three repair outcomes in sample 7. The **Agent workflow** panel
+shows the same thing from a live run: one row per attempt, with the issue
+codes that sent the recommender back.
 
-The mapping from provider error to caller-visible status lives in
-[services/api/app/workflows/failures.py](../services/api/app/workflows/failures.py).
-Read `PROVIDER_ERROR_TO_STATUS` and `safe_message`: the caller learns which
-*class* of thing went wrong, never the provider's message.
+> [!NOTE]
+> Telemetry is deliberately absent from that list. Agent Framework
+> instruments the graph itself — `workflow.run`, `executor.process`,
+> `edge_group.process` and a `gen_ai` span per model call — so a
+> hand-written event stream would be a lower-fidelity copy. See
+> [observability.py](../services/api/app/observability.py); the whole
+> integration is two function calls.
 
-`_fail_step` raises `StepFailed` with `from None`. That is a privacy control,
-not style: Agent Framework records the escaping exception on the executor and
-workflow spans, and a formatted traceback includes the chained cause — for a
-Pydantic failure that is `input_value=<model output>`. Breaking the chain
-keeps the span to the typed code.
-
-Note what is *not* in the list above: telemetry. Agent Framework instruments
-the graph itself — `workflow.run`, `executor.process`, `edge_group.process`
-and a `gen_ai` span per model call — so a hand-written event stream would only
-be a lower-fidelity copy. The trace is a different thing: it travels in the
-API response body, which spans do not. See
-[services/api/app/observability.py](../services/api/app/observability.py) for
-the entire integration; it is two function calls.
-
-## 5. Read what crosses between agents
+## 5. The contract between agents
 
 Every hop is emitted as a versioned JSON envelope and validated against a
 schema before the workflow continues. The envelope is the checked interface;
-the Python object is what the next node receives.
+the Python object is what the next executor receives.
 
-[services/api/app/workflows/envelopes.py](../services/api/app/workflows/envelopes.py)
-builds them:
+[envelopes.py](../services/api/app/workflows/envelopes.py) builds them, with
+`trace_id` carrying the same correlation ID on every hop of one request:
 
 ```python
 message: dict[str, Any] = {
@@ -314,19 +274,11 @@ message: dict[str, Any] = {
 }
 ```
 
-`trace_id` is the same correlation ID on every hop of one request.
-
-The `*_payload` functions choose which fields of an agent's output are
-published on the wire and checked against the contract. The prompt the next
-agent receives is built separately in that agent's `_build_prompt`, so the contract and the input have to be kept in step.
-
 The schemas live in [contracts/v1/](../contracts/v1/). Open
 [support-recommendation-result.schema.json](../contracts/v1/support-recommendation-result.schema.json):
-`dealer_group_id` is required inside the payload, so the boundary travels with
-every message.
-
-`step.check_protocol` validates it and raises `StepFailed` with
-`PROTOCOL_VALIDATION_FAILED` naming the schema.
+`dealer_group_id` is required inside the payload, so the boundary travels
+with every message. `step.check_protocol` validates it and raises
+`StepFailed` with `PROTOCOL_VALIDATION_FAILED` naming the schema.
 
 > [!NOTE]
 > **"Handoff" here means passing data.** `check_handoff` and the word
@@ -340,10 +292,10 @@ every message.
 and submit a request. You get a named contract failure pointing at the
 schema — not a `KeyError` three functions later. Revert the change afterwards.
 
-## 6. Read the checks that decide pass or fail
+## 6. The checks that decide pass or fail
 
-Open [services/api/app/agents/validator/checks.py](../services/api/app/agents/validator/checks.py).
-Every rule is a function with the same signature, registered in one tuple:
+Open [checks.py](../services/api/app/agents/validator/checks.py). Every rule
+is a function with the same signature, registered in one tuple:
 
 ```python
 DETERMINISTIC_CHECKS: tuple[Callable[[ValidatorInput, Findings], None], ...] = (
@@ -356,17 +308,10 @@ DETERMINISTIC_CHECKS: tuple[Callable[[ValidatorInput, Findings], None], ...] = (
     check_required_sections,
     check_forbidden_determinations,
 )
-
-
-def run_checks(payload: ValidatorInput) -> Findings:
-    findings = Findings()
-    for check in DETERMINISTIC_CHECKS:
-        check(payload, findings)
-    return findings
 ```
 
-No check short-circuits the others. A draft that breaks three rules is told
-about all three, so one repair round can address everything.
+No check short-circuits the others, so a draft that breaks three rules is
+told about all three and one repair round can address everything.
 
 `check_citations` is the one to read closely:
 
@@ -388,75 +333,47 @@ A GROUP-B citation on a GROUP-A request is a set membership test, not a
 prompt instruction. `allowed_citation_ids` came from the retriever, which was
 already scoped to the requesting group.
 
-**Try it.** Make `check_citations` return immediately. Run a request. Nothing
-errors, the plan still looks right, and the guarantee is gone. Now run
-`pytest` *with the check still disabled* and read which tests fail — those
-tests are the guarantee, written down. Then restore the check and confirm they
-pass again.
+**Try it.** Make `check_citations` return immediately. Run a request.
+Nothing errors, the plan still looks right, and the guarantee is gone. Now
+run `pytest` *with the check still disabled* and read which tests fail —
+those tests are the guarantee, written down. Restore the check and confirm
+they pass again.
 
-### Adding a rule
+To add a rule: write a function, add it to the tuple, then add the matching
+entry to `_REPAIR_TEMPLATES` in
+[repair.py](../services/api/app/agents/validator/repair.py), which tells the
+recommender how to fix it. That pairing is enforced — a test parses
+`checks.py` and fails if any code you can emit has no template.
 
-Write a function, add it to the tuple. Nothing existing changes. Then add the
-matching entry to `_REPAIR_TEMPLATES` in
-[services/api/app/agents/validator/repair.py](../services/api/app/agents/validator/repair.py),
-which is what tells the recommender how to fix it.
+## 7. The repair bound, and the clock
 
-That pairing is enforced.
-`test_every_issue_code_a_check_can_emit_has_repair_guidance` in
-[services/api/tests/test_validator_hardening.py](../services/api/tests/test_validator_hardening.py)
-parses `checks.py` and fails if any code you can emit has no template.
+There is no repair *function*. The bound is the edge condition you already
+read in section 3: `needs_repair` requires
+`state.attempts < MAX_RECOMMENDER_ATTEMPTS`, which is 2. When it is
+exhausted, `repair_exhausted` routes to `Refuse` instead, returning
+`VALIDATION_FAILED_AFTER_REPAIR`. The back edge from `validate` to
+`recommend` is a real cycle in the graph, but a bounded one: at most one
+repair, then a typed refusal.
 
-## 7. Read the repair bound
-
-There is no repair *function*. The bound is an edge condition, in
-[services/api/app/workflows/plan.py](../services/api/app/workflows/plan.py):
-
-```python
-def needs_repair(state: PlanState) -> bool:
-    """Edge condition: rejected, and a repair attempt is still available."""
-
-    return (
-        state.report is not None
-        and not state.report.passed
-        and state.attempts < MAX_RECOMMENDER_ATTEMPTS
-    )
-```
-
-`MAX_RECOMMENDER_ATTEMPTS` is 2, and `Recommend` increments `attempts` on
-every pass. When it is exhausted, `repair_exhausted` routes to `Refuse`
-instead, which returns `VALIDATION_FAILED_AFTER_REPAIR`.
-
-Three details worth copying, all in
-[services/api/app/workflows/executors.py](../services/api/app/workflows/executors.py):
+Two details worth copying:
 
 - The repair pass is traced under its own name,
-  `support-recommendation-agent:repair`, so you can see that it happened.
+  `support-recommendation-agent:repair`, so you can see it happened.
 - The recheck sets `use_llm_critique = plan.attempts == 1`. The critique is
   advisory and cannot change a verdict, so paying for it twice buys nothing.
-- There is no loop. One attempt, then a typed refusal.
 
-## 8. Where the time budget lives
-
-`RunState.deadline` is set once, in `run`:
+The clock is one deadline, set once when the run starts:
 
 ```python
-state = RunState(
-    correlation_id=str(uuid.uuid4()),
-    dealer_group_id=request.dealer_group_id,
-    provider_model=self._provider_display,
-    deadline=time.monotonic() + ORCHESTRATION_TOTAL_BUDGET_SECONDS,
-    calls=calls,
-)
+deadline=time.monotonic() + ORCHESTRATION_TOTAL_BUDGET_SECONDS,
 ```
 
 Every `step.call` checks it before starting, and every agent invocation
-receives `deadline=state.deadline`, so each per-call timeout is clamped to
-whatever remains. Five steps do not get five full timeouts.
+receives it, so each per-call timeout is clamped to whatever remains. Five
+steps do not get five full timeouts. Both numbers are in
+[config.py](../services/api/app/config.py).
 
-Both numbers are in [services/api/app/config.py](../services/api/app/config.py):
-`FOUNDRY_RUN_TIMEOUT_SECONDS` and `ORCHESTRATION_TOTAL_BUDGET_SECONDS`.
-
-## 9. Publish the other three roles
+## 8. Publish the other three roles
 
 `publish_prompt_agents.py --roles-only` reads the three role `agent.md` files,
 composes each one's instructions exactly as the running app does, and creates
@@ -490,7 +407,7 @@ the same definition. Keep them in step by re-publishing after a prompt change
 and comparing the `instructions_hash` that `validate_agent_definitions.py`
 prints.
 
-## 10. Run it
+## 9. Run it
 
 `run-backend.ps1` starts uvicorn against `services/api` with
 `services/api/.env` loaded. `run-frontend.ps1` starts the Vite dev server,
@@ -566,7 +483,7 @@ body.
 > so the coordinator and all three agents are identical either way. Fixtures
 > stay the default because they are deterministic and run offline.
 
-## 11. Read a failure
+## 10. Read a failure
 
 Each typed failure is a distinct,
 attributable outcome a caller can branch on:

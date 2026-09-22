@@ -1,4 +1,4 @@
-# ADR 0002 - Agent hosting: remote Azure AI Foundry Agent Service
+# ADR 0002 - Agent hosting: remote Foundry Agent Service
 
 Supersedes: [0001-agent-hosting.md](0001-agent-hosting.md)
 Status: Superseded by [ADR 0005](0005-agent-framework-ephemeral-agents.md)
@@ -6,12 +6,12 @@ Date: 2026-08-19
 
 ## Context
 
-The prototype needs three collaborating agents backed by Azure AI
+The prototype needs three collaborating agents backed by Microsoft
 Foundry.
 
 Two options considered:
 
-1. **Remote agents in Azure AI Foundry Agent Service.** Each of the
+1. **Remote agents in Foundry Agent Service.** Each of the
    three roles is defined once in the repo (`/agents/<id>/agent.md`
    + `manifest.yaml`) and provisioned into Foundry as a remote agent
    via the `azure-ai-agents` SDK. The FastAPI service orchestrates the
@@ -20,7 +20,7 @@ Two options considered:
    every hop.
 2. **Local Python runtime calling a shared model deployment.** Each
    role is a Python class that loads `agent.md`/`manifest.yaml`
-   through a `LocalManifestAgentAdapter` and calls the same Azure AI
+   through a `LocalManifestAgentAdapter` and calls the same Microsoft
    Foundry model deployment directly via the OpenAI-compatible Chat
    Completions surface. No remote agents exist.
 

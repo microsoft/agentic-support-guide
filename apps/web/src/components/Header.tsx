@@ -36,7 +36,7 @@ export function Header() {
         <div>
           <h1 className="text-lg font-semibold text-slate-100">Agentic Support Guide</h1>
           <p className="text-xs text-slate-400">
-            Three-agent workflow via Azure AI Foundry. Synthetic data only.
+            Three-agent workflow via Microsoft Foundry. Synthetic data only.
           </p>
         </div>
         <div className="text-xs text-slate-400">

@@ -1,6 +1,6 @@
 """Static configuration for the local prototype.
 
-Azure AI Foundry Agent Service settings are read from environment.
+Foundry Agent Service settings are read from environment.
 No secrets are baked in.
 """
 
@@ -16,14 +16,14 @@ SERVICE_VERSION: str = "0.3.0"
 
 PROTOTYPE_BANNER: str = (
     "Prototype - synthetic data, three collaborating agents hosted in "
-    "Azure AI Foundry Agent Service, not a production system."
+    "Foundry Agent Service, not a production system."
 )
 
 # What `RecommendationEnvelope.provider_model` reports. The per-step models
 # are in the trace; this names the provider the workflow ran against.
 # apps/web/src/pages/SupportsPage.tsx matches the configured string.
-PROVIDER_DISPLAY_CONFIGURED: str = "Azure AI Foundry (Agent Framework, prompt agents)"
-PROVIDER_DISPLAY_UNCONFIGURED: str = "unconfigured (Azure AI Foundry not set up)"
+PROVIDER_DISPLAY_CONFIGURED: str = "Microsoft Foundry (Agent Framework, prompt agents)"
+PROVIDER_DISPLAY_UNCONFIGURED: str = "unconfigured (Microsoft Foundry not set up)"
 
 # Per-run remote agent budget (single Foundry run).
 FOUNDRY_RUN_TIMEOUT_SECONDS: float = 30.0
@@ -50,7 +50,7 @@ COUNTS = MockDataCounts()
 
 @dataclass(frozen=True)
 class AzureFoundrySettings:
-    """Runtime settings for Azure AI Foundry Agent Service.
+    """Runtime settings for Foundry Agent Service.
 
     - `project_endpoint`: the Foundry project endpoint. Required.
     - `application_insights_connection_string`: optional telemetry sink.

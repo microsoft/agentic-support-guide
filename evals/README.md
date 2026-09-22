@@ -34,7 +34,7 @@ paths fails the build.
 python scripts\run_evals.py --live http://127.0.0.1:8000
 ```
 
-Calls a backend configured for Azure AI Foundry, so it exercises real
+Calls a backend configured for Microsoft Foundry, so it exercises real
 model output. Use this before a demo or after changing an `agent.md`.
 It costs tokens, so it is deliberately not in CI.
 

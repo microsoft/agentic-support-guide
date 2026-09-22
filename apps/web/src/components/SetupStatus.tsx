@@ -50,8 +50,8 @@ export function SetupStatus({ compact = false }: Props) {
     : "border-rose-500/40 bg-rose-500/10 text-rose-100";
 
   const bannerLabel = ready
-    ? "Customer demo ready - Azure AI Foundry is configured."
-    : "Customer demo NOT ready - finish Azure AI Foundry setup before demoing.";
+    ? "Customer demo ready - Microsoft Foundry is configured."
+    : "Customer demo NOT ready - finish Microsoft Foundry setup before demoing.";
 
   return (
     <section
