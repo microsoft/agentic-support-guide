@@ -5,8 +5,8 @@ the question "what does the platform stop, and what must I still build?"
 gets answered with evidence instead of opinion.
 
 Usage:
-  python scripts/run_guardrail_probe.py --suffix <you>
-  python scripts/run_guardrail_probe.py --suffix <you> --variants strict,baseline
+    python scripts/run_guardrail_probe.py --suffix <your-alias>
+    python scripts/run_guardrail_probe.py --suffix <your-alias> --variants strict,baseline
 """
 
 from __future__ import annotations
@@ -213,7 +213,7 @@ def main() -> int:
 
     suffix = args.suffix.strip().lower()
     if not suffix:
-        print("Pass --suffix <you> or set WORKSHOP_LEARNER_SUFFIX.", file=sys.stderr)
+        print("Pass --suffix <your-alias> or set WORKSHOP_LEARNER_SUFFIX.", file=sys.stderr)
         return 2
     endpoint = _endpoint()
     if not endpoint:

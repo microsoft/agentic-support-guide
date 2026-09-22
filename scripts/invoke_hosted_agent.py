@@ -5,7 +5,7 @@ against the Module 4 prompt agent. Auth is Entra: the managed endpoint
 accepts a token for the Foundry scope, so no key is involved.
 
 Usage:
-  python scripts/invoke_hosted_agent.py --suffix <you> --question "..."
+  python scripts/invoke_hosted_agent.py --suffix <your-alias> --question "..."
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def main() -> int:
 
     suffix = args.suffix.strip().lower()
     if not suffix:
-        print("Pass --suffix <you> or set WORKSHOP_LEARNER_SUFFIX.", file=sys.stderr)
+        print("Pass --suffix <your-alias> or set WORKSHOP_LEARNER_SUFFIX.", file=sys.stderr)
         return 2
 
     project_endpoint = _endpoint()

@@ -13,10 +13,10 @@ Flow:
   5. Poll until the version is running or failed
 
 Usage:
-  python scripts/publish_hosted_agent.py --suffix <you>            # dry run
-  python scripts/publish_hosted_agent.py --suffix <you> --apply
-  python scripts/publish_hosted_agent.py --suffix <you> --status
-  python scripts/publish_hosted_agent.py --suffix <you> --delete
+    python scripts/publish_hosted_agent.py --suffix <your-alias>            # dry run
+    python scripts/publish_hosted_agent.py --suffix <your-alias> --apply
+    python scripts/publish_hosted_agent.py --suffix <your-alias> --status
+    python scripts/publish_hosted_agent.py --suffix <your-alias> --delete
 """
 
 from __future__ import annotations
@@ -381,7 +381,8 @@ def main() -> int:
     suffix = args.suffix.strip().lower()
     if not suffix:
         print(
-            "A learner suffix is required. Pass --suffix <you> or set WORKSHOP_LEARNER_SUFFIX.",
+            "A learner suffix is required. Pass --suffix <your-alias> or set "
+            "WORKSHOP_LEARNER_SUFFIX.",
             file=sys.stderr,
         )
         return 2

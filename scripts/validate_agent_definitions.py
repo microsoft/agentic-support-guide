@@ -218,7 +218,7 @@ def main() -> int:
     print(
         "\nAll agent definitions are valid. Publish them to Foundry with:\n"
         "  .\\services\\api\\.venv\\Scripts\\python.exe "
-        "scripts\\publish_prompt_agents.py --suffix <you> --apply"
+        "scripts\\publish_prompt_agents.py --suffix <your-alias> --apply"
     )
     return 0
 

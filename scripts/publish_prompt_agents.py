@@ -370,7 +370,7 @@ def main() -> int:
     if not suffix:
         print(
             "A learner suffix is required so agents do not collide in a shared "
-            "Foundry project. Pass --suffix <you> or set WORKSHOP_LEARNER_SUFFIX.",
+            "Foundry project. Pass --suffix <your-alias> or set WORKSHOP_LEARNER_SUFFIX.",
             file=sys.stderr,
         )
         return 2

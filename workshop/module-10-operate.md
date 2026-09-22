@@ -88,8 +88,10 @@ You should see four steps:
 
 **Read the `provider` column carefully.** If `evidence-retrieval` says
 `fixture`, the app is serving canned evidence and Module 6 did not take
-effect. That column was hardcoded during development, so a grounded run and a
-fixture run looked identical. It now reports what actually ran, because
+effect. If you skipped Module 6, `fixture` is the expected reading and every
+exercise in this module still works — the provider is the confirmation, not a
+prerequisite. That column was hardcoded during development, so a grounded run
+and a fixture run looked identical. It now reports what actually ran, because
 `RetrieveEvidence.retrieve` reads it off the retriever instance:
 
 ```python

@@ -98,11 +98,11 @@ Four things to notice before you deploy:
 the zip in memory, and prints its manifest without uploading anything:
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <you>
+.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias>
 ```
 
 ```
-Agent name : asg-hosted-explainer-<you>
+Agent name : asg-hosted-explainer-<your-alias>
 Runtime    : python_3_13
 Entrypoint : python main.py
 Protocol   : responses v1.0.0
@@ -130,7 +130,7 @@ which is how you tell whether a redeploy would actually change anything.
 ## 3. Deploy
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <you> --apply
+.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --apply
 ```
 
 ```
@@ -155,11 +155,11 @@ Optimize.](images/module-5-hosted-agent.png)
 ## 4. Check what the tooling tells you
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <you> --status
+.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --status
 ```
 
 ```
-1 version(s) of asg-hosted-explainer-<you>:
+1 version(s) of asg-hosted-explainer-<your-alias>:
   v1: active
 ```
 
@@ -174,13 +174,14 @@ The portal is only half honest about it too: the agent page shows a loud red
 `CodeError` banner quoting the exact pip resolution error, but the **version
 picker** lists a failed version exactly like a working one — same styling, no
 badge. So a human looking at the agent sees the problem, and a human scrolling
-a version list does not.
+a version list does not. Portal rendering observed September 2026; the API
+behaviour above is what the script relies on.
 
 ## 5. Measure your change loop
 
 ```powershell
 Measure-Command {
-  .\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <you> --apply
+  .\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --apply
 }
 ```
 
@@ -207,12 +208,9 @@ Read the identity from the portal first: open the agent and use
 yours**:
 
 ```
-Agent    : asg-hosted-explainer-<you>
+Agent    : asg-hosted-explainer-<your-alias>
 Identity : <a GUID that is your agent's, not yours>
 ```
-
-The portal shows the same thing under **Endpoint & IDs → View details** if you
-would rather click.
 
 Freshly deployed it holds **no permissions at all**, and cannot call the
 model until someone grants it access. Do this one in the portal — the IAM
@@ -222,7 +220,8 @@ principal appear in a role assignment list is the lesson:
 2. **Add → Add role assignment**.
 3. Role: **Cognitive Services OpenAI User**.
 4. Members: select **User, group, or service principal**, and search for the
-   principal ID your own run printed. It resolves to the agent, not to you.
+   principal ID you just read from **Endpoint & IDs**. It resolves to the
+   agent, not to you.
 5. Review and assign.
 
 The same grant from a shell, once you know which role you need:
@@ -249,7 +248,7 @@ project's identity, so there is nothing to grant to.
 With the role assigned, ask it something:
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\invoke_hosted_agent.py --suffix <you>
+.\services\api\.venv\Scripts\python.exe scripts\invoke_hosted_agent.py --suffix <your-alias>
 ```
 
 Role assignments take a minute or two to propagate. If this returns an
@@ -261,7 +260,7 @@ Every deploy is a retained **version**, and traffic reaches versions by rule
 rather than by whichever is newest. Look at what you have:
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <you> --status
+.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --status
 ```
 
 The agent's endpoint pins `@latest` at 100%:
@@ -281,7 +280,7 @@ Rolling back means pointing that at a specific version instead of `@latest`,
 which is what `--rollback <version>` does:
 
 ```
-asg-hosted-explainer-<you>: 100% of traffic now pinned to v1.
+asg-hosted-explainer-<your-alias>: 100% of traffic now pinned to v1.
 ```
 
 **Notice what that does not do: build anything.** The version is already
@@ -331,7 +330,7 @@ Module 6.
 ## 9. Clean up
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <you> --delete
+.\services\api\.venv\Scripts\python.exe scripts\publish_hosted_agent.py --suffix <your-alias> --delete
 ```
 
 ---

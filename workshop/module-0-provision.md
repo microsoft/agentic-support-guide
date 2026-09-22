@@ -115,10 +115,14 @@ Capacity rejection has two shapes, and the slow one is the confusing one:
   `"Search service failed to provision search units due to insufficient
   capacity in region"`, and Terraform does **not** record it in state.
 
-Check which you have before re-applying:
+Check which you have before re-applying. The suffix and the resource group
+were created before Search was attempted, so Terraform already knows both
+names even though this apply failed — ask it rather than guessing:
 
 ```powershell
-az search service show -n srch-asg-<suffix> -g <rg-name> `
+$rg = terraform -chdir=infra output -raw resource_group_name
+az search service list -g $rg --query "[].{name:name, state:provisioningState}" -o table
+az search service show -n <name-from-above> -g $rg `
     --query "{state:provisioningState, status:status, detail:statusDetails}"
 ```
 
@@ -126,7 +130,7 @@ If a failed service exists, delete it first. Terraform has no record of it, so
 it will try to create the same name again and collide:
 
 ```powershell
-az search service delete -n srch-asg-<suffix> -g <rg-name> --yes
+az search service delete -n <name-from-above> -g $rg --yes
 ```
 
 The delete returns immediately but continues in the background. Re-applying
@@ -141,7 +145,7 @@ Wait until the name is actually gone before re-applying. This returns
 `ResourceNotFound` when you are clear:
 
 ```powershell
-az search service show -n srch-asg-<suffix> -g <rg-name>
+az search service show -n <name-from-above> -g $rg
 ```
 
 A successful Search create takes about 16 minutes, so a failure at the 14

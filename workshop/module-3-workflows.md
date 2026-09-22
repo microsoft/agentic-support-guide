@@ -536,7 +536,9 @@ with provider, model, latency and status. The full trace, including the
 evidence-retrieval step and per-step token counts, is in the API response
 body.
 
-> **Where did my knowledge base go?**
+> [!NOTE]
+> **Coming back after Module 6? Where did my knowledge base go?**
+> Skip this on a first pass — the fixture retriever is the right default here.
 > Which retriever the backend uses depends on `EVIDENCE_SOURCE`, and the
 > backend you just started is the local one. Module 6's Terraform change set
 > that variable on App Service, not on your laptop, and `populate-env.ps1`

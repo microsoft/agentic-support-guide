@@ -175,7 +175,7 @@ Then create the knowledge source over your blob container.
 **If you took the File path in step 2**, create a File knowledge source and
 upload `evals/knowledge` directly instead — everything after this point is the
 same, because the knowledge base does not care where its source came from.
-The one difference to expect: step 6's script adds an `asg-ks-blob-<alias>`
+The one difference to expect: step 6's script adds an `asg-ks-blob-<your-alias>`
 source whenever a container name is set, which `populate-env.ps1` always
 writes. Pass `--blob-container ''` to leave it out, and your base will span
 the index and web sources rather than all three.
@@ -209,24 +209,21 @@ Set `reasoning_effort` to `minimal`.
 Wait for indexing to finish before testing. Querying an empty index returns
 nothing and looks exactly like a broken configuration.
 
-## 5. Add a second source: an allow-listed public site
+## 5. Know what a second source buys you
 
 Dealer group documents are not the only knowledge a support team uses. Some of
 it lives on public reference sites — and you want *specific* ones, not the
 open web.
 
-Add this one by hand, in the portal. It is the most demonstrable feature in
-the module and it takes four clicks.
-
-On your knowledge base `asg-kb-<your-alias>`, add a source of type **Web**,
-and set its allowed domain to:
+You are not adding this one by hand. Step 6's script creates it, over this
+domain:
 
 ```
 https://www.census.gov/econ/indviz/auto/main.html
 ```
 
-Then query the base in the portal and watch a result come back with a
-citation pointing at that site.
+Building it in the portal first would be work the next step throws away, and
+you will see its citations when you query the base in step 9.
 
 Two properties make this safe enough to show a customer:
 
@@ -236,19 +233,15 @@ Two properties make this safe enough to show a customer:
   dealer group documents and the public site sit side by side, and every result
   still carries a citation you can click.
 
-A web source needs a chat model configured on the knowledge base, because it
-summarises fetched pages. If retrieval fails with:
-
-```
-A model must be specified on the agent when using a Web knowledge source
-```
-
-the model is usually configured correctly and the **Search service's managed
-identity** simply has not finished getting `Cognitive Services OpenAI User`
-on the AI Services account. Role assignments take a few minutes to
-propagate. Wait, then retry before changing anything — this exact message
-cost real debugging time during development, and the configuration was
-right the whole while.
+> [!IMPORTANT]
+> A web source needs a chat model configured on the knowledge base, because it
+> summarises fetched pages. If retrieval later fails with `A model must be
+> specified on the agent when using a Web knowledge source`, the model is
+> usually configured correctly and the **Search service's managed identity**
+> simply has not finished getting `Cognitive Services OpenAI User` on the AI
+> Services account. Role assignments take a few minutes to propagate. Wait,
+> then retry before changing anything — this exact message cost real debugging
+> time during development, and the configuration was right the whole while.
 
 ## 6. Required — build the index your application needs
 
@@ -309,12 +302,12 @@ because a knowledge source cannot reference an index that does not exist, and
 a base cannot reference a source that does not exist:
 
 ```
-1/4 index          asg-evidence-<alias>
+1/4 index          asg-evidence-<your-alias>
 2/4 documents      20 pushed (no blob, no indexer)
-3/4 knowledge src  asg-ks-<alias>
-3b  web source     asg-ks-web-<alias> -> ...
-3c  blob source    asg-ks-blob-<alias> -> group-knowledge
-4/4 knowledge base asg-kb-<alias> over 3 source(s)
+3/4 knowledge src  asg-ks-<your-alias>
+3b  web source     asg-ks-web-<your-alias> -> ...
+3c  blob source    asg-ks-blob-<your-alias> -> group-knowledge
+4/4 knowledge base asg-kb-<your-alias> over 3 source(s)
 ```
 
 The `3c` line appears because `--blob-container` defaults to the
@@ -329,11 +322,11 @@ fixtures before uploading, because `upload_documents` is an upsert and would
 otherwise leave deleted evidence queryable.
 
 > [!WARNING]
-> The script rebuilds `asg-ks-<alias>` over the new index, adds
-> `asg-ks-blob-<alias>` and `asg-ks-web-<alias>`, and replaces the base's
-> source list. **The blob and web sources you made by hand are overwritten**,
-> which is why `--web-domains` repeats the domain you added in the portal.
-> What survives is the **Search connection** — the lasting output of the
+> The script rebuilds `asg-ks-<your-alias>` over the new index, adds
+> `asg-ks-blob-<your-alias>` and `asg-ks-web-<your-alias>`, and replaces the
+> base's source list. It updates the base you made in step 4 in place — same
+> name, same object — so anything you attached to it by hand is replaced.
+> What survives is the **Search connection**: the lasting output of the
 > hand-work, and the reason nothing appeared on the Knowledge page until you
 > connected the resource.
 
@@ -496,7 +489,7 @@ API version and check the current docs — do not assume the feature is gone.
 
 - [ ] Your knowledge source and base exist, named with your suffix.
 - [ ] You added the web allow-list source by hand and saw it cited.
-- [ ] `provision_foundry_iq.py --apply` built `asg-evidence-<alias>` with
+- [ ] `provision_foundry_iq.py --apply` built `asg-evidence-<your-alias>` with
       `dealer_group_id` filterable.
 - [ ] The running app reports `provider=foundry_iq`, not `fixture`.
 - [ ] The in-scope question returns citations.

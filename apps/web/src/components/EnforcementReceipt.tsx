@@ -31,6 +31,7 @@ export function EnforcementReceipt({ envelope }: Props) {
   } = envelope;
 
   const lines: string[] = [];
+  const steps = envelope.agent_trace ?? [];
 
   if (has(evidence_count)) {
     lines.push(
@@ -59,6 +60,21 @@ export function EnforcementReceipt({ envelope }: Props) {
       `All ${deterministic_checks_total} deterministic checks were applied to this output` +
         (summary ? ` — ${summary}.` : "."),
     );
+    // Advisory only: the validator reports these alongside a pass, so a
+    // receipt that showed the verdict alone read as an all-clear.
+    const warnings = [
+      ...new Set(
+        steps
+          .filter((s) => s.agent.startsWith("validator-agent"))
+          .flatMap((s) => s.warning_codes ?? []),
+      ),
+    ];
+    if (warnings.length > 0) {
+      lines.push(
+        `The validator also raised ${warnings.length} advisory warning(s) that do not ` +
+          `fail validation: ${warnings.join(", ")}.`,
+      );
+    }
   } else if (validation_reached === false) {
     lines.push("Validation not reached: the run ended before the checks could be applied.");
   }
@@ -67,7 +83,6 @@ export function EnforcementReceipt({ envelope }: Props) {
     lines.push(`The recommender ran ${attempts} times; the repair edge fired once.`);
   }
 
-  const steps = envelope.agent_trace ?? [];
   // A step can carry the model provider without making a model call: evidence
   // retrieval reports the retriever, and the validator's repair pass skips the
   // advisory critique and reports model "none".

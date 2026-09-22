@@ -151,6 +151,45 @@ describe("EnforcementReceipt", () => {
     expect(screen.getByText(/This run cost 150 tokens across 3 model call\(s\)/i)).toBeInTheDocument();
   });
 
+  it("reports advisory warnings raised alongside a pass", () => {
+    // A deployed run passed while raising two warnings, and the receipt
+    // showed only the verdict, which read as an all-clear.
+    render(
+      <EnforcementReceipt
+        envelope={{
+          ...base,
+          validation_reached: true,
+          deterministic_checks_total: 8,
+          validator_status: "Validator passed all deterministic checks.",
+          agent_trace: [
+            step({
+              agent: "validator-agent",
+              warning_codes: ["MISSING_DATA_FIRST_RESPONSE_TIME", "HUMAN_REVIEW_REQUIRED"],
+            }),
+          ],
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(/2 advisory warning\(s\) that do not fail validation/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/MISSING_DATA_FIRST_RESPONSE_TIME/)).toBeInTheDocument();
+  });
+
+  it("says nothing about warnings when the validator raised none", () => {
+    render(
+      <EnforcementReceipt
+        envelope={{
+          ...base,
+          validation_reached: true,
+          deterministic_checks_total: 8,
+          agent_trace: [step({ agent: "validator-agent" })],
+        }}
+      />,
+    );
+    expect(screen.queryByText(/advisory warning/i)).not.toBeInTheDocument();
+  });
+
   it("states a complete token sum without hedging", () => {
     render(
       <EnforcementReceipt

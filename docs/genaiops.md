@@ -173,7 +173,7 @@ also asserts the repo does not leak canary values.
   composed per call. Promotion of the *running* app is just merging.
 - The **published** prompt agents are a separate artifact and can drift
   from the branch. Re-run
-  `python scripts/publish_prompt_agents.py --suffix <you> --apply` after
+  `python scripts/publish_prompt_agents.py --suffix <your-alias> --apply` after
   merging a prompt change, and compare the `instructions_hash` from
   `validate_agent_definitions.py` against the version you published.
 - CI runs `scripts/validate_agent_definitions.py` on every pull request,

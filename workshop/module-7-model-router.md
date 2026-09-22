@@ -127,19 +127,27 @@ without every agent having to report them itself.
 
 ## 3. Get a baseline
 
-Start the backend in its own terminal (`.\scripts\run-backend.ps1`), then run
-the six synthetic cases against it. `--live` posts each case in
-[evals/synthetic_cases.jsonl](../evals/synthetic_cases.jsonl) to a running
-API and scores the envelope it gets back:
+Start the backend in its own terminal (`.\scripts\run-backend.ps1`).
+
+Two different things are worth measuring, and one command does not do both.
+
+`run_evals.py --live` posts each case in
+[evals/synthetic_cases.jsonl](../evals/synthetic_cases.jsonl) to a running API
+and scores the envelope it gets back. It answers *did routing break the
+contract*, and it prints pass or fail per case — **not** model, latency or
+tokens:
 
 ```powershell
 .\services\api\.venv\Scripts\python.exe scripts\run_evals.py --live http://127.0.0.1:8000
 ```
 
-The UI is not the right tool here: it shows model and latency but not tokens,
-and clicking through it by hand will not give you two comparable runs.
+The per-step numbers come from calling the API directly. The UI is not the
+right tool: it shows model and latency but not tokens.
 
-For a full per-step trace on a single case, call the API directly:
+Run this **three times**, changing `category` each time to `lead-response`,
+`listing-completeness` and `inventory-ageing`. Three cases is enough to see
+whether the router picks different models for different work, and keeps this
+module inside its 20 minutes:
 
 ```powershell
 $body = @{
@@ -170,10 +178,13 @@ validator-agent              passed gpt-4.1-mini-2025-04-14       6203          
 model call — `step.trace_local` records it so the trace shows the whole
 workflow, not only the parts that cost money.
 
-Record, per case:
+Record, for each of the three cases:
 
 | Case | Model served | Latency (ms) | Tokens |
 | --- | --- | --- | --- |
+| lead-response | | | |
+| listing-completeness | | | |
+| inventory-ageing | | | |
 
 `token_estimate` is input + output combined. If you need them separately,
 `CallMetrics` already carries `input_tokens` and `output_tokens`; the
@@ -196,19 +207,21 @@ Module 0 created (`FOUNDRY_MODEL_DEPLOYMENT_ROUTER` holds its name):
 FOUNDRY_MODEL_DEPLOYMENT_ANALYST=asg-router
 ```
 
-Restart the backend, then re-run exactly the same commands from step 3 and
-fill in the same table.
+Restart the backend, then re-run exactly the same three calls from step 3 and
+fill in a second copy of the same table.
 
-**Put the original value back when you are done**, unless you decided from
-your own numbers to keep the router. Later modules assume the analyst is on
-`asg-chat`.
+**Put the original value back before you move on.** Restore
+`FOUNDRY_MODEL_DEPLOYMENT_ANALYST=asg-chat` and restart the backend — later
+modules assume the analyst is on `asg-chat`. Keep the router only if your own
+numbers argued for it, and then expect those modules to read differently.
 
 ## 5. Now answer the real questions
 
-- Did any case route to a *different* model than another case? If every case
-  landed on the same model, the router is doing nothing for your workload.
+- Did any case route to a *different* model than another case? If all three
+  landed on the same model, the router is doing nothing for this workload.
 - Did total tokens go up? Routing adds overhead.
-- Did p95 latency change? Routing adds a decision step.
+- Did latency change? Routing adds a decision step. Three cases is a
+  direction, not a distribution — do not quote a percentile from it.
 - Did quality change? Not from this run. A graded harness
   evaluates the **support explainer**, not the analyst you just rerouted, so
   it cannot answer this. Judging routing quality means grading the workflow's
@@ -226,10 +239,17 @@ Support is a property of the *underlying* model, not of the router. A router
 whose set includes a model with weaker schema adherence can produce
 off-contract JSON intermittently.
 
-Test it rather than trusting it. Run all six cases against the router several
-times and watch the trace for `invalid_model_json` or
-`PROTOCOL_VALIDATION_FAILED`. Intermittent contract failures under a router,
-where the plain deployment was stable, is your answer.
+Test it rather than trusting it. Run the six cases once against the router and
+watch for `invalid_model_json` or `PROTOCOL_VALIDATION_FAILED`:
+
+```powershell
+.\services\api\.venv\Scripts\python.exe scripts\run_evals.py --live http://127.0.0.1:8000
+```
+
+This is the contract check from step 3, now pointed at the router. A failure
+here that did not happen on the plain deployment is your answer. Intermittent
+failures are the harder case: if you suspect one, repeat the run rather than
+concluding from a single pass.
 
 This is what the schema validation in Module 3 buys. Without
 it, a weaker model behind a router silently corrupts data. With it, the same

@@ -118,6 +118,12 @@ investigate a bad score later, so learn the surface first.
    `coherence`; §4 explains why those three and not the others.
 6. **Review** — submit.
 
+> [!TIP]
+> The job queues and runs on Foundry's schedule, not yours — several minutes
+> is normal. Submit it now and carry straight on to §4 and §5 while it works.
+> Come back to §3 once it reports Completed. Waiting at this screen is the
+> single easiest way to lose ten minutes of this module.
+
 Two things worth knowing before you pick **Existing traces**, because it is
 the option you will want in production and it will not work here:
 
@@ -131,6 +137,8 @@ the option you will want in production and it will not work here:
   traces you generated sixty seconds ago finds nothing.
 
 ## 3. Read the scorecard
+
+Come back here once the run you submitted in §2 reports **Completed**.
 
 When the run completes, open it. You get a per-case view with each grader's
 score *and the judge's reasoning* — which is the part a console line cannot

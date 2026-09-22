@@ -11,10 +11,10 @@ instead of leaving it as prose inside a markdown blob.
 Order matters: index -> documents -> knowledge source -> knowledge base.
 
 Usage:
-  python scripts/provision_foundry_iq.py --suffix <you>            # dry run
-  python scripts/provision_foundry_iq.py --suffix <you> --apply
-  python scripts/provision_foundry_iq.py --suffix <you> --query "..."
-  python scripts/provision_foundry_iq.py --suffix <you> --delete
+    python scripts/provision_foundry_iq.py --suffix <your-alias>            # dry run
+    python scripts/provision_foundry_iq.py --suffix <your-alias> --apply
+    python scripts/provision_foundry_iq.py --suffix <your-alias> --query "..."
+    python scripts/provision_foundry_iq.py --suffix <your-alias> --delete
 """
 
 from __future__ import annotations
@@ -548,7 +548,8 @@ def main() -> int:
     suffix = args.suffix.strip().lower()
     if not suffix or not re.fullmatch(r"[a-z0-9-]{1,24}", suffix):
         print(
-            "Pass --suffix <you> (a-z, 0-9, '-') or set WORKSHOP_LEARNER_SUFFIX.", file=sys.stderr
+            "Pass --suffix <your-alias> (a-z, 0-9, '-') or set WORKSHOP_LEARNER_SUFFIX.",
+            file=sys.stderr,
         )
         return 2
 

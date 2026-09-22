@@ -92,7 +92,7 @@ Make the first by hand. In **Build → Agents**, open your Module 4 agent, copy
 its instructions and model, then create a new agent named exactly:
 
 ```
-asg-support-explainer-agent-<you>-strict
+asg-support-explainer-agent-<your-alias>-strict
 ```
 
 Copy the instructions, the model, **and the temperature**. The manifest sets
@@ -111,10 +111,10 @@ segment, so the same `agent.md` is published under a second name instead of
 becoming a new version of the first:
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <you> --workshop-only --variant baseline --apply
+.\services\api\.venv\Scripts\python.exe scripts\publish_prompt_agents.py --suffix <your-alias> --workshop-only --variant baseline --apply
 ```
 
-You now have `asg-support-explainer-agent-<you>-strict` and `…-baseline`,
+You now have `asg-support-explainer-agent-<your-alias>-strict` and `…-baseline`,
 identical in every way. One you built, one you generated; the platform cannot
 tell the difference.
 
@@ -147,7 +147,7 @@ succeeded.
 Run it:
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\run_guardrail_probe.py --suffix <you>
+.\services\api\.venv\Scripts\python.exe scripts\run_guardrail_probe.py --suffix <your-alias>
 ```
 
 Four outcomes, and the difference between them is the whole module:
@@ -441,7 +441,7 @@ Treat the table as a baseline. Save today's output, then re-run and diff
 after any prompt or model change:
 
 ```powershell
-.\services\api\.venv\Scripts\python.exe scripts\run_guardrail_probe.py --suffix <you> > probe-baseline.txt
+.\services\api\.venv\Scripts\python.exe scripts\run_guardrail_probe.py --suffix <your-alias> > probe-baseline.txt
 ```
 
 Watch for a row moving from `BLOCKED` to `answered`. That is a control you
