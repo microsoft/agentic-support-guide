@@ -11,7 +11,7 @@ natural language, that produces structured output. In this repo, an
 agent is a folder under [`/agents`](../agents) containing an
 `agent.md` (instructions) and a `manifest.yaml` (runtime metadata).
 An agent has no source code of its own; the runtime assembles it from those
-two files on every call.
+two files at startup and caches the result until the process restarts.
 
 ## Prompt agent
 

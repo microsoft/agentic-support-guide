@@ -20,9 +20,11 @@ retrieve evidence -> data analyst -> support recommender -> validator
                                             +-- one repair -----+
 ```
 
-Retrieval and the analyst run **once**. Only the recommender is re-run, with
-the validator's guidance fed back in, and only once. The analysis is not
-recomputed — it was not the thing that failed.
+Retrieval and the analyst run **once**. Only the recommender's model call is
+re-run, with the validator's guidance fed back in, and only once. The repair
+then returns through the validator's deterministic checks; its advisory model
+critique is not repeated. The analysis is not recomputed — it was not the
+thing that failed.
 
 This is the application's actual graph, rendered by `WorkflowViz` from the
 same `build_plan_workflow` a request calls:

@@ -30,9 +30,10 @@ abstraction.
   (structured_data | document | policy | resource | synthetic_fixture),
   `source_title`, `section_or_page`, `evidence_summary`, `source_ref`,
   `retrieved_at`, `confidence`.
-- `support-recommendation-result.schema.json` requires
-  `citations: minItems 1`. A recommendation with no evidence cannot
-  pass protocol validation.
+- `support-recommendation-result.schema.json` sets `citations: minItems 0`.
+  An uncited draft is the validator's `MISSING_CITATIONS` verdict to make,
+  so rejecting it at the envelope would skip the validator and the repair
+  edge. An *accepted* recommendation always carries citations.
 - Validator Agent adds `MISSING_CITATIONS`, `CROSS_DEALER_GROUP_CITATION`,
   and `UNKNOWN_CITATION_ID` issue codes.
 

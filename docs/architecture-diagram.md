@@ -93,7 +93,8 @@ in use and is not currently applied in the DSL styles.
   container: `Terraform & Ops Scripts`.
 
 `Ephemeral Foundry Agents` describes the runtime: instructions are composed
-in-process per call, so the application never invokes a stored agent. The
+in-process at startup and cached, and a fresh `Agent` is built per call, so
+the application never invokes a stored agent. The
 same definitions are separately published to Foundry as versioned prompt
 agents for portal visibility — see
 [`adr/0006-published-prompt-agents.md`](adr/0006-published-prompt-agents.md).

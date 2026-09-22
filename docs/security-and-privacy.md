@@ -52,8 +52,9 @@ by design than to remove later.
 
 - The backend reads only the synthetic in-memory repositories in
   [`services/api/app/repositories.py`](../services/api/app/repositories.py).
-- No database, no external ingestion, no file-system state beyond the
-  in-memory saved-plans store.
+- No database and no file-system state beyond the in-memory saved-plans
+  store. Evidence retrieval is the one external read, and only when
+  `EVIDENCE_SOURCE=foundry_iq` points it at Azure AI Search.
 - The FastAPI request models bound and validate all inputs at the
   boundary.
 
@@ -87,7 +88,9 @@ enforces that only allow-listed placeholder values appear anywhere.
 - The system-level instructions (in `agent.md`) tell the remote agent
   to treat wrapped blocks as data only.
 - The control that actually decides what ships is the validator's
-  deterministic checks, which do not care how the text was spelled.
+  deterministic checks. They match case-insensitively after curly
+  apostrophes are folded to straight ones — typography, not evasion. They
+  are **not** robust to obfuscation, and that is out of scope.
 
 **How to verify.** Read
 [`services/api/app/agents/shared/prompt_blocks.py`](../services/api/app/agents/shared/prompt_blocks.py).

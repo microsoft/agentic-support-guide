@@ -4,9 +4,10 @@ This folder is the **source of truth for agent configuration**, and it is
 what the runtime actually loads. It is intentionally protocol- and
 configuration-only: no Python implementation lives here.
 
-Agents are **ephemeral at runtime**. On every call the backend composes a
+Agents are **ephemeral at runtime**. At startup the backend composes each
 role's instructions from `agent.md` (body plus the behavioural rules in its
-YAML frontmatter) and runs it against the Foundry project's Responses API via
+YAML frontmatter) and caches them for the life of the process, then runs each
+call against the Foundry project's Responses API via
 Microsoft Agent Framework. The runtime never calls a published copy, so the
 version that runs is exactly the version on your branch.
 

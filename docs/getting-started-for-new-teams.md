@@ -98,9 +98,11 @@ it:
 - **Foundry projects.** A project resource that scopes agents, model
   deployments, RBAC, and observability. This repo provisions one
   project as part of Terraform.
-- **Agent Service.** The agent surface. The three coordinator roles run
-  as ephemeral agents here, composed at call time from the on-disk
-  `agent.md` and `manifest.yaml` files. Those files are checked offline by
+- **Agent Service.** The agent surface in the portal. The three coordinator
+  roles do *not* run here: each is an in-process Agent Framework `Agent` in
+  the API backend, built from instructions loaded at startup from the
+  on-disk `agent.md` and `manifest.yaml` files, calling a Foundry model
+  deployment through `MafAgentRuntime`. Those files are checked offline by
   [`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py)
   and published to the portal as versioned prompt agents by
   [`scripts/publish_prompt_agents.py`](../scripts/publish_prompt_agents.py).
@@ -218,5 +220,6 @@ section of the root README.
 - [Security and privacy](security-and-privacy.md).
 - [Observability](observability.md).
 - [Glossary](glossary.md) — plain-language definitions.
-- [ADR 0002 — remote Foundry agent hosting](adr/0002-agent-hosting-remote-foundry.md)
-  — the current decision and the gaps it leaves.
+- [ADR 0006 — published prompt agents](adr/0006-published-prompt-agents.md)
+  — the current decision. It supersedes ADR 0005, which superseded
+  [ADR 0002](adr/0002-agent-hosting-remote-foundry.md).

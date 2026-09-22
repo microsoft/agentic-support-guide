@@ -66,8 +66,10 @@ Recommendation Agent using the repair guidance produced from a fixed
 template set.
 
 The optional LLM critique is layered on top. It may add advisory warning
-codes and, when the deterministic checks already passed but a soft
-concern exists, may populate repair guidance. It **cannot** flip a
+codes. It **cannot** populate repair guidance — the model's repair text is
+discarded, and the guidance sent back to the recommender comes only from the
+fixed templates in `services/api/app/agents/validator/repair.py`. It
+**cannot** flip a
 deterministic pass into a failure.
 
 ## Explicitly out of scope

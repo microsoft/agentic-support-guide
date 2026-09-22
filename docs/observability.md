@@ -100,9 +100,15 @@ so the guarantee is tested rather than assumed.
 - Raw concern text supplied by the user.
 - Raw validator critique text.
 - Secrets, tokens, API keys, or connection strings.
-- Foundry endpoint URLs, project names, deployment names, assistant
+- Foundry endpoint URLs, project names, assistant
   IDs, thread IDs, run IDs, resource IDs, subscription IDs, tenant
   IDs, or region names.
+
+The model deployment name is **not** excluded: Agent Framework records it as
+`gen_ai.request.model`. Nor is exception detail — on failure the framework
+sets `error.type` to the exception class name and calls
+`span.record_exception`, which carries the exception message, regardless of
+`enable_sensitive_data`.
 - Synthetic dealership detail (labels, indicators, or scores).
 
 ### What the audit trail exposes
@@ -110,15 +116,19 @@ so the guarantee is tested rather than assumed.
 The `AI Audit` view and the `/api/audit/events` endpoint expose
 structural metadata only, plus a fixed synthetic user
 label. Every runtime audit row is derived from the coordinator
-result and carries only:
+result and carries:
 
-- timestamp (server-generated),
-- endpoint (`/api/recommendations/support-plan`),
-- context (`plan-generation`),
-- provider bucket,
-- duration,
-- token estimate,
-- status.
+- `event_id` and a server-generated timestamp,
+- `endpoint` and `context`,
+- `provider_model`, `duration_ms`, `token_estimate`, `status`,
+- `correlation_id`, `dealer_group_id`,
+- `evidence_count`, `citation_count`, `validator_status`,
+- a fixed synthetic `user` label.
+
+Two paths write rows. Plan generation uses endpoint
+`/api/recommendations/support-plan` and context `plan-generation`. Human
+review uses `/api/supports/plans/{plan_id}/review` and a
+`review:<previous>-><new>` context, and sets `correlation_id` to the plan id.
 
 No agent-trace step ever surfaces prompt content, completion content,
 raw validator critique, or issue-code strings that came directly

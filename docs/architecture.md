@@ -31,8 +31,10 @@ application built this way has seven pieces:
 5. **Protocol validation.** Every inter-agent message validates
    against a versioned JSON Schema before it is used. Invalid
    messages become typed failures, never surfaced content.
-6. **Synthetic data boundary.** The application reads only in-memory
-   synthetic data. There is no external data source in the demo.
+6. **Synthetic data boundary.** Dealership records and saved plans are
+   in-memory synthetic stores. Evidence defaults to fixtures; with
+   `EVIDENCE_SOURCE=foundry_iq` the application retrieves evidence from an
+   Azure AI Search knowledge base, which is the path Module 6 teaches.
 7. **Observability boundary.** Only metadata (agent name, status,
    latency, coarse error code) leaves the process. Prompts,
    completions, and raw user text are never emitted.
@@ -240,9 +242,10 @@ on it.
    `agent_definitions_valid`, `model_deployments_configured`, and
    `service_side_remote_workflow_active`.
 
-Editing `/agents/<id>/agent.md` takes effect on the next request, because
-the instructions are composed per call. Rolling back is a revert commit,
-not a redeployment. `python scripts/validate_agent_definitions.py`
+Editing `/agents/<id>/agent.md` takes effect after a backend restart: the
+runtime loads and composes every role's instructions once at application
+construction and caches them. There is no publish step. Rolling back is a
+revert commit plus a restart, not a redeployment. `python scripts/validate_agent_definitions.py`
 validates the definitions offline and prints an `instructions_hash` per
 role so you can confirm a change landed.
 

@@ -63,8 +63,9 @@ Canonical list lives in [`.env.example`](.env.example).
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional. Empty = telemetry no-ops. |
 | `DEMO_RESET_ENABLED` | Development-only. `true` enables `POST /api/demo/reset`. Default `false`. |
 
-There are no remote assistant IDs. Each role is assembled in-process from
-`agents/<id>/agent.md` on every call.
+There are no remote assistant IDs. Each role's instructions are loaded from
+`agents/<id>/agent.md` once at startup and cached; a fresh `Agent` is built
+per call from that cached text.
 
 ## Azure provider behavior
 
@@ -83,8 +84,11 @@ There are no remote assistant IDs. Each role is assembled in-process from
 - Per-run timeout is 30 seconds (`FOUNDRY_RUN_TIMEOUT_SECONDS`); the whole
   workflow budget is 120 seconds (`ORCHESTRATION_TOTAL_BUDGET_SECONDS`).
   Each run's timeout is clamped to whatever is left of that budget.
-- There is no client-side retry. Throttling surfaces as `ThrottledError`
-  and is reported to the caller as `provider_throttling`.
+- The OpenAI client under Agent Framework retries by default
+  (`max_retries=2`, covering 408, 409, 429 and 5xx). This app does not
+  disable that. A 429 that exhausts those retries surfaces as
+  `provider_throttling`; a retry that outlives the per-run timeout surfaces
+  as `provider_timeout`.
 
 ## Failure modes
 

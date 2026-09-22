@@ -64,8 +64,9 @@ A well-run GenAIOps workflow does most of these:
 - Runtime metadata (response format, model deployment env var,
   temperature) lives in `manifest.yaml` next to it.
 - Both are plain text and are reviewed via normal PR flow.
-- The runtime composes instructions from these files on every call, so the
-  version that runs locally is exactly the version on the branch.
+- The runtime loads and composes instructions from these files once at
+  startup, so the version that runs locally is exactly the version on the
+  branch. A prompt edit needs a backend restart, not a publish.
 - Publishing the same definitions to Foundry as prompt agents is a separate,
   explicit step (`scripts/publish_prompt_agents.py`), which is what makes
   them visible and versioned in the portal. See
@@ -102,8 +103,9 @@ and `StepRunner.check_protocol` in
 
 **How to verify.** Run `python scripts/run_evals.py --offline` for the
 deterministic structural gate, and `python scripts/run_agent_evals.py
---dry-run` for the graded quality pass. Neither is wired to block a merge
-automatically — both are run on demand.
+--dry-run` for the graded quality pass. CI already runs the offline gate on
+every pull request; the graded pass is on demand only, and nothing blocks a
+merge on a live-model score.
 
 ### 4. Evaluate structure and safety, not exact prose
 
@@ -170,7 +172,7 @@ also asserts the repo does not leak canary values.
 - All prompt, contract, Terraform, and code changes go through source
   control PR review.
 - The locally running instructions are always the ones on the branch,
-  composed per call. Promotion of the *running* app is just merging.
+  loaded at startup. Promotion of the *running* app is just merging.
 - The **published** prompt agents are a separate artifact and can drift
   from the branch. Re-run
   `python scripts/publish_prompt_agents.py --suffix <your-alias> --apply` after
@@ -187,8 +189,8 @@ also asserts the repo does not leak canary values.
 ### 8. Maintain a rollback path
 
 - Rolling back a prompt or manifest is a **revert commit**. Because
-  instructions are composed per call, the running app reverts as soon as
-  the reverted code is running.
+  instructions are loaded at startup, the running app reverts once the
+  reverted code is deployed and the process has restarted.
 - If you had published that prompt, also re-publish after reverting.
   Prompt agents are versioned, so the previous version stays visible in
   the portal and the new version simply supersedes it.

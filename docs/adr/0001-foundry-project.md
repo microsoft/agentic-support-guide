@@ -57,8 +57,10 @@ refresh providers within the pinned range, followed by re-running
 
 ### Endpoint used by the backend
 
-- The backend `AzureFoundryLlmProvider` calls the AI Services
-  `endpoint` (`azurerm_cognitive_account.endpoint`) for chat completions.
+- The backend calls model deployments through
+  `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` using the Responses API, via
+  `MafAgentRuntime` and `FoundryResponsesClientFactory` on Agent Framework's
+  `FoundryChatClient`. Project-scoped routing is active.
 - `foundry_project_name` and `foundry_project_endpoints` are exposed as
   outputs and read into `.env` for observability and future
   project-scoped SDK routing.

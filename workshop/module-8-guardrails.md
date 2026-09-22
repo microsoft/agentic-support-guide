@@ -248,7 +248,9 @@ injection travels one hop further than you expected.
 
 **The real control is the validator, not a text filter.** An injection only
 matters if it changes what ships. The next section is about the checks that
-decide that, and they do not care how the text was spelled.
+decide that. They fold curly apostrophes and match case-insensitively, which
+is typography rather than evasion — deliberately disguised wording is out of
+scope, and the validator is the control that matters.
 
 ## 5. Read what no guardrail can catch
 

@@ -26,7 +26,7 @@ Foundry as **prompt agents**.
 
 1. **Runtime (inner loop).** `MafAgentRuntime` + `FoundryChatClient` continue
    to assemble each role in-process from `/agents/<id>/agent.md`. A prompt
-   edit takes effect on the next request with no publish step.
+   edit takes effect on the next process start, with no publish step.
 2. **Published artifact (GenAIOps).** `scripts/publish_prompt_agents.py`
    composes the same instructions and publishes them via `to_prompt_agent` +
    `AIProjectClient.agents.create_version`. Agents are visible and versioned

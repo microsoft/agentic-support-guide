@@ -2,8 +2,9 @@
 
 Each role is a `agent_framework.Agent` backed by `FoundryChatClient`, which
 calls the Foundry project's Responses API. This is the local development
-inner loop: the agent is assembled in-process from `/agents/<id>/agent.md`,
-so a prompt edit takes effect on the next request with no publish step.
+inner loop: instructions are composed from `/agents/<id>/agent.md` once at
+application construction and cached here, so a prompt edit takes effect on
+the next process start with no publish step.
 
 Publishing the same definitions to Foundry as prompt agents is a separate
 GenAIOps step - see `scripts/publish_prompt_agents.py`.
