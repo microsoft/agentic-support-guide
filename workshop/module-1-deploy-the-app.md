@@ -179,7 +179,7 @@ only**, and store its coordinates in the `workshop` environment:
 ```powershell
 az ad app create --display-name gh-asg-deploy
 az ad sp create --id <appId>
-az role assignment create --assignee-object-id <spObjectId> `
+az role assignment create --assignee-object-id (az ad sp show --id <appId> --query id -o tsv) `
     --assignee-principal-type ServicePrincipal --role Contributor `
     --scope /subscriptions/<sub>/resourceGroups/<rg>
 
@@ -187,6 +187,9 @@ gh secret set AZURE_CLIENT_ID       --env workshop --body <appId>
 gh secret set AZURE_TENANT_ID       --env workshop --body <tenantId>
 gh secret set AZURE_SUBSCRIPTION_ID --env workshop --body <subscriptionId>
 ```
+
+The role assignment needs the service principal's *object* ID, which is not
+`<appId>` — hence the lookup on the third line.
 
 Add the federated credential that trusts the repository environment:
 

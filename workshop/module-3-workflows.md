@@ -19,6 +19,29 @@ That is the whole model. Microsoft Learn covers each in depth —
 and [edges](https://learn.microsoft.com/agent-framework/concepts/workflows/edges)
 — and this module builds one, then shows you the same graph running the app.
 
+## Before you start
+
+Sections 5, 9 and 10 change a line and submit a request, so start the app now
+and leave it running. `run-backend.ps1` starts uvicorn against `services/api`
+with `services/api/.env` loaded. `run-frontend.ps1` starts the Vite dev server,
+which proxies `/api` to the backend. Both block, so use two terminals.
+
+```powershell
+# Terminal 1
+.\scripts\run-backend.ps1
+```
+
+```powershell
+# Terminal 2
+.\scripts\run-frontend.ps1
+```
+
+If the backend fails to bind port 8000, it is already running from Module 0 —
+keep that terminal and start only the frontend.
+
+Open <http://127.0.0.1:5173>. Section 9 comes back to what a request does once
+it arrives.
+
 ## 1. The smallest workflow
 
 Run [code/05_first_workflow.py](code/05_first_workflow.py). No model, no
@@ -407,23 +430,9 @@ the same definition. Keep them in step by re-publishing after a prompt change
 and comparing the `instructions_hash` that `validate_agent_definitions.py`
 prints.
 
-## 9. Run it
+## 9. Follow one request through
 
-`run-backend.ps1` starts uvicorn against `services/api` with
-`services/api/.env` loaded. `run-frontend.ps1` starts the Vite dev server,
-which proxies `/api` to the backend. Both block, so use two terminals.
-
-```powershell
-# Terminal 1
-.\scripts\run-backend.ps1
-```
-
-```powershell
-# Terminal 2
-.\scripts\run-frontend.ps1
-```
-
-Open <http://127.0.0.1:5173>, pick a dealership, and submit a concern.
+In the UI you opened at the start, pick a dealership and submit a concern.
 
 The request lands on `post_recommendation` in
 [services/api/app/routers/supports.py](../services/api/app/routers/supports.py).
@@ -460,7 +469,8 @@ body.
 > **Coming back after Module 6? Where did my knowledge base go?**
 > Skip this on a first pass — the fixture retriever is the right default here.
 > Which retriever the backend uses depends on `EVIDENCE_SOURCE`, and the
-> backend you just started is the local one. Module 6's Terraform change set
+> backend you started at the top of this module is the local one. Module 6's
+> Terraform change set
 > that variable on App Service, not on your laptop, and `populate-env.ps1`
 > does not write it either — so a local run uses `FixtureEvidenceRetriever`
 > unless you say otherwise. To run this module against your own knowledge

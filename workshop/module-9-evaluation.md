@@ -381,27 +381,33 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER --body (terraform -chdir=infr
 gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --body (terraform -chdir=infra output -raw judge_deployment_name)
 ```
 
+> [!IMPORTANT]
+> **Contributor on the resource group is not enough.** That is a control-plane
+> role, and it lets the workflow create and delete the Search service without
+> ever being allowed to send a prompt through your project. Grading is a
+> data-plane call, so grant the same service principal `Cognitive Services User`
+> on the **project** before you run anything — the same role and scope
+> [infra/rbac.tf](../infra/rbac.tf) gives you:
+>
+> ```powershell
+> $spObjectId = az ad sp show --id <appId> --query id -o tsv
+> az role assignment create --assignee-object-id $spObjectId `
+>     --assignee-principal-type ServicePrincipal --role "Cognitive Services User" `
+>     --scope (terraform -chdir=infra output -raw foundry_project_id)
+> ```
+>
+> `<appId>` is the app registration from Module 1. Its *object* ID is not the
+> same value, which is why the first line looks it up.
+>
+> Without the grant the deploy workflow keeps working and only this one fails,
+> with a 401 from the project endpoint rather than anything that mentions roles.
+
 Then:
 
 ```powershell
 gh workflow run evaluate.yml
 gh run watch --exit-status
 ```
-
-**Contributor on the resource group is not enough.** That is a control-plane
-role, and it lets the workflow create and delete the Search service without
-ever being allowed to send a prompt through your project. Grading is a data-plane
-call, so the same service principal also needs `Cognitive Services User` on
-the AI Services account:
-
-```powershell
-az role assignment create --assignee-object-id <spObjectId> `
-    --assignee-principal-type ServicePrincipal --role "Cognitive Services User" `
-    --scope (terraform -chdir=infra output -raw ai_services_account_id)
-```
-
-Without it the deploy workflow keeps working and only this one fails, with a
-401 from the project endpoint rather than anything that mentions roles.
 
 Results go to the job log, not an artifact — `run_agent_evals.py` prints its
 scores and exits non-zero on a failure, which is what a gate needs.

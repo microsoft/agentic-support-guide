@@ -204,14 +204,24 @@ identity. If you do not need those, do not pay it.
 
 ## 6. Find its identity, and grant it access
 
-Read the identity from the portal first: open the agent and use
-**Endpoint & IDs → View details**. It has a principal ID that is **not
-yours**:
+`invoke_hosted_agent.py` prints the agent's identity before it asks anything,
+so run it once now. Expect it to get as far as the question and then fail at
+the model call with an authorisation error — that failure is the point. Any
+error *before* `Identity :` appears is a different problem, usually a missing
+`--suffix` or project endpoint:
+
+```powershell
+.\services\api\.venv\Scripts\python.exe scripts\invoke_hosted_agent.py --suffix <your-alias>
+```
 
 ```
 Agent    : asg-hosted-explainer-<your-alias>
 Identity : <a GUID that is your agent's, not yours>
+Question : What does the dealer group standard say about enquiry response when first-response times are behind target?
 ```
+
+The same principal ID is in the portal, on the agent's **Endpoint & IDs →
+View details** panel.
 
 Freshly deployed it holds **no permissions at all**, and cannot call the
 model until someone grants it access. Do this one in the portal — the IAM
@@ -221,8 +231,7 @@ principal appear in a role assignment list is the lesson:
 2. **Add → Add role assignment**.
 3. Role: **Cognitive Services OpenAI User**.
 4. Members: select **User, group, or service principal**, and search for the
-   principal ID you just read from **Endpoint & IDs**. It resolves to the
-   agent, not to you.
+   principal ID you just read. It resolves to the agent, not to you.
 5. Review and assign.
 
 The same grant from a shell, once you know which role you need:
@@ -246,7 +255,7 @@ specific database and audit what *this agent* did, instead of every agent
 sharing one identity. Prompt agents cannot do that — they run under the
 project's identity, so there is nothing to grant to.
 
-With the role assigned, ask it something:
+With the role assigned, run the same command again:
 
 ```powershell
 .\services\api\.venv\Scripts\python.exe scripts\invoke_hosted_agent.py --suffix <your-alias>

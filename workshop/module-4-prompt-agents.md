@@ -239,8 +239,8 @@ The credential story is the same as
 [Module 1's optional CI section](module-1-deploy-the-app.md) — federated, no
 stored secret — but the role is different: publishing an agent is a
 data-plane call against the project, so the service principal needs
-`Cognitive Services User` on the AI Services account, not just Contributor on
-the resource group. Module 9's optional section hits the same wall for the
+`Cognitive Services User` on the project, not just Contributor on the
+resource group. Module 9's optional section hits the same wall for the
 same reason.
 
 ---
