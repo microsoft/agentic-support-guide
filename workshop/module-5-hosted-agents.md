@@ -147,11 +147,12 @@ source. A dependency that resolves on your laptop but not there fails here,
 and step 4 is where you find out.
 
 In the portal it appears alongside your prompt agents. Its kind is `hosted`,
-which you can confirm by expanding **Agent info**:
+which the **Agent info** panel shows:
 
 ![The hosted agent page showing Version 1 and tabs for Playground, Details,
-Traces, Monitor, Evaluation and Optimize, with the Agent info section
-collapsed.](images/module-5-hosted-agent.png)
+Traces, Monitor, Evaluation and Optimize. The Agent info panel lists Kind
+hosted, Endpoint & IDs and Environment
+variables.](images/module-5-hosted-agent.png)
 
 ## 4. Check what the tooling tells you
 
@@ -204,24 +205,9 @@ identity. If you do not need those, do not pay it.
 
 ## 6. Find its identity, and grant it access
 
-`invoke_hosted_agent.py` prints the agent's identity before it asks anything,
-so run it once now. Expect it to get as far as the question and then fail at
-the model call with an authorisation error — that failure is the point. Any
-error *before* `Identity :` appears is a different problem, usually a missing
-`--suffix` or project endpoint:
-
-```powershell
-.\services\api\.venv\Scripts\python.exe scripts\invoke_hosted_agent.py --suffix <your-alias>
-```
-
-```
-Agent    : asg-hosted-explainer-<your-alias>
-Identity : <a GUID that is your agent's, not yours>
-Question : What does the dealer group standard say about enquiry response when first-response times are behind target?
-```
-
-The same principal ID is in the portal, on the agent's **Endpoint & IDs →
-View details** panel.
+Open the agent in the portal and use **Agent info → Endpoint & IDs → View
+details**. Among the IDs is a principal ID that is **not yours**: the agent
+has an identity of its own. Copy it.
 
 Freshly deployed it holds **no permissions at all**, and cannot call the
 model until someone grants it access. Do this one in the portal — the IAM
@@ -255,7 +241,9 @@ specific database and audit what *this agent* did, instead of every agent
 sharing one identity. Prompt agents cannot do that — they run under the
 project's identity, so there is nothing to grant to.
 
-With the role assigned, run the same command again:
+With the role assigned, ask it something. `invoke_hosted_agent.py` echoes the
+agent name and the same principal ID you just granted, then puts a question
+through the hosted endpoint:
 
 ```powershell
 .\services\api\.venv\Scripts\python.exe scripts\invoke_hosted_agent.py --suffix <your-alias>
