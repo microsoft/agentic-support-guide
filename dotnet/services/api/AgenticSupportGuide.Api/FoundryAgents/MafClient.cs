@@ -47,12 +47,17 @@ public sealed class FoundryResponsesClientFactory
         };
 
         // Agent Framework's own instrumentation on both layers: `invoke_agent`
-        // for the agent and `chat <deployment>` for the model call.
+        // for the agent and `chat <deployment>` for the model call. The id is
+        // the role, so the span name (`invoke_agent <name>(<id>)`) is the same
+        // on every call rather than carrying a new random id each time.
         AIAgent agent = _project
             .AsAIAgent(
-                model: definition.ModelDeployment,
-                instructions: definition.Instructions,
-                name: definition.Role,
+                new ChatClientAgentOptions
+                {
+                    Id = definition.Role,
+                    Name = definition.Role,
+                    ChatOptions = new ChatOptions { ModelId = definition.ModelDeployment, Instructions = definition.Instructions },
+                },
                 clientFactory: client => client.AsBuilder().UseOpenTelemetry(_loggerFactory, Observability.SourceName).Build(),
                 loggerFactory: _loggerFactory)
             .AsBuilder()

@@ -138,7 +138,7 @@ def test_instructions_hash_is_stable_across_whitespace(agent_id: str) -> None:
     assert ihash1 == ihash2
 
 
-def test_python_source_has_no_hardcoded_role_prompt() -> None:
+def test_app_source_has_no_hardcoded_role_prompt() -> None:
     forbidden_signals = (
         "You are the Data Analyst Agent",
         "You are the Support Recommendation Agent",

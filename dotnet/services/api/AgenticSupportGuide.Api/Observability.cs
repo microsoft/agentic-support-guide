@@ -15,9 +15,10 @@ namespace AgenticSupportGuide.Api;
 /// instrumentation, all on one <see cref="ActivitySource"/>:
 ///
 /// <code>
-///     workflow_build                the graph
-///     workflow_invoke               one request end to end
-///     executor_process &lt;id&gt;        one node
+///     workflow.build                the graph, with its full definition as JSON
+///     invoke_workflow support-plan  one request end to end
+///     executor.process &lt;id&gt;         one node, e.g. `executor.process support-recommender`
+///     edge_group.process            an edge firing, with its delivery status
 ///     invoke_agent &lt;agent&gt;          one agent call
 ///     chat &lt;deployment&gt;             one model call, with gen_ai.* attributes:
 ///                                   response model, input/output tokens, error type

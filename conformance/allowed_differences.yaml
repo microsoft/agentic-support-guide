@@ -47,6 +47,12 @@ differences:
     dotnet: Agent Framework for .NET relabels it as a user message by default, which the Foundry Responses API rejects (output_text content in a user message), so sample 6 turns the relabelling off.
     compared_by: Sample 6 runs in both tracks and yields one answer.
 
+  - id: failed-step-span-status
+    where: The spans of a plan run in which a node fails (no evidence, a provider error, an off-contract reply), and Module 10's failure query.
+    python: Agent Framework for Python marks the failed executor.process span and the invoke_workflow span as errors, with error.type, so Application Insights shows them with success == false.
+    dotnet: Agent Framework for .NET reports the failure as an executor-failed event and leaves those spans' status unset. A failed model call still marks its chat and invoke_agent spans as errors.
+    compared_by: Each track's observability test asserts that the failing node's span is captured and carries no model output. The API response and the audit row are identical in both tracks.
+
 # Applied to every golden string before it is compared with this track's
 # output, longest first. Each pair names the same file or step in each track.
 track_substitutions:

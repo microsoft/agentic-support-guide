@@ -31,7 +31,8 @@ public static class ErrorMapping
         var text = string.Join(" ", chain.Select(e => e.Message)).ToLowerInvariant();
         var status = StatusCode(chain);
 
-        if (names.Contains("ContentFilterException") || text.Contains("content_filter", StringComparison.Ordinal))
+        if (names.Any(name => name.Contains("ContentFilterException", StringComparison.Ordinal))
+            || text.Contains("content_filter", StringComparison.Ordinal))
         {
             return new ContentFilterException("CONTENT_FILTER", "Remote agent request was blocked by content safety.");
         }
