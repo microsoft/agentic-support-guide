@@ -80,12 +80,27 @@ is the export side, one tracer provider listening to the app's one
 `ActivitySource`:
 
 ```csharp
-_provider = Sdk.CreateTracerProviderBuilder()
-    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Config.ServiceName, serviceVersion: Config.ServiceVersion))
-    .AddSource(SourceName)
-    .AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString)
-    .Build();
+public static TracerProviderBuilder Tracing(Action<TracerProviderBuilder> export)
+{
+    var builder = Sdk.CreateTracerProviderBuilder()
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Config.ServiceName, serviceVersion: Config.ServiceVersion))
+        .AddSource(SourceName);
+    export(builder);
+    return builder.SetSampler(new AlwaysOnSampler());
+}
 ```
+
+`Configure` passes the Azure Monitor exporter as `export`. The sampler is the
+one line that has no Python counterpart, and it is set last on purpose.
+ASP.NET Core starts an activity for every request even though nothing here
+exports it, and that activity is never sampled; a sampler that follows the
+parent — the SDK's default, and the one the Azure Monitor exporter installs —
+then drops every Agent Framework span beneath it. Without that line the
+deployed .NET app exported nothing at all.
+`Spans_inside_a_request_reach_the_exporter` in
+[`ObservabilityTests.cs`](../dotnet/services/api/AgenticSupportGuide.Api.Tests/ObservabilityTests.cs)
+sends a request through the real pipeline to keep it that way. The Python
+server starts no request span, so there the workflow spans are roots.
 
 The producing side is one call on each thing Agent Framework builds:
 `.WithOpenTelemetry(activitySource: Observability.ActivitySource)` on the

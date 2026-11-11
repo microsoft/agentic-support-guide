@@ -1,5 +1,9 @@
 using System.Diagnostics;
+using System.Net.Http.Json;
 using System.Text.Json;
+using Azure.Monitor.OpenTelemetry.Exporter;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
 
 namespace AgenticSupportGuide.Api.Tests;
 
@@ -44,6 +48,11 @@ public sealed class ObservabilityTests
 
     private static readonly List<Activity> Captured = [];
 
+    // Only while a test is capturing: an always-sampling listener left on would
+    // record spans the app's own provider would drop, and hide that from
+    // Spans_inside_a_request_reach_the_exporter.
+    private static volatile bool _capturing;
+
     private static readonly ActivityListener Listener = Install();
 
     /// <summary>Listen to Agent Framework's instrumentation, through the app's own source.</summary>
@@ -52,9 +61,13 @@ public sealed class ObservabilityTests
         var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == Observability.SourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => _capturing ? ActivitySamplingResult.AllDataAndRecorded : ActivitySamplingResult.None,
             ActivityStopped = activity =>
             {
+                if (!_capturing)
+                {
+                    return;
+                }
                 lock (Captured)
                 {
                     Captured.Add(activity);
@@ -73,7 +86,15 @@ public sealed class ObservabilityTests
         {
             Captured.Clear();
         }
-        await body();
+        _capturing = true;
+        try
+        {
+            await body();
+        }
+        finally
+        {
+            _capturing = false;
+        }
         lock (Captured)
         {
             return [.. Captured];
@@ -169,5 +190,51 @@ public sealed class ObservabilityTests
         {
             Assert.False(Dump(span).Contains(Canary, StringComparison.Ordinal), $"model output leaked into span {span.DisplayName}");
         }
+    }
+
+    private sealed class Exported(List<Activity> sink) : BaseProcessor<Activity>
+    {
+        public override void OnEnd(Activity data)
+        {
+            lock (sink)
+            {
+                sink.Add(data);
+            }
+        }
+    }
+
+    /// <summary>The spans of a real request reach the app's own exporter.</summary>
+    /// <remarks>
+    /// .NET only. ASP.NET Core starts an unsampled activity for every request,
+    /// and a sampler that follows the parent drops every Agent Framework span
+    /// beneath it: the deployed app exported nothing at all, while the tests
+    /// above, which call the coordinator directly, passed. The Azure Monitor
+    /// exporter installs such a sampler itself, so this goes through the HTTP
+    /// pipeline and the app's own provider setup, with that exporter in it,
+    /// and checks the spans are recorded: the exporter sends nothing else.
+    /// </remarks>
+    [Fact]
+    public async Task Spans_inside_a_request_reach_the_exporter()
+    {
+        var exported = new List<Activity>();
+        using var provider = Observability.Tracing(builder => builder
+                .AddProcessor(new Exported(exported))
+                .AddAzureMonitorTraceExporter(options =>
+                {
+                    options.ConnectionString = "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://ingest.example.invalid/";
+                    options.DisableOfflineStorage = true;
+                }))
+            .Build();
+        using var app = Conftest.MakeClient();
+
+        var response = await app.Client.PostAsJsonAsync(
+            "/api/recommendations/support-plan",
+            new { dealer_group_id = Conftest.DefaultDealerGroup, dealership_id = "DLR-0001", category = "lead-response", concern_text = "First response is slow." },
+            TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var recorded = exported.Where(span => span.Recorded).Select(span => span.DisplayName).ToHashSet();
+        Assert.Contains("invoke_workflow support-plan", recorded);
+        Assert.Contains(recorded, name => name.StartsWith("executor.process", StringComparison.Ordinal));
     }
 }

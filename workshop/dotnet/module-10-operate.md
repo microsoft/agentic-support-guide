@@ -114,15 +114,25 @@ Before querying the telemetry, read the code that produces it — which is
 almost none, because Agent Framework produces it.
 [dotnet/services/api/AgenticSupportGuide.Api/Observability.cs](../../dotnet/services/api/AgenticSupportGuide.Api/Observability.cs)
 is the export side, one tracer provider listening to the app's one
-`ActivitySource`:
+`ActivitySource`, with the Azure Monitor exporter passed in as `export`:
 
 ```csharp
-_provider = Sdk.CreateTracerProviderBuilder()
-    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Config.ServiceName, serviceVersion: Config.ServiceVersion))
-    .AddSource(SourceName)
-    .AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString)
-    .Build();
+public static TracerProviderBuilder Tracing(Action<TracerProviderBuilder> export)
+{
+    var builder = Sdk.CreateTracerProviderBuilder()
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Config.ServiceName, serviceVersion: Config.ServiceVersion))
+        .AddSource(SourceName);
+    export(builder);
+    return builder.SetSampler(new AlwaysOnSampler());
+}
 ```
+
+The last line matters more than it looks. ASP.NET Core starts an activity for
+every request, nothing here exports it, and it is never sampled. A sampler
+that follows the parent — the SDK's default, and the one the Azure Monitor
+exporter installs — would then drop every Agent Framework span beneath it, and
+the app would export nothing while every local test passed. Setting the
+sampler last, after the exporter, keeps them all.
 
 The producing side is one call on each thing Agent Framework builds:
 `WithOpenTelemetry` on the workflow in `Graph.cs`, and `UseOpenTelemetry` on
@@ -316,9 +326,9 @@ you what the process is printing right now, with no ingestion delay.
 
 In the portal: your API App Service → **Monitoring → Log stream**.
 
-Leave it open and make a request. This is the fastest way to see a missing
-assembly or a startup failure, neither of which reaches Application Insights —
-the process never got far enough to send anything.
+Leave it open and make a request. This is the fastest way to see an exception
+thrown at startup, which never reaches Application Insights — the process
+never got far enough to send anything.
 
 The same stream attached to your terminal, which is what you want when you
 are watching a deploy land and do not want to be clicking:
@@ -353,19 +363,28 @@ A 500 means your code ran and failed. A 503 from the platform means there is
 no healthy worker. This app also returns its own 503 when `API_SHARED_KEY` is
 missing — a JSON `detail` body is the application, the branded page is not.
 
-**Do not expect a .NET stack trace.** The platform reports its own view:
+**Do not expect a .NET stack trace.** The platform reports its own view, and
+`az webapp troubleshoot status -g $rg -n $app` shows it:
 
 ```
-ContainerStartupFailure ... Container exited with exit code 1 during startup
-Site startup probe failed after 7.4 seconds.
+"lastError": "ContainerStartupFailure",
+"lastErrorDetails": "Container exited with exit code 134 during startup after 27.5s. Please inspect your container logs for more details.",
 ```
 
-The exception — a `FileNotFoundException` naming the assembly the package
-left out, say — went to the container's stderr, and in a downloaded bundle
-the `containerStream` file for the failed instance can be empty: the worker
-died before the log pipeline shipped anything. To see the exception you
-generally have to be attached to the live stream when it crashes. For the
-same reason nothing reached Application Insights: the exporter never started.
+134 is the process aborting, which is how an unhandled .NET exception ends it.
+That run was a one-character mistake made on purpose: `EVIDENCE_SOURCE` set to
+`foundry-iq` instead of `foundry_iq`, which the app rejects as it starts. The
+exception itself went to the container's stderr:
+
+```
+Unhandled exception. System.InvalidOperationException: Unknown EVIDENCE_SOURCE 'foundry-iq'. Use 'fixtures' or 'foundry_iq'.
+```
+
+In the downloaded bundle (`az webapp log download`), the `containerStream`
+file for the failed instance was empty, but
+`LogFiles/StartupLogs/<date>_<instance>_failure.log` carried that line — that
+file is the place to look. Nothing reached Application Insights: the process
+died before the exporter sent anything.
 
 | Failure | What you see | What catches it |
 | --- | --- | --- |

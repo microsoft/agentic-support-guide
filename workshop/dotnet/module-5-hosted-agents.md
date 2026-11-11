@@ -166,16 +166,17 @@ dotnet run dotnet/scripts/publish_hosted_agent.cs -- --suffix <your-alias> --app
 
 ```
 Uploading and starting remote build...
-Upload took 3s. Version: 1
-  [   0s] creating
-  [ 112s] active
+Upload took 6s. Version: 1
+  [   1s] creating
+  [  34s] active
+
+Build finished in 34s. Agent is active.
 ```
 
-The first deploy is the slow one. That poll output is Foundry restoring your
-NuGet packages and building an image — a **remote build**, meaning the
-restore and compile happen on Azure's builders against your uploaded source.
-A dependency that resolves on your laptop but not there fails here, and step 4
-is where you find out.
+That poll output is Foundry restoring your NuGet packages and building an
+image — a **remote build**, meaning the restore and compile happen on Azure's
+builders against your uploaded source. A dependency that resolves on your
+laptop but not there fails here, and step 4 is where you find out.
 
 In the portal it appears alongside your prompt agents. Its kind is `hosted`,
 which the **Agent info** panel shows:
@@ -221,8 +222,8 @@ Measure-Command {
 ```
 
 ```
-Upload took 4s. Version: 1
-  [   0s] active
+Upload took 2s. Version: 1
+  [   1s] active
 ```
 
 No new version and no build. Foundry recognised the sha256 and handed back
@@ -233,17 +234,18 @@ Now change one line — a comment in `Program.cs` is enough — and run the same
 command. This time you get a new version and a real build. Revert the
 comment afterwards.
 
-Reference numbers for this agent, measured November 2026:
+Reference numbers for this agent, measured November 2026. "Change to live"
+is the whole command, including `dotnet run` compiling the script:
 
 | | Upload | Remote build | Change to live |
 | --- | --- | --- | --- |
-| Unchanged source | 4s | none | **~10s**, same version |
-| Changed source | 4s | ~41s | **~51s**, new version |
-| First build of these dependencies | 3s | ~112s | ~2 minutes |
+| Unchanged source | 2s | none | **~6s**, same version |
+| Changed source | 2s | ~34s | **~39s**, new version |
+| First build of a new agent | 6s | ~34s | ~45s |
 
 Compare against Module 4. Editing a prompt agent's instructions and
 republishing takes a couple of seconds. Editing hosted agent code takes
-about 50 seconds — and this is a *small* app. More dependencies, longer build.
+about 40 seconds — and this is a *small* app. More dependencies, longer build.
 
 **Hosted-agent changes require a remote build.** Hosting costs you a build on every change. You
 pay it for custom dependencies, private network access, and a dedicated
@@ -322,7 +324,7 @@ asg-hosted-explainer-<your-alias>: 100% of traffic now pinned to v1.
 
 **Notice what that does not do: build anything.** The version is already
 there, so recovery is a routing change measured in seconds rather than the
-minute a changed deploy costs. That property — rollback must not require a
+forty seconds a changed deploy costs. That property — rollback must not require a
 build — is worth taking to a production design, and it is exactly what the
 App Service deployment in Module 1 does *not* have.
 
@@ -408,9 +410,9 @@ as its own principal, so a grant to one is not a grant to the other.
 
 ## Notes on timing
 
-- A changed deploy is about 50 seconds and an unchanged one about 10, so the
+- A changed deploy is about 40 seconds and an unchanged one about 6, so the
   edit-deploy-test loop in this module is comfortably hands-on. The first
-  build is the slow one, at about two minutes.
+  build of a new agent measured about the same, at roughly 45 seconds.
 - Each learner deploys into their own project, but the remote build service
   is Azure's. **Concurrency at 30 simultaneous builds has not been
   measured.** If a whole room hits step 3 at the same moment and builds

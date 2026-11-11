@@ -67,10 +67,7 @@ public static class Observability
             }
             try
             {
-                _provider = Sdk.CreateTracerProviderBuilder()
-                    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Config.ServiceName, serviceVersion: Config.ServiceVersion))
-                    .AddSource(SourceName)
-                    .AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString)
+                _provider = Tracing(builder => builder.AddAzureMonitorTraceExporter(options => options.ConnectionString = connectionString))
                     .Build();
                 return true;
             }
@@ -80,5 +77,28 @@ public static class Observability
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// The tracer provider's setup around an exporter.
+    /// </summary>
+    /// <remarks>
+    /// Every Agent Framework span is recorded, whatever its parent says.
+    /// ASP.NET Core starts an activity for each request even though nothing
+    /// here exports it, and that activity is never sampled. A sampler that
+    /// follows the parent then drops every span beneath it, which in a running
+    /// app is all of them: the SDK's default sampler does that, and so does
+    /// the one the Azure Monitor exporter installs. So the sampler is set
+    /// last, after the exporter has had its say. The Python track's server
+    /// starts no request span, so there its workflow spans are roots and the
+    /// defaults work.
+    /// </remarks>
+    public static TracerProviderBuilder Tracing(Action<TracerProviderBuilder> export)
+    {
+        var builder = Sdk.CreateTracerProviderBuilder()
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(Config.ServiceName, serviceVersion: Config.ServiceVersion))
+            .AddSource(SourceName);
+        export(builder);
+        return builder.SetSampler(new AlwaysOnSampler());
     }
 }
