@@ -61,18 +61,18 @@ public static class Graph
         return new WorkflowBuilder(retrieve)
             .WithName("support-plan")
             .WithDescription("Sequential orchestration with one conditional repair edge.")
-            // Only these two produce the run's result. Naming them keeps a
-            // future yield from joining it.
-            .WithOutputFrom(finalise, refuse)
-            // The working nodes yield their trace rows; these arrive on the
-            // event stream as intermediate outputs, never as the result.
-            .WithOutputFrom([retrieve, analyse, recommend, validate], OutputTag.Intermediate)
             .AddEdge(retrieve, analyse)
             .AddEdge(analyse, recommend)
             .AddEdge(recommend, validate)
             .AddEdge<PlanState>(validate, finalise, condition: Plan.Passed)
             .AddEdge<PlanState>(validate, recommend, condition: Plan.NeedsRepair)
             .AddEdge<PlanState>(validate, refuse, condition: Plan.RepairExhausted)
+            // Only these two produce the run's result. Naming them keeps a
+            // future yield from joining it.
+            .WithOutputFrom(finalise, refuse)
+            // The working nodes yield their trace rows; these arrive on the
+            // event stream as intermediate outputs, never as the result.
+            .WithOutputFrom([retrieve, analyse, recommend, validate], OutputTag.Intermediate)
             .WithOpenTelemetry(activitySource: Observability.ActivitySource)
             .Build();
     }

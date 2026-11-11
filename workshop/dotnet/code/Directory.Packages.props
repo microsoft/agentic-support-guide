@@ -1,0 +1,4 @@
+<Project>
+  <!-- Package versions come from the one place the .NET track pins them. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\dotnet\Directory.Packages.props" />
+</Project>

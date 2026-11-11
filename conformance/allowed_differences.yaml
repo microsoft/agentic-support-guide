@@ -35,6 +35,18 @@ differences:
     dotnet: ASP.NET Core's generated OpenAPI document and Swagger UI.
     compared_by: Not compared. Both list the same endpoints; the generated documents differ in framework detail.
 
+  - id: mutated-workflow-message
+    where: Workshop sample 7's lesson, and the test that reproduces it (a workflow whose message is changed in place after it is sent).
+    python: Agent Framework for Python lets a later change to the sent object make a second conditional edge fire, so one run yields two answers.
+    dotnet: In Agent Framework for .NET the same flow yields one answer; changing the object after it was sent does not make a second edge fire.
+    compared_by: Each track's test asserts its own framework's behaviour. Both samples use immutable messages and teach the rule; only the .NET wording of the failure it prevents differs.
+
+  - id: agent-reply-handoff
+    where: Workshop sample 6, an agent's reply handed to the next agent in a workflow.
+    python: The next agent receives the previous agent's reply as an assistant message.
+    dotnet: Agent Framework for .NET relabels it as a user message by default, which the Foundry Responses API rejects (output_text content in a user message), so sample 6 turns the relabelling off.
+    compared_by: Sample 6 runs in both tracks and yields one answer.
+
 # Applied to every golden string before it is compared with this track's
 # output, longest first. Each pair names the same file or step in each track.
 track_substitutions:

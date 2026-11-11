@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Every sample is a .NET file-based app (`dotnet run <file>.cs`). Those
+    default to native AOT publishing, which turns reflection-based JSON into
+    build warnings, and warnings are errors in this track. The samples are
+    only ever run, never published.
+  -->
+  <PropertyGroup>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+</Project>
