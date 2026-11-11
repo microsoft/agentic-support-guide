@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -78,7 +79,7 @@ async def _export(out_dir: Path) -> int:
     print("  az storage blob upload-batch \\")
     print("    --account-name <storage-account> \\")
     print("    --destination group-knowledge \\")
-    print(f"    --source {out_dir.relative_to(REPO_ROOT)} \\")
+    print(f"    --source {os.path.relpath(out_dir, REPO_ROOT)} \\")
     print("    --auth-mode login")
     return 0
 
@@ -87,7 +88,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output directory.")
     args = parser.parse_args()
-    return asyncio.run(_export(Path(args.out)))
+    # Resolved, so the relative form in the usage above works from the repo root.
+    return asyncio.run(_export(Path(args.out).resolve()))
 
 
 if __name__ == "__main__":

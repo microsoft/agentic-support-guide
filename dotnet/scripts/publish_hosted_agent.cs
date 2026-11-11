@@ -202,7 +202,7 @@ public static partial class PublishHostedAgent
             Stage(staged);
             var capture = new CaptureUpload();
             var client = new AgentAdministrationClient(
-                new Uri("https://dry-run.invalid/api/projects/dry-run"),
+                new Uri("https://dry-run.example.invalid/api/projects/dry-run"),
                 new DryRunToken(),
                 new AgentAdministrationClientOptions { Transport = new HttpClientPipelineTransport(new HttpClient(capture)) });
             await client.CreateAgentVersionFromCodeAsync(AgentName("dry-run"), staged, new AgentVersionFromCodeMetadata(Definition("", "")));
