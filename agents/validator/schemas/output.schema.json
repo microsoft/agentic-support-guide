@@ -1,23 +1,26 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/agents/validator/output.schema.json",
-  "title": "Validator Agent output (advisory critique only)",
-  "description": "What the remote model returns. Pass/fail and issue codes are decided by deterministic Python, never by the model, so they are deliberately absent here.",
+  "description": "Advisory-only critique. The deterministic checks own pass/fail.\n\n`warning_codes` is deliberately untyped free text: this is raw model\noutput, and `enforce_code` drops anything off-format afterwards. Making\nthe field strict turns one malformed advisory code into a failed run.",
+  "properties": {
+    "warning_codes": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Warning Codes",
+      "type": "array"
+    },
+    "repair_guidance": {
+      "default": "",
+      "maxLength": 1000,
+      "title": "Repair Guidance",
+      "type": "string"
+    }
+  },
+  "title": "ValidatorCritiqueModelOutput",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "warning_codes",
     "repair_guidance"
-  ],
-  "properties": {
-    "warning_codes": {
-      "type": "array",
-      "maxItems": 20,
-      "items": {
-        "type": "string",
-        "pattern": "^[A-Z][A-Z0-9_]{3,59}$"
-      }
-    },
-    "repair_guidance": { "type": "string", "maxLength": 1000 }
-  }
+  ]
 }

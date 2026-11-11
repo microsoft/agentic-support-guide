@@ -81,6 +81,29 @@ public static class PromptEnvelope
     }
 
     /// <summary>
+    /// The schema a JSON agent's reply must follow, or null for a text agent.
+    /// </summary>
+    /// <remarks>
+    /// It is the agent folder's <c>contracts.output.schema_ref</c>, shared by
+    /// both tracks, so they ask the model for exactly the same shape.
+    /// </remarks>
+    public static System.Text.Json.JsonElement? LoadResponseSchema(AgentAssets assets)
+    {
+        if (PyText.Lower(PyText.Strip(DeclaredResponseFormat(assets.Manifest))) == "text")
+        {
+            return null;
+        }
+        var output = Section(Section(assets.Manifest, "contracts"), "output");
+        if (!output.TryGetValue("schema_ref", out var reference) || string.IsNullOrEmpty(reference?.ToString()))
+        {
+            return null;
+        }
+        var path = Path.Combine(Path.GetDirectoryName(assets.ManifestPath)!, reference.ToString()!);
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path, Encoding.UTF8));
+        return document.RootElement.Clone();
+    }
+
+    /// <summary>
     /// Runtime instructions the remote Foundry agent sees.
     /// </summary>
     /// <remarks>

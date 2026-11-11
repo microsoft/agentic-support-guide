@@ -74,7 +74,8 @@ public static class RoleDefinitions
                     PromptEnvelope.DeclaredResponseFormat(assets.Manifest)),
                 ModelDeployment: deployment,
                 Temperature: foundry.TryGetValue("temperature", out var t) && t is not null ? double.Parse(t.ToString()!, CultureInfo.InvariantCulture) : null,
-                MaxOutputTokens: foundry.TryGetValue("max_output_tokens", out var m) && m is not null ? int.Parse(m.ToString()!, CultureInfo.InvariantCulture) : null);
+                MaxOutputTokens: foundry.TryGetValue("max_output_tokens", out var m) && m is not null ? int.Parse(m.ToString()!, CultureInfo.InvariantCulture) : null,
+                ResponseSchema: PromptEnvelope.LoadResponseSchema(assets));
         }
         return definitions;
     }

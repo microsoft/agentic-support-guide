@@ -66,8 +66,11 @@ def test_agent_local_schemas_are_valid_json(agent_id: str) -> None:
         path = AGENTS_DIR / agent_id / "schemas" / name
         with path.open(encoding="utf-8") as fh:
             data = json.load(fh)
-        assert data.get("$schema")
         assert data.get("type") == "object"
+    # The output schema is sent to the model as-is, so it carries no
+    # `$schema` keyword; test_conformance holds it equal to the contract.
+    with (AGENTS_DIR / agent_id / "schemas" / "input.schema.json").open(encoding="utf-8") as fh:
+        assert json.load(fh).get("$schema")
 
 
 @pytest.mark.parametrize("agent_id", AGENT_IDS)

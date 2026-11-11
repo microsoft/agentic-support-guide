@@ -721,15 +721,30 @@ def _instruction_goldens() -> dict[str, str]:
     return {f"instructions/{role}.txt": texts[role] for role in ROLES}
 
 
-def _schema_goldens() -> dict[str, Any]:
+def agent_output_schemas() -> dict[str, Any]:
+    """Repo-relative path -> the strict schema each JSON agent is asked to follow.
+
+    Not a golden: both tracks read these files at runtime and send them as the
+    structured-output schema. They are generated from the Pydantic contracts
+    the same way the OpenAI SDK would generate them, so the request is what it
+    would be if the class itself were passed.
+    """
+
+    from openai.lib._parsing._responses import type_to_text_format_param
+
     from app.agents.shared import contracts
 
-    models: list[type[BaseModel]] = [
-        contracts.DataAnalystModelOutput,
-        contracts.SupportRecommendationModelOutput,
-        contracts.ValidatorCritiqueModelOutput,
-    ]
-    return {f"schemas/{m.__name__}.json": m.model_json_schema() for m in models}
+    models: dict[str, type[BaseModel]] = {
+        "data-analyst": contracts.DataAnalystModelOutput,
+        "support-recommender": contracts.SupportRecommendationModelOutput,
+        "validator": contracts.ValidatorCritiqueModelOutput,
+    }
+    return {
+        f"agents/{agent}/schemas/output.schema.json": dict(type_to_text_format_param(model))[
+            "schema"
+        ]
+        for agent, model in models.items()
+    }
 
 
 def _parametrized_texts(module: Any) -> list[str]:
@@ -867,7 +882,6 @@ def build_goldens() -> dict[str, Any]:
     goldens: dict[str, Any] = {}
     goldens.update(_data_goldens())
     goldens.update(_instruction_goldens())
-    goldens.update(_schema_goldens())
     goldens.update(_determination_goldens())
     goldens.update(_hosted_goldens())
     for scenario in _scenarios():

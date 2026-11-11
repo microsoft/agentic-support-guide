@@ -57,6 +57,9 @@ class RoleDefinition:
     model_deployment: str
     temperature: float | None
     max_output_tokens: int | None = None
+    # The JSON schema the role's reply must follow: the agent folder's
+    # `contracts.output.schema_ref`. None for an agent that answers in prose.
+    response_schema: dict[str, Any] | None = None
 
 
 class MafAgentRuntime:

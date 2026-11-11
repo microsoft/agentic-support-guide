@@ -87,7 +87,7 @@ public sealed class TestApp : IDisposable
         });
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("http://testserver"),
+            BaseAddress = new Uri("http://localhost"),
             AllowAutoRedirect = false,
         });
         return new TestApp(saved, factory, client);

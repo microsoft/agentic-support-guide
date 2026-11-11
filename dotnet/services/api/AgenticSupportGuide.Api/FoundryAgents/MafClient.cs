@@ -38,12 +38,12 @@ public sealed class FoundryResponsesClientFactory
 
     public async Task<ChatResult> InvokeAsync(RoleDefinition definition, string userMessage, Type? responseModel, CancellationToken cancellationToken)
     {
+        var textOptions = responseModel is null ? null : ResponseTextOptionsFor(definition, responseModel);
         var chatOptions = new ChatOptions
         {
             Temperature = definition.Temperature is { } t ? (float)t : null,
             MaxOutputTokens = definition.MaxOutputTokens,
-            ResponseFormat = responseModel is null ? null : ChatResponseFormat.ForJsonSchema(responseModel, PyJson.SerializerOptions),
-            RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
+            RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false, TextOptions = textOptions },
         };
 
         // Agent Framework's own instrumentation on both layers: `invoke_agent`
@@ -73,6 +73,33 @@ public sealed class FoundryResponsesClientFactory
             Model: ServedModel(response) is { Length: > 0 } served ? served : definition.ModelDeployment,
             InputTokens: response.Usage?.InputTokenCount is { } input ? (int)input : null,
             OutputTokens: response.Usage?.OutputTokenCount is { } output ? (int)output : null);
+    }
+
+    /// <summary>
+    /// The reply's JSON schema, sent exactly as the agent folder declares it.
+    /// </summary>
+    /// <remarks>
+    /// The schema is the agent folder's <c>output.schema.json</c>, which the
+    /// Python track generates from its contracts and both tracks send, strict.
+    /// Generating one from the C# types instead would ask the model for a
+    /// slightly different shape. The reply is not parsed here: the agents
+    /// validate it, so an off-contract reply is reported as
+    /// <c>invalid_model_json</c> in both tracks.
+    /// </remarks>
+    private static ResponseTextOptions ResponseTextOptionsFor(RoleDefinition definition, Type responseModel)
+    {
+        if (definition.ResponseSchema is not { } schema)
+        {
+            throw new ConfigurationException("RESPONSE_SCHEMA_MISSING", $"Role '{definition.Role}' has no output schema in its agent folder.");
+        }
+        return new ResponseTextOptions
+        {
+            TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(
+                responseModel.Name,
+                BinaryData.FromString(schema.GetRawText()),
+                jsonSchemaFormatDescription: null,
+                jsonSchemaIsStrict: true),
+        };
     }
 
     /// <summary><see cref="AgentResponse"/> has no model field; the underlying <see cref="ChatResponse"/> does.</summary>

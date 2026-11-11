@@ -11,12 +11,17 @@ public sealed record RoleResponse(string Role, string Text, string Model = "", i
 }
 
 /// <summary>One agent role: its composed instructions and model settings.</summary>
+/// <param name="ResponseSchema">
+/// The JSON schema the role's reply must follow: the agent folder's
+/// <c>contracts.output.schema_ref</c>. Null for an agent that answers in prose.
+/// </param>
 public sealed record RoleDefinition(
     string Role,
     string Instructions,
     string ModelDeployment,
     double? Temperature,
-    int? MaxOutputTokens = null);
+    int? MaxOutputTokens = null,
+    System.Text.Json.JsonElement? ResponseSchema = null);
 
 /// <summary>What a client factory returns for one call.</summary>
 /// <param name="Model">

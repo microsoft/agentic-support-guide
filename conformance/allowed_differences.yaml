@@ -23,24 +23,11 @@ differences:
     dotnet: Names the same steps under dotnet/.
     compared_by: Golden strings are rewritten with track_substitutions below, then compared exactly.
 
-  - id: json-number-formatting
-    where: JSON response bodies
-    python: json.dumps writes a float with an integral value as 72.0.
-    dotnet: System.Text.Json writes the same double as 72.
-    compared_by: Value. Both parse to the same number in every JSON client, including the web app.
-    not_covered: Prompts and the data hashes, which must match byte for byte. The .NET track writes those with a Python-compatible JSON writer.
-
   - id: cors-preflight
     where: OPTIONS requests that carry Access-Control-Request-Method.
     python: Starlette's CORS middleware answers 200 "OK" when it accepts a preflight and 400 when it rejects one, listing the configured methods and headers either way.
     dotnet: ASP.NET Core's CORS middleware answers 204, with CORS headers only when it accepts.
     compared_by: The browser's verdict. A preflight passes when the status is 2xx, Access-Control-Allow-Origin equals the request origin, and the requested method and every requested non-safelisted header are allowed. Both tracks must reach the same verdict for every recorded preflight. Simple (non-preflight) requests are compared exactly.
-
-  - id: schema-dialect
-    where: schemas/*.json
-    python: Pydantic's model_json_schema(), which adds a title to every property.
-    dotnet: The schema Agent Framework generates from the C# type.
-    compared_by: Structure. Same property names, types, required set, enum values, length and item limits, and nesting.
 
   - id: api-explorer
     where: /api/openapi.json and /api/docs (local development only; both are off on App Service in both tracks).

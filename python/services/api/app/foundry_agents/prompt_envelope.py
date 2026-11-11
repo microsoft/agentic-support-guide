@@ -8,6 +8,7 @@ publish scripts and by unit tests (to verify hash stability).
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +76,25 @@ def declared_response_format(manifest: dict[str, Any]) -> str:
 
     foundry = manifest.get("foundry") or {}
     return str(foundry.get("response_format", "json") or "json")
+
+
+def load_response_schema(assets: AgentAssets) -> dict[str, Any] | None:
+    """The schema a JSON agent's reply must follow, or None for a text agent.
+
+    It is the agent folder's `contracts.output.schema_ref`, shared by both
+    tracks, so they ask the model for exactly the same shape.
+    """
+
+    if declared_response_format(assets.manifest).strip().lower() == "text":
+        return None
+    contracts = assets.manifest.get("contracts") or {}
+    ref = (contracts.get("output") or {}).get("schema_ref")
+    if not ref:
+        return None
+    schema: dict[str, Any] = json.loads(
+        (assets.manifest_path.parent / str(ref)).read_text(encoding="utf-8")
+    )
+    return schema
 
 
 def compose_instructions(

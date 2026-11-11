@@ -16,9 +16,17 @@ tracks may disagree there.
 | `scenarios/*.json` | HTTP behaviour end to end: configuration, the canned model replies, every request, every response, and every model call the request caused. |
 | `data/*.json` | The synthetic data the app generates. Large sets are stored as a count, a SHA-256 of `json.dumps(rows)` and the first rows. |
 | `instructions/*.txt` | The exact instructions each agent role sends, composed from `agents/<role>/agent.md`. |
-| `schemas/*.json` | The structured-output schema each role asks the model for. |
 | `determinations.json` | The domain rule: for every test sentence, whether it asserts a determination or denies human review. |
 | `hosted.json` | The hosted agent's input bounding, untrusted-data fencing, JSON unwrapping and output gate. |
+
+Numbers are compared by value, but both tracks write them the same way: the
+.NET track prints floats as Python does (`72.0`, not `72`), so prompts and
+data hashes match byte for byte.
+
+The generator also writes `agents/<id>/schemas/output.schema.json` for the
+three JSON agents: the strict schema each role's reply must follow, derived
+from the Python contracts. Both tracks send that file, unchanged, as the
+structured-output format, so they ask the model for exactly the same shape.
 
 ## Scenario format
 

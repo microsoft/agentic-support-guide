@@ -75,7 +75,7 @@ class FoundryResponsesClientFactory:
             if definition.max_output_tokens is not None:
                 options["max_tokens"] = definition.max_output_tokens
             if response_model is not None:
-                options["response_format"] = response_model
+                options["response_format"] = _response_format(definition, response_model)
 
             async with Agent(
                 client=client,
@@ -102,6 +102,32 @@ class FoundryResponsesClientFactory:
             input_tokens=_usage(response, "input_token_count"),
             output_tokens=_usage(response, "output_token_count"),
         )
+
+
+def _response_format(definition: RoleDefinition, response_model: type[BaseModel]) -> dict[str, Any]:
+    """The reply's JSON schema, handed over as data rather than as the class.
+
+    Given the Pydantic class, Agent Framework validates the reply itself and
+    raises a generic client error on a mismatch, so an off-contract reply would
+    reach the trace as a provider failure instead of `invalid_model_json`. The
+    schema sent is the agent folder's `output.schema.json`, which a test holds
+    equal to the contract's strict schema, so the request is unchanged and the
+    verdict stays with `parse_role_response` - the same in the .NET track.
+    """
+
+    if definition.response_schema is None:
+        raise ConfigurationError(
+            "RESPONSE_SCHEMA_MISSING",
+            f"Role '{definition.role}' has no output schema in its agent folder.",
+        )
+    return {
+        "format": {
+            "type": "json_schema",
+            "name": response_model.__name__,
+            "schema": definition.response_schema,
+            "strict": True,
+        }
+    }
 
 
 def _served_model(response: Any) -> str:

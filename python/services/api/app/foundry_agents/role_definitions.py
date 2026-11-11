@@ -10,7 +10,12 @@ from __future__ import annotations
 import os
 
 from .maf_runtime import RoleDefinition
-from .prompt_envelope import compose_instructions, declared_response_format, load_agent_assets
+from .prompt_envelope import (
+    compose_instructions,
+    declared_response_format,
+    load_agent_assets,
+    load_response_schema,
+)
 
 # Coordinator roles. The hosted three-agent workflow requires all of these.
 ROLE_DIRS: dict[str, str] = {
@@ -76,6 +81,7 @@ def load_agent_definitions(dirs: dict[str, str]) -> dict[str, RoleDefinition]:
             model_deployment=deployment,
             temperature=float(temperature) if temperature is not None else None,
             max_output_tokens=int(max_output_tokens) if max_output_tokens is not None else None,
+            response_schema=load_response_schema(assets),
         )
     return definitions
 
