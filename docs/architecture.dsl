@@ -9,7 +9,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             }
             apiService = container "API Service" "FastAPI backend that owns request handling and error taxonomy" {
                 tags "LocalApp"
-                coordinator = component "Workflow Coordinator" "Deterministic Python that builds the Agent Framework workflow graph, validates every protocol hop, and enforces the run budget"
+                coordinator = component "Workflow Coordinator" "Deterministic code that builds and runs the Agent Framework workflow graph and parses every agent reply into its typed contract"
             }
             syntheticData = container "Synthetic Data" "In-memory synthetic dealership signals" {
                 tags "Data"
@@ -22,7 +22,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             agentDefinitions = container "Agent Definitions" "Source-controlled agent.md and manifest.yaml files" {
                 tags "AgentAssets"
             }
-            protocolContracts = container "Protocol Contracts" "Versioned JSON Schema message contracts including dealer_group_id and citations" {
+            typedContracts = container "Typed Contracts" "Versioned agent output shapes including dealer_group_id and citations" {
                 tags "AgentAssets"
             }
         }
@@ -61,7 +61,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
 
         coordinator -> syntheticData "reads"
         coordinator -> evidenceRetriever "retrieves per-dealer group evidence bundle"
-        coordinator -> protocolContracts "validates"
+        coordinator -> typedContracts "parses replies into"
         coordinator -> agentDefinitions "loads"
         coordinator -> dataAnalystAgent "invokes via Microsoft Agent Framework"
 

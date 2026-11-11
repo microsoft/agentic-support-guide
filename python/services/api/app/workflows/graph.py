@@ -14,7 +14,7 @@ fixed; no agent chooses who runs next. The only branch is the validator's
 verdict, decided by the deterministic checks in
 `app/agents/validator/checks.py`.
 
-`WorkflowViz(build_plan_workflow(...).workflow).to_mermaid()` draws it, and
+`WorkflowViz(build_plan_workflow(...)).to_mermaid()` draws it, and
 `python/scripts/render_workflow_diagram.py` puts that picture in the workshop.
 
 https://learn.microsoft.com/agent-framework/workflows/orchestrations/sequential
@@ -22,14 +22,11 @@ https://learn.microsoft.com/agent-framework/workflows/orchestrations/sequential
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from agent_framework import Workflow, WorkflowBuilder
 
 from ..agents.data_analyst import DataAnalystAgent
 from ..agents.support_recommender import SupportRecommendationAgent
 from ..agents.validator import ValidatorAgent
-from ..contracts_registry import ContractsRegistry
 from ..evidence import EvidenceRetriever
 from ..foundry_agents.maf_runtime import MafAgentRuntime
 from .executors import (
@@ -42,42 +39,24 @@ from .executors import (
     Validate,
 )
 from .plan import needs_repair, passed, repair_exhausted
-from .results import CoordinatorRequest, RunState
-from .steps import StepRunner
-
-
-@dataclass(frozen=True)
-class PlanWorkflow:
-    """A built workflow plus the run state its nodes write into.
-
-    They travel together because the trace and the counters are filled in as
-    the graph executes, and the caller needs them whichever way the run ends.
-    """
-
-    workflow: Workflow
-    state: RunState
+from .results import CoordinatorRequest, RunContext
 
 
 def build_plan_workflow(
     *,
     request: CoordinatorRequest,
-    state: RunState,
+    context: RunContext,
     runtime: MafAgentRuntime,
-    contracts: ContractsRegistry,
     evidence_retriever: EvidenceRetriever,
     provider_display: str,
-) -> PlanWorkflow:
+) -> Workflow:
     """Build one workflow for one request.
 
     Never cached. A `Workflow` instance rejects concurrent runs, and these
-    nodes hold this request's state, so two callers must not share one.
+    nodes hold this request's identity, so two callers must not share one.
     """
 
-    run = PlanRun(
-        request=request,
-        state=state,
-        step=StepRunner(state=state, contracts=contracts),
-    )
+    run = PlanRun(request=request, context=context)
 
     retrieve = RetrieveEvidence(run, evidence_retriever)
     analyse = Analyse(run, DataAnalystAgent(runtime))
@@ -86,14 +65,17 @@ def build_plan_workflow(
     finalise = Finalise(run, provider_display)
     refuse = Refuse(run)
 
-    workflow = (
+    return (
         WorkflowBuilder(
             start_executor=retrieve,
             name="support-plan",
             description="Sequential orchestration with one conditional repair edge.",
-            # Only these two call yield_output; the rest send_message. Naming
-            # them keeps a future yield hidden rather than joining the result.
+            # Only these two produce the run's result. Naming them keeps a
+            # future yield from joining it.
             output_from=[finalise, refuse],
+            # The working nodes yield their trace rows; these arrive on the
+            # event stream as intermediate outputs, never as the result.
+            intermediate_output_from=[retrieve, analyse, recommend, validate],
         )
         .add_edge(retrieve, analyse)
         .add_edge(analyse, recommend)
@@ -103,4 +85,3 @@ def build_plan_workflow(
         .add_edge(validate, refuse, condition=repair_exhausted)
         .build()
     )
-    return PlanWorkflow(workflow=workflow, state=state)

@@ -42,9 +42,8 @@ which composes instructions through
 - `schemas/input.schema.json` and `schemas/output.schema.json` describe
   the **agent-local** payloads - exactly what the model is asked to emit.
   They deliberately omit fields the coordinator injects from trusted
-  context (for example `dealer_group_id`). Cross-agent envelope messages,
-  which do carry those fields, live in
-  [`/contracts/v1/`](../contracts/v1/).
+  context (for example `dealer_group_id`). The manifest's `contracts`
+  block points at them.
 - Agent behavior is tested from the FastAPI suite in
   [`python/services/api/tests`](../python/services/api/tests); there are no
   agent-scoped test folders.
@@ -55,11 +54,7 @@ which composes instructions through
   duplicate role-specific prompt text.
 - `manifest.yaml` is authoritative for runtime metadata: model
   deployment name, temperature, `max_output_tokens`, output-format hints,
-  contract versions. Request timeouts are not per agent — one wall-clock
-  budget governs the whole orchestration.
-- `/contracts/v1/*.schema.json` is authoritative for **inter-agent**
-  messages. Compatibility rules are documented in
-  [`/contracts/README.md`](../contracts/README.md).
+  contract versions. There are no per-agent timeouts.
 
 ## Editing an agent
 
@@ -71,5 +66,4 @@ which composes instructions through
    `instructions_hash` per role so you can see the change took effect.
 3. Restart the backend. There is no deploy or sync step.
 
-CI runs the same validation, plus `python/scripts/run_evals.py --offline`, on
-every pull request.
+CI runs the same validation, plus the test suite, on every pull request.

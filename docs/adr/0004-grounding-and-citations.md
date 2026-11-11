@@ -25,7 +25,7 @@ abstraction.
 ### Contract-level
 
 - New Pydantic type `Citation` and JSON Schema
-  [`contracts/v1/citation.schema.json`](../../contracts/v1/citation.schema.json).
+  `contracts/v1/citation.schema.json` (since removed).
 - Each citation carries: `citation_id`, `dealer_group_id`, `source_type`
   (structured_data | document | policy | resource | synthetic_fixture),
   `source_title`, `section_or_page`, `evidence_summary`, `source_ref`,

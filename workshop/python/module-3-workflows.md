@@ -91,18 +91,18 @@ Both diagrams are generated, not drawn: `render_workflow_diagram.py` builds
 the workflow and calls `WorkflowViz(...).to_mermaid()`, and a test fails if
 what is committed drifts from what the code produces.
 
-`WorkflowViz` also renders images. `--svg` writes
+`WorkflowViz` also writes Graphviz DOT. The app's graph is committed as
 `apps/web/public/workflow-graph.svg`, which the app shows under **Workflow
 graph** at the foot of the agent panel on the Supports page, so the picture a
 learner sees in the running UI comes from the same `build_plan_workflow` the
-request uses:
+request uses. `--dot` prints that graph; Graphviz turns it into the SVG:
 
 ```powershell
-.\python\services\api\.venv\Scripts\python.exe python\scripts\render_workflow_diagram.py --svg
+.\python\services\api\.venv\Scripts\python.exe python\scripts\render_workflow_diagram.py --dot | dot -Tsvg -o apps\web\public\workflow-graph.svg
 ```
 
-That path shells out to Graphviz `dot`, so it needs Graphviz installed. The
-SVG is committed for exactly that reason — App Service has no `dot`.
+That needs Graphviz installed. The SVG is committed for exactly that reason —
+App Service has no `dot`.
 
 The pattern is **sequential orchestration with one conditional repair edge** —
 not handoff, concurrent, group chat or magentic.
@@ -133,9 +133,12 @@ workflow = (
         start_executor=retrieve,
         name="support-plan",
         description="Sequential orchestration with one conditional repair edge.",
-        # Only these two call yield_output; the rest send_message. Naming
-        # them keeps a future yield hidden rather than joining the result.
+        # Only these two produce the run's result. Naming them keeps a
+        # future yield from joining it.
         output_from=[finalise, refuse],
+        # The working nodes yield their trace rows; these arrive on the
+        # event stream as intermediate outputs, never as the result.
+        intermediate_output_from=[retrieve, analyse, recommend, validate],
     )
     .add_edge(retrieve, analyse)
     .add_edge(analyse, recommend)
@@ -152,16 +155,16 @@ repair once, or give up.
 
 Two details are load-bearing.
 
-**`output_from=[finalise, refuse]`.** Only the two terminal nodes call
-`ctx.yield_output`; the other four hand state on with `ctx.send_message`,
-which never becomes a workflow output. Naming them here states that contract
-rather than relying on it: if a later node started yielding, its payload would
-be hidden instead of quietly joining the result `_single_result` expects to be
-exactly one.
+**`output_from` and `intermediate_output_from`.** Every node calls
+`ctx.yield_output`, but not for the same reason. The two terminal nodes yield
+the run's result; the four working nodes yield one trace row each. Naming
+them separately is what keeps a trace row out of the result: if a later node
+started yielding, its payload would not quietly join the result
+`_single_result` expects to be exactly one.
 
 **The workflow is built per request, never cached.** A `Workflow` instance
 refuses a second concurrent run with `WorkflowException: Workflow is already
-running`, and these nodes hold one request's state.
+running`, and these nodes hold one request's identity.
 
 ## 3. The message that travels the edges
 
@@ -177,10 +180,18 @@ class PlanState:
     draft: SupportRecommendationDraft | None = None
     report: ValidatorReport | None = None
     attempts: int = 0
+    evidence_count: int | None = None
+    citation_count: int | None = None
+    citations_proposed: int | None = None
+    citations_accepted: int | None = None
+    validation_reached: bool = False
+    deterministic_checks_total: int | None = None
 ```
 
 Each executor fills in one more field and passes it on with `with_()`, which
-is `dataclasses.replace`.
+is `dataclasses.replace`. The counters at the bottom are the receipt the UI
+shows. `None` means the stage never ran; a zero would claim it ran and found
+nothing.
 
 > [!IMPORTANT]
 > `frozen=True` is not a style preference. A node's outgoing edges share
@@ -214,56 +225,71 @@ Two more properties fall out of the graph shape:
   as a tool it may call. If retrieval returns nothing the run stops with
   `evidence_missing` and no model is invoked at all.
 - **No executor checks whether the previous one worked.** A failed step
-  raises `StepFailed` carrying a finished result, which propagates out of
-  `workflow.run()` so the coordinator catches it in one place. That is why
-  the graph reads as six edges and nothing else.
+  raises `StepFailed` carrying its status and the `PlanState` so far, which
+  propagates out of `workflow.run()` so the coordinator catches it in one
+  place. That is why the graph reads as six edges and nothing else.
 
 ## 4. Inside one executor
 
-Every executor does the same four things around its agent call. `Recommend`
+Every executor does the same three things around its agent call. `Recommend`
 in [python/services/api/app/workflows/executors.py](../../python/services/api/app/workflows/executors.py)
 is representative:
 
 ```python
-result = await self._run.step.call(
+result = await _call_agent(
+    ctx,
+    self._run,
+    plan,
     agent_name,
     lambda: self._agent.recommend_with_counts(
-        plan.require_analysis(),
-        context,
-        repair_guidance=guidance,
-        deadline=self._run.state.deadline,
+        plan.require_analysis(), context, repair_guidance=guidance
     ),
 )
-draft = result.draft
-self._run.check_handoff(
-    schema="support-recommendation-result.schema.json",
-    source="support-recommendation-agent",
-    target="validator-agent",
-    payload=envelopes.recommender_payload(draft),
-    agent=agent_name,
+await ctx.yield_output(
+    StepRecord(
+        agent=agent_name,
+        status="ok",
+        provider=PROVIDER_ID,
+        model=_model_of(result.call),
+        token_estimate=_tokens_of(result.call),
+    )
 )
-self._run.state.citations_proposed = result.citations_proposed
-self._run.state.citations_accepted = result.citations_accepted
+await ctx.send_message(
+    plan.with_(
+        draft=result.draft,
+        attempts=attempts,
+        citation_count=len(result.draft.citations),
+        citations_proposed=result.citations_proposed,
+        citations_accepted=result.citations_accepted,
+    )
+)
 ```
 
-Those last two lines are why the app can say *"the model proposed three
+The last two counters are why the app can say *"the model proposed three
 citation ids and two matched the retrieved bundle"*. The wrapper drops an id
 the retriever never returned, so it never reaches the validator and can never
 appear as an issue code. Counting it here is the only way to see it.
 
-`step.call` is in [python/services/api/app/workflows/steps.py](../../python/services/api/app/workflows/steps.py).
-One call does four jobs that every agent invocation needs:
+The three jobs:
 
-1. **Budget check** — refuse to start a step whose deadline has already
-   passed, rather than starting one that cannot finish.
-2. **Invoke** — the lambda is the actual agent call.
-3. **Trace** — append an `AgentTraceStep` recording the agent, status, the
-   model that actually served the call, latency and token estimate. That is
-   what the **Agent workflow** panel renders.
-4. **Typed failure** — turn a provider error or bad model JSON into a
-   caller-safe status. The mapping is `PROVIDER_ERROR_TO_STATUS` in
+1. **Invoke** — `_call_agent` runs the lambda, which is the actual agent
+   call.
+2. **Typed failure** — `_call_agent` also turns a provider error or bad
+   model JSON into a caller-safe status. The mapping is
+   `PROVIDER_ERROR_TO_STATUS` in
    [failures.py](../../python/services/api/app/workflows/failures.py): the caller
    learns which *class* of thing went wrong, never the provider's message.
+3. **Trace** — `ctx.yield_output` emits a `StepRecord`: the agent, status,
+   the model that actually served the call and the token count, both read
+   from Agent Framework's response. That is what the **Agent workflow** panel
+   renders.
+
+The row has no duration, because the node does not time itself. The
+coordinator in
+[coordinator.py](../../python/services/api/app/workflows/coordinator.py) runs the
+workflow with `stream=True` and reads Agent Framework's own events: the
+trace rows arrive as `intermediate` events, and each node's latency is the
+gap between its `executor_invoked` and `executor_completed` events.
 
 You saw all three repair outcomes in sample 7. The **Agent workflow** panel
 shows the same thing from a live run: one row per attempt, with the issue
@@ -279,41 +305,40 @@ codes that sent the recommender back.
 
 ## 5. The contract between agents
 
-Every hop is emitted as a versioned JSON envelope and validated against a
-schema before the workflow continues. The envelope is the checked interface;
-the Python object is what the next executor receives.
+Agents hand each other typed objects, not text. Each role's reply is parsed
+into a Pydantic model from
+[contracts.py](../../python/services/api/app/agents/shared/contracts.py):
+`response_format` asks the model for that shape, and Agent Framework parses
+the reply into it. The next executor receives the parsed object on
+`PlanState`, never the model's raw text.
 
-[envelopes.py](../../python/services/api/app/workflows/envelopes.py) builds them, with
-`trace_id` carrying the same correlation ID on every hop of one request:
-
-```python
-message: dict[str, Any] = {
-    "schema_version": SCHEMA_VERSION,
-    "message_id": str(uuid.uuid4()),
-    "trace_id": correlation_id,
-    "created_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "source_agent": source_agent,
-    "payload": payload,
-}
-```
-
-The schemas live in [contracts/v1/](../../contracts/v1/). Open
-[support-recommendation-result.schema.json](../../contracts/v1/support-recommendation-result.schema.json):
-`dealer_group_id` is required inside the payload, so the boundary travels
-with every message. `step.check_protocol` validates it and raises
-`StepFailed` with `PROTOCOL_VALIDATION_FAILED` naming the schema.
+A reply that does not parse stops the run at that agent as
+`invalid_model_json`. Its issue code is a fixed value,
+`AGENT_INVALID_JSON_UNPARSEABLE`, and never the parser's message: Pydantic
+quotes the offending value, and that value is model output derived from a
+dealer group's evidence.
 
 > [!NOTE]
-> **"Handoff" here means passing data.** `check_handoff` and the word
-> "handoff" in the agent manifests mean *this* — a validated hop from one
-> fixed step to the next. Agent Framework also has a **handoff
-> orchestration**, where an agent chooses at runtime which agent to transfer
-> control to. This repo does not use that. See
+> **"Handoff" here means passing data.** The word "handoff" in the agent
+> manifests means *this* — one fixed step passing its output to the next.
+> Agent Framework also has a **handoff orchestration**, where an agent
+> chooses at runtime which agent to transfer control to. This repo does not
+> use that. See
 > [docs/orchestration-patterns.md](../../docs/orchestration-patterns.md).
 
-**Try it.** Add a required property to that schema file, restart the backend,
-and submit a request. You get a named contract failure pointing at the
-schema — not a `KeyError` three functions later. Revert the change afterwards.
+**Try it.** Open `test_coordinator_invalid_json_returns_typed_failure` in
+[tests/test_coordinator.py](../../python/services/api/tests/test_coordinator.py).
+The fake analyst replies `not json`. Make it reply with valid JSON in the
+wrong shape instead: replace `invalid_json_for="data-analyst-agent"` with
+`analyst_payload={"unexpected": True}`. Run it from `python/services/api`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_coordinator.py -k invalid_json
+```
+
+It still passes. Valid JSON is not enough; the reply has to be the contract's
+shape, and a reply that is not stops the run at the agent that produced it —
+not with a `KeyError` three functions later. Revert the change afterwards.
 
 ## 6. The checks that decide pass or fail
 
@@ -368,7 +393,7 @@ entry to `_REPAIR_TEMPLATES` in
 recommender how to fix it. That pairing is enforced — a test parses
 `checks.py` and fails if any code you can emit has no template.
 
-## 7. The repair bound, and the clock
+## 7. The repair bound
 
 There is no repair *function*. The bound is the edge condition you already
 read in section 3: `needs_repair` requires
@@ -385,16 +410,10 @@ Two details worth copying:
 - The recheck sets `use_llm_critique = plan.attempts == 1`. The critique is
   advisory and cannot change a verdict, so paying for it twice buys nothing.
 
-The clock is one deadline, set once when the run starts:
-
-```python
-deadline=time.monotonic() + ORCHESTRATION_TOTAL_BUDGET_SECONDS,
-```
-
-Every `step.call` checks it before starting, and every agent invocation
-receives it, so each per-call timeout is clamped to whatever remains. Five
-steps do not get five full timeouts. Both numbers are in
-[config.py](../../python/services/api/app/config.py).
+The app sets no clock of its own. Agent Framework bounds a workflow by
+supersteps, not seconds; each model call is bounded by the OpenAI client's
+default timeout, and the request as a whole by App Service's 230-second
+front-end limit.
 
 ## 8. Publish the other three roles
 
@@ -502,9 +521,8 @@ attributable outcome a caller can branch on:
 | --- | --- | --- |
 | `evidence_missing` | `EVIDENCE_MISSING` | retrieval returned nothing for this group |
 | `invalid_model_json` | `AGENT_INVALID_JSON` | a model returned unparseable or off-schema JSON |
-| `invalid_model_json` | `PROTOCOL_VALIDATION_FAILED` | valid JSON, wrong contract |
 | `validation_failed` | `VALIDATION_FAILED_AFTER_REPAIR` | the validator rejected both attempts |
-| `provider_timeout` | `AGENT_PROVIDER_TIMEOUT` | the model run exceeded its budget |
+| `provider_timeout` | `AGENT_PROVIDER_TIMEOUT` | the model call timed out |
 | `provider_throttling` | `AGENT_PROVIDER_THROTTLING` | out of tokens-per-minute quota |
 | `provider_content_filter` | `AGENT_PROVIDER_CONTENT_FILTER` | a guardrail blocked the call |
 | `provider_error` | `AGENT_PROVIDER_AUTH_DENIED` | the identity lacks a role |
@@ -523,9 +541,9 @@ endpoint back and restart before continuing.
 
 Nothing about this requires three agents. What produces it is the wrapper:
 `classify_provider_error` turning an SDK exception into a status, and
-`StepFailed` carrying a finished result out. A single-agent service can have
-the same property, and most do not — they return prose, and the caller has
-nothing to branch on.
+`StepFailed` carrying that status out of the run. A single-agent service can
+have the same property, and most do not — they return prose, and the caller
+has nothing to branch on.
 
 ## Check yourself
 

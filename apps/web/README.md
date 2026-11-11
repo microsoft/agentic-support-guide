@@ -74,5 +74,4 @@ The Supports page renders a distinct error message for each envelope
 status returned by the coordinator: `provider_missing`,
 `provider_timeout`, `provider_throttling`, `provider_content_filter`,
 `provider_error`, `invalid_model_json`, `validation_failed`,
-`orchestration_budget_exhausted`, `orchestration_error`, and
-`evidence_missing`.
+`orchestration_error`, and `evidence_missing`.

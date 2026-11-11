@@ -18,12 +18,10 @@ from fastapi.responses import JSONResponse
 
 from .auth import running_on_app_service
 from .config import (
-    FOUNDRY_RUN_TIMEOUT_SECONDS,
     SERVICE_VERSION,
     AzureFoundrySettings,
     load_foundry_settings,
 )
-from .contracts_registry import load_registry
 from .evidence import EvidenceRetriever, FixtureEvidenceRetriever
 from .foundry_agents import (
     FoundryResponsesClientFactory,
@@ -94,11 +92,7 @@ def _build_runtime(
             credential_factory=default_credential_factory,
         )
     )
-    return MafAgentRuntime(
-        roles=roles,
-        client_factory=factory,
-        run_timeout_seconds=FOUNDRY_RUN_TIMEOUT_SECONDS,
-    )
+    return MafAgentRuntime(roles=roles, client_factory=factory)
 
 
 def _build_fastapi() -> FastAPI:
@@ -180,7 +174,6 @@ def create_app(
             repos=repos,
             plans_store=plans_store,
             runtime_audit=RuntimeAuditLog(),
-            contracts=load_registry(),
             evidence_retriever=(
                 evidence_retriever
                 if evidence_retriever is not None

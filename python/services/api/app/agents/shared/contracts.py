@@ -31,7 +31,7 @@ _FREQUENCY = Field(max_length=120)
 _GROUPING = Field(max_length=200)
 _DECISION_RULE = Field(max_length=300)
 
-# Same shape the JSON Schemas enforce for issue codes.
+# Same shape as CODE_REGEX in prompt_blocks.py.
 _CODE = Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]{3,59}$")]
 
 # dealer_group_id has strict shape: uppercase letters, digits, and dashes.

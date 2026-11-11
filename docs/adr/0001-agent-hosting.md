@@ -29,7 +29,7 @@ when the SDK stabilizes:
 - Runtime metadata lives in `/agents/<id>/manifest.yaml`.
 - Inter-agent protocol lives in `/contracts/v1/*.schema.json` and is
   validated by a central registry in
-  [`services/api/app/contracts_registry.py`](../../python/services/api/app/contracts_registry.py).
+  `services/api/app/contracts_registry.py` (since removed).
 - The generic runtime engine is
   `services/api/app/agents/adapter.py` (since removed).
 - The three Python classes (`DataAnalystAgent`,

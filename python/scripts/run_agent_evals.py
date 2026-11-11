@@ -1,10 +1,10 @@
 """Module 9: grade the agents instead of guessing whether they are good.
 
-`python/scripts/run_evals.py` answers "is the output structurally valid and safe?"
-with deterministic checks. That is necessary but it cannot tell you whether
-an answer is actually grounded in the evidence or actually addresses the
-question. This script answers that, using Foundry's built-in graders via
-Microsoft Agent Framework.
+The validator's deterministic checks answer "is the output structurally valid
+and safe?". That is necessary but it cannot tell you whether an answer is
+actually grounded in the evidence or actually addresses the question. This
+script answers that, using Foundry's built-in graders via Microsoft Agent
+Framework.
 
 The judge is a separate model deployment from the agents' own model, so
 grading load never starves the agents and learners can see that the grader

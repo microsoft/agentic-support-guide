@@ -1,19 +1,21 @@
 """The six nodes of the plan workflow.
 
 One class per node. Each one is thin: take the `PlanState` off the edge, do
-one job, send the next `PlanState`. `graph.py` wires them together.
+one job, report its trace row with `ctx.yield_output`, send the next
+`PlanState`. `graph.py` wires them together.
 
-Every node gets the same `PlanRun` -- the request, the run's mutable
-bookkeeping, and the `StepRunner` that instruments each agent call. These are
-built fresh per request, because a `Workflow` instance refuses concurrent
-runs and these hold per-request state.
+The four working nodes are the graph's *intermediate* outputs, so their trace
+rows reach the caller on the workflow's own event stream; only `Finalise` and
+`Refuse` produce the run's result. Every node gets the same `PlanRun` -- the
+request and the run's identity. Built fresh per request, because a `Workflow`
+instance refuses concurrent runs.
 """
 
 from __future__ import annotations
 
-import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Never
+from typing import Never, NoReturn
 
 from agent_framework import Executor, WorkflowContext, handler
 
@@ -29,12 +31,20 @@ from ..agents.validator import ValidatorAgent, ValidatorContext, ValidatorInput
 from ..agents.validator.agent import AGENT_NAME as VALIDATOR_NAME
 from ..agents.validator.checks import DETERMINISTIC_CHECKS
 from ..evidence import EvidenceRequest, EvidenceRetrievalError, EvidenceRetriever
-from ..models import AgentTraceStep
-from . import envelopes
+from ..foundry_agents.errors import FoundryProviderError
+from ..foundry_agents.maf_runtime import PROVIDER_ID, RoleResponse
 from .assembly import build_recommendation
+from .failures import classify_provider_error, invalid_json_code, safe_message
 from .plan import PlanState
-from .results import CoordinatorRequest, CoordinatorResult, RunState, StepFailed
-from .steps import StepOutcome, StepRunner
+from .results import (
+    LOCAL_STEP_MODEL,
+    CoordinatorRequest,
+    CoordinatorResult,
+    RunContext,
+    StepFailed,
+    StepRecord,
+    failure_result,
+)
 
 MAX_REPAIR_GUIDANCE_CHARS = 800
 
@@ -44,23 +54,83 @@ class PlanRun:
     """Everything a node needs that is not on the edge."""
 
     request: CoordinatorRequest
-    state: RunState
-    step: StepRunner
+    context: RunContext
 
-    def check_handoff(
-        self, *, schema: str, source: str, target: str, payload: dict[str, object], agent: str
-    ) -> None:
-        """Validate one inter-agent message, or raise `StepFailed`."""
 
-        self.step.check_protocol(
-            schema_name=schema,
-            message=envelopes.envelope(
-                source_agent=source,
-                target_agent=target,
-                payload=payload,
-                correlation_id=self.state.correlation_id,
+def _model_of(call: RoleResponse | None) -> str:
+    return call.model if call is not None and call.model else LOCAL_STEP_MODEL
+
+
+def _tokens_of(call: RoleResponse | None) -> int | None:
+    return call.total_tokens if call is not None else None
+
+
+async def _fail(
+    ctx: WorkflowContext[PlanState, StepRecord],
+    plan: PlanState,
+    record: StepRecord,
+    *,
+    status: str,
+    error_code: str,
+    error_message: str,
+) -> NoReturn:
+    """Report the failed row, then stop the run."""
+
+    await ctx.yield_output(record)
+    # `from None` is a privacy control, not style. Agent Framework records
+    # the escaping exception on the executor and workflow spans, and a
+    # formatted traceback includes the chained cause -- for a Pydantic
+    # failure that is `input_value=<model output>`. Breaking the chain
+    # keeps the span to the typed code.
+    raise StepFailed(
+        status=status, error_code=error_code, error_message=error_message, plan=plan
+    ) from None
+
+
+async def _call_agent[T](
+    ctx: WorkflowContext[PlanState, StepRecord],
+    run: PlanRun,
+    plan: PlanState,
+    agent_name: str,
+    invoke: Callable[[], Awaitable[T]],
+) -> T:
+    """Invoke one agent, or report the failure and stop the run."""
+
+    try:
+        return await invoke()
+    except FoundryProviderError as exc:
+        status, code = classify_provider_error(exc)
+        await _fail(
+            ctx,
+            plan,
+            StepRecord(
+                agent=agent_name,
+                status=status,
+                provider=PROVIDER_ID,
+                model=run.context.provider_model,
+                issue_codes=(code,),
             ),
-            agent_name=agent,
+            status=status,
+            error_code=code,
+            error_message=safe_message(status),
+        )
+    except ValueError as exc:
+        # Never put exception text in an issue code. Pydantic quotes the
+        # offending value, which is model output derived from a dealer
+        # group's evidence, and issue codes travel to the response.
+        await _fail(
+            ctx,
+            plan,
+            StepRecord(
+                agent=agent_name,
+                status="invalid_model_json",
+                provider=PROVIDER_ID,
+                model=run.context.provider_model,
+                issue_codes=(invalid_json_code(exc),),
+            ),
+            status="invalid_model_json",
+            error_code="AGENT_INVALID_JSON",
+            error_message="Remote agent returned invalid or off-schema JSON.",
         )
 
 
@@ -73,10 +143,9 @@ class RetrieveEvidence(Executor):
         self._retriever = retriever
 
     @handler
-    async def retrieve(self, plan: PlanState, ctx: WorkflowContext[PlanState]) -> None:
+    async def retrieve(self, plan: PlanState, ctx: WorkflowContext[PlanState, StepRecord]) -> None:
         provider = getattr(self._retriever, "provider_name", "unknown")
         model = getattr(self._retriever, "provider_model", "unknown")
-        started = time.monotonic()
         request = self._run.request
 
         try:
@@ -91,59 +160,52 @@ class RetrieveEvidence(Executor):
                 )
             )
         except EvidenceRetrievalError as exc:
-            self._trace_failure(provider, model, started, f"EVIDENCE_{exc.code}")
-            # `from None`, not `from exc`: Agent Framework records the formatted
+            # `_fail` raises `from None`: Agent Framework records the formatted
             # traceback of an escaping exception on the executor and workflow
             # spans, and the chained cause can carry retrieved document text.
             # `safe_message` is already the caller-safe summary.
-            raise StepFailed(
-                self._run.state.failure(
-                    status="evidence_missing",
-                    error_code="EVIDENCE_MISSING",
-                    error_message=exc.safe_message,
-                )
-            ) from None
+            await _fail(
+                ctx,
+                plan,
+                _evidence_failure(provider, model, f"EVIDENCE_{exc.code}"),
+                status="evidence_missing",
+                error_code="EVIDENCE_MISSING",
+                error_message=exc.safe_message,
+            )
 
         # An empty bundle is not a successful retrieval. Without this the run
         # spent two model calls and then failed validation as
         # "invalid_model_json", blaming the model for missing evidence.
         if bundle.is_empty():
-            self._trace_failure(provider, model, started, "EVIDENCE_EMPTY")
-            raise StepFailed(
-                self._run.state.failure(
-                    status="evidence_missing",
-                    error_code="EVIDENCE_MISSING",
-                    error_message="No dealer-group-scoped evidence was found for this request.",
-                )
+            await _fail(
+                ctx,
+                plan,
+                _evidence_failure(provider, model, "EVIDENCE_EMPTY"),
+                status="evidence_missing",
+                error_code="EVIDENCE_MISSING",
+                error_message="No dealer-group-scoped evidence was found for this request.",
             )
 
-        self._run.state.evidence_count = len(bundle.citations)
-        self._run.step.trace_local(
-            AgentTraceStep(
+        await ctx.yield_output(
+            StepRecord(
                 agent="evidence-retrieval",
                 status="ok",
                 provider=provider,
                 model=model,
-                latency_ms=_elapsed_ms(started),
-                token_estimate=None,
                 citation_count=len(bundle.citations),
             )
         )
-        await ctx.send_message(plan.with_(evidence=bundle))
+        await ctx.send_message(plan.with_(evidence=bundle, evidence_count=len(bundle.citations)))
 
-    def _trace_failure(self, provider: str, model: str, started: float, code: str) -> None:
-        self._run.step.trace_local(
-            AgentTraceStep(
-                agent="evidence-retrieval",
-                status="evidence_missing",
-                provider=provider,
-                model=model,
-                latency_ms=_elapsed_ms(started),
-                token_estimate=None,
-                issue_codes=[code],
-                citation_count=0,
-            )
-        )
+
+def _evidence_failure(provider: str, model: str, code: str) -> StepRecord:
+    return StepRecord(
+        agent="evidence-retrieval",
+        status="evidence_missing",
+        provider=provider,
+        model=model,
+        issue_codes=(code,),
+    )
 
 
 class Analyse(Executor):
@@ -155,7 +217,7 @@ class Analyse(Executor):
         self._agent = agent
 
     @handler
-    async def analyse(self, plan: PlanState, ctx: WorkflowContext[PlanState]) -> None:
+    async def analyse(self, plan: PlanState, ctx: WorkflowContext[PlanState, StepRecord]) -> None:
         request = self._run.request
         context = DataAnalystContext(
             dealer_group_id=request.dealer_group_id,
@@ -171,18 +233,19 @@ class Analyse(Executor):
             category=request.category,
             concern_text=plan.concern,
         )
-        analysis = await self._run.step.call(
-            DATA_ANALYST_NAME,
-            lambda: self._agent.analyze(context, deadline=self._run.state.deadline),
+        result = await _call_agent(
+            ctx, self._run, plan, DATA_ANALYST_NAME, lambda: self._agent.analyze_with_call(context)
         )
-        self._run.check_handoff(
-            schema="data-analysis-result.schema.json",
-            source="data-analyst-agent",
-            target="support-recommendation-agent",
-            payload=envelopes.analyst_payload(analysis),
-            agent=DATA_ANALYST_NAME,
+        await ctx.yield_output(
+            StepRecord(
+                agent=DATA_ANALYST_NAME,
+                status="ok",
+                provider=PROVIDER_ID,
+                model=_model_of(result.call),
+                token_estimate=_tokens_of(result.call),
+            )
         )
-        await ctx.send_message(plan.with_(analysis=analysis))
+        await ctx.send_message(plan.with_(analysis=result.output))
 
 
 class Recommend(Executor):
@@ -199,7 +262,7 @@ class Recommend(Executor):
         self._agent = agent
 
     @handler
-    async def recommend(self, plan: PlanState, ctx: WorkflowContext[PlanState]) -> None:
+    async def recommend(self, plan: PlanState, ctx: WorkflowContext[PlanState, StepRecord]) -> None:
         attempts = plan.attempts + 1
         repairing = attempts > 1
         # Named so the repair shows as its own row in the trace.
@@ -211,32 +274,35 @@ class Recommend(Executor):
         )
         context = self._context(plan)
 
-        result = await self._run.step.call(
+        result = await _call_agent(
+            ctx,
+            self._run,
+            plan,
             agent_name,
             lambda: self._agent.recommend_with_counts(
-                plan.require_analysis(),
-                context,
-                repair_guidance=guidance,
-                deadline=self._run.state.deadline,
+                plan.require_analysis(), context, repair_guidance=guidance
             ),
         )
-        # Unwrap immediately: `PlanState.with_` and `recommender_payload` are
-        # untyped, so passing the wrapper on would fail silently.
-        draft = result.draft
-        self._run.check_handoff(
-            schema="support-recommendation-result.schema.json",
-            source="support-recommendation-agent",
-            target="validator-agent",
-            payload=envelopes.recommender_payload(draft),
-            agent=agent_name,
+        await ctx.yield_output(
+            StepRecord(
+                agent=agent_name,
+                status="ok",
+                provider=PROVIDER_ID,
+                model=_model_of(result.call),
+                token_estimate=_tokens_of(result.call),
+            )
         )
         # Recorded on every attempt, not only on success: a run that failed
         # validation used to audit zero citations, which read as ungrounded.
-        self._run.state.citation_count = len(draft.citations)
-        self._run.state.citations_proposed = result.citations_proposed
-        self._run.state.citations_accepted = result.citations_accepted
-        self._run.state.attempts = attempts
-        await ctx.send_message(plan.with_(draft=draft, attempts=attempts))
+        await ctx.send_message(
+            plan.with_(
+                draft=result.draft,
+                attempts=attempts,
+                citation_count=len(result.draft.citations),
+                citations_proposed=result.citations_proposed,
+                citations_accepted=result.citations_accepted,
+            )
+        )
 
     def _context(self, plan: PlanState) -> SupportRecommenderContext:
         request = self._run.request
@@ -260,7 +326,7 @@ class Validate(Executor):
         self._agent = agent
 
     @handler
-    async def validate(self, plan: PlanState, ctx: WorkflowContext[PlanState]) -> None:
+    async def validate(self, plan: PlanState, ctx: WorkflowContext[PlanState, StepRecord]) -> None:
         draft = plan.require_draft()
         payload = ValidatorInput(
             analysis=plan.require_analysis(), draft=draft, context=self._context(plan)
@@ -269,32 +335,33 @@ class Validate(Executor):
         # a repair does not pay for it a second time.
         use_llm_critique = plan.attempts == 1
 
-        report = await self._run.step.call(
+        result = await _call_agent(
+            ctx,
+            self._run,
+            plan,
             VALIDATOR_NAME,
-            lambda: self._agent.validate(
-                payload,
-                use_llm_critique=use_llm_critique,
-                deadline=self._run.state.deadline,
-            ),
-            outcome=lambda r: StepOutcome(
-                status="passed" if r.passed else "failed",
-                issue_codes=list(r.issue_codes),
-                warning_codes=list(r.warning_codes),
+            lambda: self._agent.validate_with_call(payload, use_llm_critique=use_llm_critique),
+        )
+        report = result.report
+        await ctx.yield_output(
+            StepRecord(
+                agent=VALIDATOR_NAME,
+                status="passed" if report.passed else "failed",
+                provider=PROVIDER_ID,
+                model=_model_of(result.call),
+                token_estimate=_tokens_of(result.call),
+                issue_codes=tuple(report.issue_codes),
+                warning_codes=tuple(report.warning_codes),
                 citation_count=len(draft.citations),
-            ),
+            )
         )
-        self._run.check_handoff(
-            schema="validation-result.schema.json",
-            source="validator-agent",
-            target="coordinator",
-            payload=envelopes.validator_payload(report),
-            agent=VALIDATOR_NAME,
+        await ctx.send_message(
+            plan.with_(
+                report=report,
+                validation_reached=True,
+                deterministic_checks_total=len(DETERMINISTIC_CHECKS),
+            )
         )
-        # Set only once a report exists: `step.call` raises on timeout, so a
-        # validator that never returned leaves this false.
-        self._run.state.validation_reached = True
-        self._run.state.deterministic_checks_total = len(DETERMINISTIC_CHECKS)
-        await ctx.send_message(plan.with_(report=report))
 
     def _context(self, plan: PlanState) -> ValidatorContext:
         request = self._run.request
@@ -320,11 +387,12 @@ class Finalise(Executor):
     async def finalise(
         self, plan: PlanState, ctx: WorkflowContext[Never, CoordinatorResult]
     ) -> None:
-        state = self._run.state
+        context = self._run.context
         report = plan.require_report()
         resources_proposed, resources_accepted, unknown_resource_ids = _resource_accounting(
             self._run, plan
         )
+        # The trace is the workflow's event stream, so the coordinator fills it in.
         await ctx.yield_output(
             CoordinatorResult(
                 status="ok",
@@ -337,21 +405,21 @@ class Finalise(Executor):
                     report=report,
                     provider_display=self._provider_display,
                 ),
-                agent_trace=state.trace,
-                provider_model=state.provider_model,
-                correlation_id=state.correlation_id,
+                agent_trace=[],
+                provider_model=context.provider_model,
+                correlation_id=context.correlation_id,
                 dealer_group_id=self._run.request.dealer_group_id,
-                evidence_count=state.evidence_count,
-                citation_count=state.citation_count,
+                evidence_count=plan.evidence_count,
+                citation_count=plan.citation_count,
                 validator_status=report.safe_summary or "passed",
-                citations_proposed=state.citations_proposed,
-                citations_accepted=state.citations_accepted,
+                citations_proposed=plan.citations_proposed,
+                citations_accepted=plan.citations_accepted,
                 resources_proposed=resources_proposed,
                 resources_accepted=resources_accepted,
                 unknown_resource_ids=unknown_resource_ids,
-                attempts=state.attempts,
-                validation_reached=state.validation_reached,
-                deterministic_checks_total=state.deterministic_checks_total,
+                attempts=plan.attempts or None,
+                validation_reached=plan.validation_reached,
+                deterministic_checks_total=plan.deterministic_checks_total,
             )
         )
 
@@ -367,7 +435,10 @@ class Refuse(Executor):
     async def refuse(self, plan: PlanState, ctx: WorkflowContext[Never, CoordinatorResult]) -> None:
         report = plan.require_report()
         proposed, accepted, unknown = _resource_accounting(self._run, plan)
-        base = self._run.state.failure(
+        base = failure_result(
+            self._run.context,
+            plan,
+            [],
             status="validation_failed",
             error_code="VALIDATION_FAILED_AFTER_REPAIR",
             error_message=(
@@ -396,7 +467,3 @@ def _resource_accounting(run: PlanRun, plan: PlanState) -> tuple[int, int, list[
     proposed = list(dict.fromkeys(plan.require_draft().resource_ids))
     unknown = [rid for rid in proposed if rid not in allowed]
     return len(proposed), len(proposed) - len(unknown), unknown
-
-
-def _elapsed_ms(started: float) -> int:
-    return int((time.monotonic() - started) * 1000)

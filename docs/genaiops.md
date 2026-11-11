@@ -78,34 +78,31 @@ A well-run GenAIOps workflow does most of these:
 and their counterparts under `support-recommender` and `validator`.
 Diffs on those files show up in every PR that changes a prompt.
 
-### 2. Version inter-agent protocols/schemas
+### 2. Version inter-agent contracts
 
-- Every inter-agent message shape lives in
-  [`/contracts/v1`](../contracts/v1) as a JSON Schema
-  (`.schema.json`).
-- The path segment (`v1`) is the version boundary. Breaking changes
-  move to `/contracts/v2/`.
-- The coordinator loads the registry at startup and validates every
-  agent response against the corresponding schema. Validation
-  failures return a typed `PROTOCOL_VALIDATION_FAILED` error and no
-  recommendation is surfaced.
+- Every agent's output shape is a typed model in
+  [`python/services/api/app/agents/shared/contracts.py`](../python/services/api/app/agents/shared/contracts.py),
+  and every output carries `contract_version`.
+- The validator's `check_contract_version` refuses a draft whose version is
+  not the one the run expects, so a breaking change cannot slip through as a
+  quietly different shape.
+- Each agent's input and output shapes are also published next to its
+  definition in `agents/<id>/schemas/`, referenced from `manifest.yaml`
+  with a `schema_version`.
 
-**How to verify.** Read [`python/services/api/app/contracts_registry.py`](../python/services/api/app/contracts_registry.py)
-and `StepRunner.check_protocol` in
-[`python/services/api/app/workflows/steps.py`](../python/services/api/app/workflows/steps.py).
+**How to verify.** Read `contracts.py` and `check_contract_version` in
+[`python/services/api/app/agents/validator/checks.py`](../python/services/api/app/agents/validator/checks.py).
 
 ### 3. Use synthetic eval datasets
 
 - Evaluation cases live in [`/evals`](../evals). Every case describes
-  a synthetic dealership and category and lists the structural or safety
-  checks that must hold on the produced recommendation.
+  a synthetic dealership, category and concern.
 - No real user data is used anywhere.
 
-**How to verify.** Run `python python/scripts/run_evals.py --offline` for the
-deterministic structural gate, and `python python/scripts/run_agent_evals.py
---dry-run` for the graded quality pass. CI already runs the offline gate on
-every pull request; the graded pass is on demand only, and nothing blocks a
-merge on a live-model score.
+**How to verify.** Run `pytest` for the deterministic checks, and
+`python python/scripts/run_agent_evals.py --dry-run` for the graded quality
+pass. CI runs the tests on every pull request; the graded pass is on demand
+only, and nothing blocks a merge on a live-model score.
 
 ### 4. Evaluate structure and safety, not exact prose
 
@@ -257,7 +254,7 @@ existing:
   without any eval or safety pass; the guardrail today is human PR
   review plus the CI checks in
   [`.github/workflows/ci-python.yml`](../.github/workflows/ci-python.yml). CI runs
-  `run_evals.py --offline` against fixtures, but nothing blocks a merge on a
+  the test suite against fixtures, but nothing blocks a merge on a
   live-model score.
 - **No signed audit records.** The audit trail is metadata-only but
   is not tamper-evident.

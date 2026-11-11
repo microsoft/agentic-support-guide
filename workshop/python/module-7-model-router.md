@@ -113,19 +113,22 @@ def _usage(response: Any, key: str) -> int | None:
 without raising. Every call would have reported zero tokens and nothing would
 have looked broken.
 
-Both feed a `CallMetrics` record. `collect_call_metrics` in
+Both land on the `RoleResponse` that `MafAgentRuntime.invoke` in
 [python/services/api/app/foundry_agents/maf_runtime.py](../../python/services/api/app/foundry_agents/maf_runtime.py)
-is a context manager the coordinator opens for the whole request, so every
-call made anywhere inside lands in one list. `RunState.drain_calls` then takes
-the calls belonging to the step that just finished:
+returns. The agent wrapper hands that response back to its executor next to
+the parsed output, and the executor copies the two values onto its trace row:
 
 ```python
-def drain_calls(self, start: int) -> tuple[str, int | None]:
-    """Model that served the newest calls, and their total token count."""
+def _model_of(call: RoleResponse | None) -> str:
+    return call.model if call is not None and call.model else LOCAL_STEP_MODEL
+
+
+def _tokens_of(call: RoleResponse | None) -> int | None:
+    return call.total_tokens if call is not None else None
 ```
 
-That is how one trace row gets the right model and the right token count
-without every agent having to report them itself.
+That is how one trace row gets the right model and the right token count:
+they come from the response that produced it, not from a side channel.
 
 ## 3. Get a baseline
 
@@ -133,15 +136,21 @@ Start the backend in its own terminal (`.\python\scripts\run-backend.ps1`).
 
 Two different things are worth measuring, and one command does not do both.
 
-`run_evals.py --live` posts each case in
-[evals/synthetic_cases.jsonl](../../evals/synthetic_cases.jsonl) to a running API
-and scores the envelope it gets back. It answers *did routing break the
-contract*, and it prints pass or fail per case — **not** model, latency or
-tokens:
+The first is *did routing break the contract*. Post each case in
+[evals/synthetic_cases.jsonl](../../evals/synthetic_cases.jsonl) to the running
+API and look at the status it returns:
 
 ```powershell
-.\python\services\api\.venv\Scripts\python.exe python\scripts\run_evals.py --live http://127.0.0.1:8000
+Get-Content evals\synthetic_cases.jsonl | ForEach-Object {
+  $case = $_ | ConvertFrom-Json
+  $body = $case | Select-Object dealer_group_id, dealership_id, category, concern_text | ConvertTo-Json
+  $r = Invoke-RestMethod -Uri http://127.0.0.1:8000/api/recommendations/support-plan `
+    -Method Post -Body $body -ContentType "application/json"
+  [pscustomobject]@{ case = $case.id; status = $r.status; error_code = $r.error_code }
+} | Format-Table -AutoSize
 ```
+
+It prints one status per case — **not** model, latency or tokens.
 
 The per-step numbers come from calling the API directly. The UI is not the
 right tool: it shows model and latency but not tokens.
@@ -176,9 +185,9 @@ support-recommendation-agent ok     gpt-4.1-mini-2025-04-14       7570          
 validator-agent              passed gpt-4.1-mini-2025-04-14       6203           1598
 ```
 
-`evidence-retrieval` shows `synthetic` and zero latency because it made no
-model call — `step.trace_local` records it so the trace shows the whole
-workflow, not only the parts that cost money.
+`evidence-retrieval` shows `synthetic` and no token count because it made no
+model call. It still gets a row, so the trace shows the whole workflow, not
+only the parts that cost money.
 
 Record, for each of the three cases:
 
@@ -189,8 +198,8 @@ Record, for each of the three cases:
 | inventory-ageing | | | |
 
 `token_estimate` is input + output combined. If you need them separately,
-`CallMetrics` already carries `input_tokens` and `output_tokens`; the
-coordinator sums them.
+`RoleResponse` already carries `input_tokens` and `output_tokens`;
+`total_tokens` sums them.
 
 Write these down. You cannot claim an improvement without them.
 
@@ -232,27 +241,24 @@ Leave the router in place for now — section 6 still needs it.
 *Structured output* is a model feature: the service constrains generation so
 the response conforms to a JSON schema you supply, instead of asking for JSON
 in the prompt and hoping. The agents in this repo depend on it — every
-inter-agent message must match a contract in `contracts/v1/`.
+agent's reply must parse into its Pydantic model in
+`python/services/api/app/agents/shared/contracts.py`.
 
 Support is a property of the *underlying* model, not of the router. A router
 whose set includes a model with weaker schema adherence can produce
 off-contract JSON intermittently.
 
-Test it rather than trusting it. Run the six cases once against the router and
-watch for `invalid_model_json` or `PROTOCOL_VALIDATION_FAILED`:
-
-```powershell
-.\python\services\api\.venv\Scripts\python.exe python\scripts\run_evals.py --live http://127.0.0.1:8000
-```
+Test it rather than trusting it. Run the six cases once against the router
+with the loop from step 3 and watch for `invalid_model_json`.
 
 This is the contract check from step 3, now pointed at the router. A failure
 here that did not happen on the plain deployment is your answer. Intermittent
 failures are the harder case: if you suspect one, repeat the run rather than
 concluding from a single pass.
 
-This is what the schema validation in Module 3 buys. Without
-it, a weaker model behind a router silently corrupts data. With it, the same
-event is a named, attributable failure in the trace.
+This is what the typed contract in Module 3 buys. Without it, a weaker model
+behind a router silently corrupts data. With it, the same event is a named,
+attributable failure in the trace.
 
 > [!IMPORTANT]
 > Now put the original value back. Restore

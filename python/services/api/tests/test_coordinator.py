@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import json
-import time
 import uuid
-from typing import Any, cast
+from typing import Any
 
 from app.agents.shared.contracts import ResourceRef
 from app.agents.validator.checks import DETERMINISTIC_CHECKS
-from app.contracts_registry import ContractsRegistry, load_registry
 from app.evidence import (
     EvidenceBundle,
     EvidenceRequest,
@@ -34,10 +31,6 @@ from .conftest import (
     sample_operations_series,
 )
 from .fakes import FakeChatClientFactory, make_fake_runtime
-
-
-def _registry() -> ContractsRegistry:
-    return load_registry()
 
 
 def _request(**overrides: Any) -> CoordinatorRequest:
@@ -105,7 +98,6 @@ def _make_coord(
     runtime, _ = make_fake_runtime(client)
     coord = AgentCoordinator(
         runtime=runtime,
-        contracts=_registry(),
         evidence_retriever=evidence_retriever or FixtureEvidenceRetriever(),
         provider_display="Microsoft Foundry Agent Service (fake)",
     )
@@ -299,62 +291,29 @@ async def test_coordinator_correlation_id_is_a_uuid_and_unique_per_run() -> None
         assert "correlation_id" not in step.model_dump()
 
 
-async def test_a_stalled_retriever_is_bounded_by_the_total_budget() -> None:
-    """The per-step deadline only binds steps that check it.
-
-    Evidence retrieval can block inside a client call, so a stalling
-    retriever used to run past the budget until the caller gave up.
-    """
-
-    import app.workflows.coordinator as coordinator_module
-
-    class _Stalling:
-        provider_name = "stall"
-        provider_model = "stall"
-
-        async def retrieve(self, *args: Any, **kwargs: Any) -> Any:
-            await asyncio.sleep(30)
-
-    budget = "ORCHESTRATION_TOTAL_BUDGET_SECONDS"
-    original = getattr(coordinator_module, budget)
-    setattr(coordinator_module, budget, 0.3)
-    try:
-        coord, _ = _make_coord(evidence_retriever=cast(Any, _Stalling()))
-        started = time.monotonic()
-        result = await coord.run(_request())
-    finally:
-        setattr(coordinator_module, budget, original)
-
-    assert result.status == "orchestration_budget_exhausted"
-    assert time.monotonic() - started < 5
-
-
 async def test_a_run_that_dies_early_reports_no_counts_rather_than_zero() -> None:
     """Found in a browser: the receipt claimed retrieval returned 0 documents.
 
-    Retrieval was never issued. A zero asserts the stage ran and found
-    nothing, so every counter for a stage that never ran must be None.
+    Retrieval failed, so nothing after it ran. A zero asserts the stage ran and
+    found nothing, so every counter for a stage that never ran must be None.
     """
 
-    import app.workflows.coordinator as coordinator_module
+    class _Unavailable:
+        provider_name = "fixture"
+        provider_model = "synthetic"
+        evidence_verifiable = True
 
-    class _Stalling:
-        provider_name = "stall"
-        provider_model = "stall"
+        def has_dealer_group(self, dealer_group_id: str) -> bool:
+            return True
 
-        async def retrieve(self, *args: Any, **kwargs: Any) -> Any:
-            await asyncio.sleep(30)
+        async def retrieve(self, request: EvidenceRequest) -> EvidenceBundle:
+            raise EvidenceRetrievalError("SEARCH_UNAVAILABLE", "search is unavailable")
 
-    budget = "ORCHESTRATION_TOTAL_BUDGET_SECONDS"
-    original = getattr(coordinator_module, budget)
-    setattr(coordinator_module, budget, 0.3)
-    try:
-        coord, _ = _make_coord(evidence_retriever=cast(Any, _Stalling()))
-        result = await coord.run(_request())
-    finally:
-        setattr(coordinator_module, budget, original)
+    coord, client = _make_coord(evidence_retriever=_Unavailable())
+    result = await coord.run(_request())
 
-    assert result.status == "orchestration_budget_exhausted"
+    assert result.status == "evidence_missing"
+    assert client.calls() == []
     assert result.evidence_count is None
     assert result.citation_count is None
     assert result.citations_proposed is None

@@ -63,11 +63,10 @@ produce a structured recommendation that a human reviews and approves.
 
 Between those three agents sits a **deterministic coordinator** — a
 Microsoft Agent Framework `WorkflowBuilder` graph inside the FastAPI
-service. Six executors and six edges order the calls, validate each
-inter-agent message against a JSON Schema, enforce timeouts and budgets,
-and run at most one repair pass if the validator rejects the draft. The
-coordinator is **not** a fourth agent; it does not talk to a language
-model.
+service. Six executors and six edges order the calls, stop the run when an
+agent's reply does not parse into its typed contract, and run at most one
+repair pass if the validator rejects the draft. The coordinator is **not** a
+fourth agent; it does not talk to a language model.
 
 This is a **Microsoft Agent Framework** workflow, not an imitation of one:
 specialized agents exchanging typed messages across a graph of executors

@@ -22,7 +22,7 @@ class ConfigurationError(FoundryProviderError):
 
 
 class FoundryTimeoutError(FoundryProviderError):
-    """The remote run did not finish within the configured budget."""
+    """The model call timed out in the client SDK."""
 
 
 class FoundryRunError(FoundryProviderError):

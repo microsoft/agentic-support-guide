@@ -18,19 +18,18 @@ application built this way has seven pieces:
 1. **Browser frontend.** A thin UI that collects inputs and renders
    structured outputs. It never talks to a language model directly.
 2. **API service.** A backend that owns request handling,
-   authentication, input bounds, protocol enforcement, error
-   handling, and safe response shaping.
-3. **Deterministic orchestration.** Plain application code that
-   sequences the agents, enforces timeouts and budgets, runs at most
-   one repair pass, and produces a predictable failure taxonomy. This
-   is not a language-model agent — it is regular code the tests can
-   drive with a fake client.
+   authentication, input bounds, error handling, and safe response
+   shaping.
+3. **Deterministic orchestration.** A Microsoft Agent Framework workflow
+   with a fixed sequence, at most one repair pass, and a predictable
+   failure taxonomy. No language model chooses the route, so the tests
+   can drive it with a fake client.
 4. **Remote agents.** Each specialized reasoning role is composed from
    `/agents/<id>/agent.md` — instructions plus a bound model deployment —
    and published to Foundry as a versioned prompt agent.
-5. **Protocol validation.** Every inter-agent message validates
-   against a versioned JSON Schema before it is used. Invalid
-   messages become typed failures, never surfaced content.
+5. **Typed contracts.** Every agent's reply is parsed into a typed model
+   before the next step uses it. A reply that does not parse becomes a
+   typed failure, never surfaced content.
 6. **Synthetic data boundary.** Dealership records and saved plans are
    in-memory synthetic stores. Evidence defaults to fixtures; with
    `EVIDENCE_SOURCE=foundry_iq` the application retrieves evidence from an
@@ -55,9 +54,6 @@ document.
   validator/
   support-explainer/           # Standalone workshop agent, not a coordinator role
 
-/contracts/v1/                 # Source of truth for inter-agent protocol
-  *.schema.json
-
 /.foundry/                     # Local, gitignored Foundry scratch state
 
 /python/services/api/                 # Orchestration + FastAPI (no direct model calls)
@@ -71,7 +67,6 @@ document.
   app/agents/{data_analyst,support_recommender,validator}/agent.py
                                # Role wrappers that call the remote adapter
   app/workflows/               # Agent Framework graph, executors, coordinator
-  app/contracts_registry.py    # Central JSON Schema registry
 
 /apps/web/                     # React + TS UI
 /python/infra/                        # Terraform for Microsoft Foundry
@@ -87,8 +82,8 @@ document.
 - **`/agents/<id>/manifest.yaml`** — runtime metadata + the `foundry:`
   binding block (agent name, model deployment env var, temperature,
   response format).
-- **`/contracts/v1/*.schema.json`** — inter-agent protocol. Every
-  message that crosses an agent boundary validates against these.
+- **`/agents/<id>/schemas/`** — the agent's input and output shapes,
+  referenced from its manifest.
 - **`/python/services/api/`** — the orchestration engine and Foundry adapter.
 
 ## Independence rules
@@ -153,27 +148,27 @@ allowed catalog, required caveats, and required tier framing. The LLM
 critique step delegates to the remote validator agent and is advisory
 only — it cannot flip a deterministic pass to failure.
 
-### Coordinator + contracts registry
+### Coordinator
 
 Location:
-[`python/services/api/app/workflows/`](../python/services/api/app/workflows/)
-and
-[`python/services/api/app/contracts_registry.py`](../python/services/api/app/contracts_registry.py).
+[`python/services/api/app/workflows/`](../python/services/api/app/workflows/).
 
-`AgentCoordinator.run()` does three things: it builds a `RunState`, builds a
-fresh Agent Framework workflow with
-`build_plan_workflow(...)`, and runs it under the wall-clock budget:
+`AgentCoordinator.run()` builds a fresh Agent Framework workflow with
+`build_plan_workflow(...)` and runs it, reading the workflow's own event
+stream:
 
 ```python
-events = await asyncio.wait_for(
-    built.workflow.run(PlanState(concern=concern)),
-    timeout=max(0.0, state.deadline - time.monotonic()),
-)
+async for event in workflow.run(PlanState(concern=concern), stream=True):
+    trace.observe(event)
+    if event.type == "output":
+        outputs.append(event.data)
 ```
 
-It catches `StepFailed` and `TimeoutError` and returns a `CoordinatorResult`
-carrying a typed failure envelope. A `Workflow` instance rejects concurrent
-runs, so one is built per request.
+The trace rows the working nodes yield arrive as intermediate outputs, and
+each node's latency is the time between its `executor_invoked` and
+`executor_completed` events. The coordinator catches `StepFailed` and returns
+a `CoordinatorResult` carrying a typed failure. A `Workflow` instance rejects
+concurrent runs, so one is built per request.
 
 The sequence itself lives in the graph, not in the coordinator.
 [`graph.py`](../python/services/api/app/workflows/graph.py) wires six executors with
@@ -185,9 +180,9 @@ RetrieveEvidence -> Analyse -> Recommend -> Validate -> Finalise
                                    +-- repair --+--> Refuse
 ```
 
-- Each hop is validated against `/contracts/v1/` by `PlanRun.check_handoff`
-  before the next executor sees it. A failure raises `StepFailed` with
-  `PROTOCOL_VALIDATION_FAILED`.
+- Each agent's reply is parsed into its Pydantic model before the next
+  executor sees it. A reply that does not parse raises `StepFailed` with
+  `AGENT_INVALID_JSON`.
 - `Validate` runs the deterministic checks plus an advisory LLM critique. The
   critique cannot flip a deterministic verdict.
 - The repair bound is the `needs_repair` edge condition in
@@ -202,11 +197,10 @@ recommendation.
 
 ## The coordinator is not an agent
 
-The coordinator is deterministic Python that builds the graph and enforces the
-budget. It is not a fourth agent, does not talk to a base model, and does not
-appear as a Foundry agent. This is intentional — it keeps the sequence, the
-protocol validation, and the failure taxonomy in code the test suite
-can exercise with a fake client.
+The coordinator is deterministic Python that builds the graph and reads its
+events. It is not a fourth agent, does not talk to a base model, and does not
+appear as a Foundry agent. This is intentional — it keeps the sequence and
+the failure taxonomy in code the test suite can exercise with a fake client.
 
 ## Trust boundaries
 
@@ -263,7 +257,6 @@ Every request carries a `dealer_group_id` matching pattern
 `^[A-Z0-9][A-Z0-9\-]{1,31}$`. It is required by:
 
 - `SupportPlanRequest` at the HTTP boundary.
-- Every JSON Schema in `/contracts/v1/` (request, result, citation).
 - `DataAnalystOutput`, `SupportRecommendationDraft`, `ValidatorReport`,
   and `Citation` on the Python side.
 - The runtime audit and telemetry rows.

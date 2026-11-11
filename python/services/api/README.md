@@ -77,18 +77,17 @@ per call from that cached text.
   primitives: `app/workflows/graph.py` (`WorkflowBuilder`),
   `app/workflows/executors.py` (`Executor`) and `app/observability.py`.
 - `MafAgentRuntime` (`app/foundry_agents/maf_runtime.py`) resolves a role
-  to its definition and enforces the per-run timeout. Agents are
+  to its definition and maps provider errors to typed failures. Agents are
   ephemeral: nothing is created or stored in Foundry.
 - Requires the `Cognitive Services OpenAI User` role at the AI Services
   account scope (assigned by Terraform).
-- Per-run timeout is 30 seconds (`FOUNDRY_RUN_TIMEOUT_SECONDS`); the whole
-  workflow budget is 120 seconds (`ORCHESTRATION_TOTAL_BUDGET_SECONDS`).
-  Each run's timeout is clamped to whatever is left of that budget.
+- The app sets no timeouts of its own. A model call is bounded by the OpenAI
+  client's default timeout, and a request as a whole by App Service's 230
+  second front-end limit.
 - The OpenAI client under Agent Framework retries by default
   (`max_retries=2`, covering 408, 409, 429 and 5xx). This app does not
   disable that. A 429 that exhausts those retries surfaces as
-  `provider_throttling`; a retry that outlives the per-run timeout surfaces
-  as `provider_timeout`.
+  `provider_throttling`; a client timeout surfaces as `provider_timeout`.
 
 ## Failure modes
 
@@ -103,7 +102,7 @@ per call from that cached text.
 | `evidence_missing` | Dealer-group-scoped evidence retrieval returned nothing usable. |
 | `invalid_model_json` | Model returned invalid or off-schema JSON. |
 | `validation_failed` | Validator failed after one repair pass. No recommendation returned. |
-| `orchestration_budget_exhausted` | Coordinator hit the 120 s budget. |
+| `orchestration_error` | The workflow produced no single result. |
 
 ## Endpoints
 

@@ -73,11 +73,10 @@ The **coordinator** is deterministic Python in
 It:
 
 - bounds user text,
-- calls the three role agents in sequence,
-- validates each inter-agent message against a JSON Schema in
-  [`/contracts/v1`](../contracts/v1),
+- runs the three role agents in sequence as an Agent Framework workflow,
+- stops the run when an agent's reply does not parse into its typed
+  contract,
 - runs at most one repair pass if the validator rejects the draft,
-- enforces per-run and total budgets,
 - produces a predictable failure taxonomy the UI can render safely.
 
 The coordinator **is not a fourth agent**. It does not talk to a
@@ -179,8 +178,9 @@ concrete list of practices this repo already implements versus gaps.
    this repo follows." (2 min)
 3. Open [`agents/data-analyst/agent.md`](../agents/data-analyst/agent.md)
    and skim the instructions. Repeat for the other two roles. (5 min)
-4. Open [`contracts/v1`](../contracts/v1) and skim one request and one
-   result schema. (2 min)
+4. Open
+   [`python/services/api/app/agents/shared/contracts.py`](../python/services/api/app/agents/shared/contracts.py)
+   and skim one agent's output contract. (2 min)
 5. Open [`python/services/api/app/workflows/coordinator.py`](../python/services/api/app/workflows/coordinator.py)
    and read `AgentCoordinator.run()`. (5 min)
 6. Skim [Security and privacy](security-and-privacy.md) and

@@ -16,10 +16,10 @@ The **Workflow Coordinator** shown nested inside the API Service is
 **deterministic service-side code**, not a fourth agent. It is regular
 Python inside the FastAPI service that:
 
-- sequences the three remote agents in a fixed order,
-- validates every inter-agent message against a JSON Schema in
-  [`/contracts/v1`](../contracts/v1),
-- enforces per-run and total budgets,
+- sequences the three remote agents in a fixed order, as a Microsoft
+  Agent Framework workflow,
+- stops the run when an agent's reply does not parse into its typed
+  contract,
 - runs a single, bounded repair pass if the Validator Agent rejects
   the draft.
 

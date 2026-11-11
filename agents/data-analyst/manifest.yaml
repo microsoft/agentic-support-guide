@@ -3,7 +3,7 @@ name: Data Analyst Agent
 version: 1.0.0
 
 # Remote Foundry Agent Service binding. The remote agent is created and
-# updated by scripts/publish_prompt_agents.py from agent.md + this manifest.
+# updated by each track's publish_prompt_agents tool from agent.md + this manifest.
 foundry:
   model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_ANALYST
   response_format: json_object
@@ -15,19 +15,15 @@ runtime:
 
 contracts:
   input:
-    schema_ref: data-analysis-request.schema.json
+    schema_ref: schemas/input.schema.json
     schema_version: 1.0.0
   output:
-    schema_ref: data-analysis-result.schema.json
+    schema_ref: schemas/output.schema.json
     schema_version: 1.0.0
 
 handoff:
   - agent: support-recommendation-agent
-    contract: data-analysis-result.schema.json
-    version: 1.0.0
   - agent: validator-agent
-    contract: data-analysis-result.schema.json
-    version: 1.0.0
 
 safety:
   human_review_required: true

@@ -106,12 +106,11 @@ covers what each of those is and why this one was chosen.
 
 | Path | Contents |
 | --- | --- |
-| `agents/` | Agent definitions — `agent.md` + `manifest.yaml` |
-| `contracts/v1/` | JSON Schemas for every inter-agent message |
+| `agents/` | Agent definitions — `agent.md` + `manifest.yaml` + `schemas/` |
 | `python/services/api/` | FastAPI backend, workflow graph, evidence retrieval |
 | `apps/web/` | React UI |
 | `python/infra/` | Terraform |
-| `evals/` | Synthetic cases and expected checks |
+| `evals/` | Synthetic evaluation cases |
 | `python/scripts/` | Publish, validate, evaluate, provision, deploy, smoke test |
 | `workshop/python/code/` | The runnable samples used in Modules 2 and 3 |
 

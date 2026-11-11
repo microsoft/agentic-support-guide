@@ -24,8 +24,8 @@ does not call the published copies.
 
 ## Coordinator
 
-Deterministic application code that builds the Agent Framework graph,
-validates inter-agent messages, and enforces timeouts and budgets. Lives in
+Deterministic application code that builds the Agent Framework graph, runs
+it, and reads the trace off the workflow's event stream. Lives in
 [`python/services/api/app/workflows/`](../python/services/api/app/workflows/).
 The coordinator is **not an agent** — it does not talk to a language
 model.
@@ -50,36 +50,35 @@ provisions three: `asg-chat` for the three roles, `asg-router` for the model
 router, and `asg-judge` for evaluation. Per-role deployments are supported by
 the env-var scheme in `python/services/api/.env.example`.
 
-## Protocol contract
+## Contract
 
-A versioned JSON Schema that defines the shape of a message crossing
-an agent boundary. This repo's contracts live in
-[`/contracts/v1`](../contracts/v1) and are enforced by the coordinator
-after every agent call.
+The typed shape of an agent's output. Each one is a Pydantic model in
+[`python/services/api/app/agents/shared/contracts.py`](../python/services/api/app/agents/shared/contracts.py)
+that carries `contract_version`. A reply that does not parse into it is a
+typed failure, never surfaced content.
 
 ## JSON Schema
 
 The open specification used to describe the shape of a JSON document.
-Files ending in `.schema.json` in this repo are JSON Schemas. The
-coordinator loads them at startup and validates every inter-agent
-message against them.
+Files ending in `.schema.json` in this repo are JSON Schemas: each agent's
+input and output shapes, in `agents/<id>/schemas/`. They document the agent
+definition; the typed contracts above are what the app enforces.
 
 ## Eval / evaluation
 
-A test that checks how well an agent workflow behaves against a set of
-synthetic cases. Evaluations grade the **structure and safety** of the
-output (does it use only allowed IDs, does it include the required
-human-review caveat), not the exact wording. This repo's synthetic
-cases live in [`/evals`](../evals) and are scored by
-[`python/scripts/run_evals.py`](../python/scripts/run_evals.py), which runs offline on
-every pull request. Answer quality is graded separately and on demand by
-[`python/scripts/run_agent_evals.py`](../python/scripts/run_agent_evals.py), which calls a
-live judge model. Module 9 runs both.
+A test that checks how well an agent behaves against a set of synthetic
+cases. In this repo, evaluation grades answer **quality** — groundedness,
+relevance and coherence — with a judge model through Agent Framework:
+[`python/scripts/run_agent_evals.py`](../python/scripts/run_agent_evals.py) grades
+the cases in [`/evals`](../evals) on demand. Structure and safety (only
+allowed IDs, the human-review caveat) are not left to an eval: the
+validator's deterministic checks enforce them on every request. Module 9
+covers both.
 
 ## GenAIOps
 
 The operating discipline for generative-AI workloads. Adds
-prompt/spec versioning, protocol versioning, safety-oriented
+prompt/spec versioning, contract versioning, safety-oriented
 evaluation, and metadata-only observability on top of traditional
 DevOps and MLOps. See [genaiops.md](genaiops.md).
 
@@ -150,8 +149,9 @@ A typed reference to a source that grounds a recommendation. Includes
 `citation_id`, `dealer_group_id`, `source_type` (structured_data,
 document, policy, resource, synthetic_fixture), `source_title`,
 `section_or_page`, `evidence_summary`, `source_ref`, `retrieved_at`,
-and `confidence`. Never contains the raw document body. Defined in
-[`contracts/v1/citation.schema.json`](../contracts/v1/citation.schema.json).
+and `confidence`. Never contains the raw document body. Defined as
+`Citation` in
+[`python/services/api/app/agents/shared/contracts.py`](../python/services/api/app/agents/shared/contracts.py).
 
 ## Evidence bundle
 

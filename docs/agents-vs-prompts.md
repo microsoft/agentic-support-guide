@@ -58,10 +58,9 @@ The three agents each have a **narrow, verifiable job**:
   one repair pass. It never fabricates content.
 
 The coordinator orchestrates these hops, generates a `correlation_id`,
-performs evidence retrieval, and stamps `dealer_group_id` on every
-payload. Every step is a **typed contract** (JSON Schema in
-`/contracts/v1/`), so a break anywhere shows up as a schema validation
-error, not as a subtle output regression.
+performs evidence retrieval, and passes `dealer_group_id` to every agent.
+Every step is a **typed contract**, so a break anywhere shows up as a named
+failure at the agent that produced it, not as a subtle output regression.
 
 ## What multiplying prompt context does not fix
 

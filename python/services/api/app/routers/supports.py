@@ -16,11 +16,9 @@ from .. import operations as operations_mod
 from .. import scores as scores_mod
 from ..agents.shared.contracts import ResourceRef
 from ..config import PROVIDER_DISPLAY_CONFIGURED, PROVIDER_DISPLAY_UNCONFIGURED
-from ..contracts_registry import ContractsRegistry
 from ..dealer_groups import KNOWN_DEALER_GROUPS
 from ..dependencies import (
     get_audit,
-    get_contracts,
     get_evidence,
     get_repos,
     get_runtime,
@@ -91,7 +89,6 @@ async def post_recommendation(
     repos: Repositories = Depends(get_repos),
     runtime: MafAgentRuntime | None = Depends(get_runtime),
     audit: RuntimeAuditLog = Depends(get_audit),
-    contracts: ContractsRegistry = Depends(get_contracts),
     evidence: EvidenceRetriever = Depends(get_evidence),
 ) -> RecommendationEnvelope:
     dealership = next(
@@ -122,7 +119,6 @@ async def post_recommendation(
 
     coordinator = AgentCoordinator(
         runtime=runtime,
-        contracts=contracts,
         evidence_retriever=evidence,
         provider_display=PROVIDER_DISPLAY_CONFIGURED,
     )

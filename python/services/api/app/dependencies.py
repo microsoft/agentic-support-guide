@@ -13,7 +13,6 @@ from fastapi import Depends, Request
 
 from .auth import require_api_key
 from .config import AzureFoundrySettings
-from .contracts_registry import ContractsRegistry
 from .evidence import EvidenceRetriever
 from .foundry_agents import MafAgentRuntime
 from .plans_store import SavedPlansStore
@@ -51,10 +50,6 @@ def get_plans(request: Request) -> SavedPlansStore:
 
 def get_audit(request: Request) -> RuntimeAuditLog:
     return get_services(request).runtime_audit
-
-
-def get_contracts(request: Request) -> ContractsRegistry:
-    return get_services(request).contracts
 
 
 def get_evidence(request: Request) -> EvidenceRetriever:

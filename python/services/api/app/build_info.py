@@ -4,7 +4,7 @@ A successful `az webapp deploy` does not guarantee the new code is live:
 Oryx can skip the rebuild and the previous worker can keep serving. Without
 a stamp, a stale deployment is indistinguishable from a good one.
 
-`deploy-app.ps1` writes `build_id.txt` next to `contracts/` in the zip and
+`deploy-app.ps1` writes `build_id.txt` next to `agents/` in the zip and
 then polls `/api/health` until the served build_id matches what it shipped.
 """
 

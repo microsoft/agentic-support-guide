@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 900" width="1700" height="900" role="img" aria-labelledby="asg-title asg-desc">
   <title id="asg-title">Agentic Support Guide - High-level architecture</title>
-  <desc id="asg-desc">A Demo User interacts with a Web App that calls an API Service (FastAPI). Every request carries a dealer_group_id. Inside the API Service, a deterministic Workflow Coordinator generates a correlation_id, retrieves a per-dealer-group evidence bundle from an Evidence Retriever (synthetic fixtures, or Azure AI Search when grounding is enabled), reads Synthetic Data, validates Protocol Contracts, loads Agent Definitions, and invokes three Microsoft Foundry agents in sequence: Data Analyst Agent, then Support Recommendation Agent (with citations attached from the evidence bundle), then Validator Agent (which enforces dealer group isolation, citation integrity, and forbidden determinations). All three agents share one Model Deployment. Every passing recommendation is created in pending_review and moves through the human review lifecycle (approved or rejected) via an audited review endpoint. The API Service emits Agent Framework spans (correlation_id, dealer_group_id, coded status) to Observability. Terraform and Ops Scripts provision Microsoft Foundry and publish Agent Definitions as agent versions.</desc>
+  <desc id="asg-desc">A Demo User interacts with a Web App that calls an API Service (FastAPI). Every request carries a dealer_group_id. Inside the API Service, a deterministic Workflow Coordinator generates a correlation_id, retrieves a per-dealer-group evidence bundle from an Evidence Retriever (synthetic fixtures, or Azure AI Search when grounding is enabled), reads Synthetic Data, parses agent replies into Typed Contracts, loads Agent Definitions, and invokes three Microsoft Foundry agents in sequence: Data Analyst Agent, then Support Recommendation Agent (with citations attached from the evidence bundle), then Validator Agent (which enforces dealer group isolation, citation integrity, and forbidden determinations). All three agents share one Model Deployment. Every passing recommendation is created in pending_review and moves through the human review lifecycle (approved or rejected) via an audited review endpoint. The API Service emits Agent Framework spans (correlation_id, dealer_group_id, coded status) to Observability. Terraform and Ops Scripts provision Microsoft Foundry and publish Agent Definitions as agent versions.</desc>
   <rect x="0" y="0" width="1700" height="900" fill="#ffffff" />
   <style type="text/css">
     .title { font: bold 22px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; text-anchor: middle; }
@@ -54,9 +54,9 @@
 
   <rect x="605" y="220" width="250" height="170" rx="8" class="nested-fill" />
   <text x="730" y="255" class="nested-label">Workflow Coordinator</text>
-  <text x="730" y="281" class="nested-desc">Deterministic Python that</text>
-  <text x="730" y="299" class="nested-desc">sequences remote agents,</text>
-  <text x="730" y="317" class="nested-desc">validates protocol messages,</text>
+  <text x="730" y="281" class="nested-desc">Agent Framework workflow</text>
+  <text x="730" y="299" class="nested-desc">that sequences remote agents,</text>
+  <text x="730" y="317" class="nested-desc">parses typed replies,</text>
   <text x="730" y="335" class="nested-desc">and runs one repair pass.</text>
   <text x="730" y="360" class="nested-desc">Not an agent.</text>
 
@@ -66,11 +66,11 @@
   <text x="322" y="510" class="container-desc">In-memory synthetic</text>
   <text x="322" y="528" class="container-desc">learner signals</text>
 
-  <!-- Protocol Contracts -->
+  <!-- Typed Contracts -->
   <rect x="445" y="440" width="210" height="130" rx="10" class="AgentAssets container-stroke" />
-  <text x="550" y="478" class="container-label">Protocol Contracts</text>
-  <text x="550" y="510" class="container-desc">Versioned JSON Schema</text>
-  <text x="550" y="528" class="container-desc">message contracts</text>
+  <text x="550" y="478" class="container-label">Typed Contracts</text>
+  <text x="550" y="510" class="container-desc">Versioned agent</text>
+  <text x="550" y="528" class="container-desc">output shapes</text>
 
   <!-- Agent Definitions -->
   <rect x="675" y="440" width="205" height="130" rx="10" class="AgentAssets container-stroke" />
@@ -169,10 +169,10 @@
   <rect x="440" y="412" width="68" height="14" class="arrow-label-bg" />
   <text x="474" y="423" class="arrow-label">reads</text>
 
-  <!-- 8. API Service -> Protocol Contracts (validates) -->
+  <!-- 8. API Service -> Typed Contracts (parses into) -->
   <line x1="720" y1="400" x2="580" y2="440" class="arrow" marker-end="url(#arrow-head)" />
   <rect x="602" y="412" width="90" height="14" class="arrow-label-bg" />
-  <text x="647" y="423" class="arrow-label">validates</text>
+  <text x="647" y="423" class="arrow-label">parses into</text>
 
   <!-- 9. API Service -> Agent Definitions (loads) -->
   <line x1="820" y1="400" x2="780" y2="440" class="arrow" marker-end="url(#arrow-head)" />

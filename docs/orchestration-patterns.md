@@ -80,11 +80,10 @@ must be produced the same way to be auditable.
 
 The word appears in this repo in a sense that is **not** the pattern above.
 
-- `PlanRun.check_handoff` in
-  [python/services/api/app/workflows/executors.py](../python/services/api/app/workflows/executors.py)
-  and "handoff" in the agent manifests mean **passing data from one step to
-  the next, validated against a JSON schema**. Every hop does it, always, in
-  a fixed order.
+- "Handoff" in the agent manifests means **passing data from one step to
+  the next** — an executor sending its typed output along an edge in
+  [python/services/api/app/workflows/executors.py](../python/services/api/app/workflows/executors.py).
+  Every hop does it, always, in a fixed order.
 - **Handoff orchestration** in Agent Framework means an agent *choosing* to
   transfer control to a different agent at runtime.
 
@@ -150,10 +149,10 @@ calls `configure_otel_providers` and `enable_instrumentation`, and the
 framework then emits `workflow.run`, `executor.process` and `gen_ai` spans
 for everything the graph does.
 
-What is still this repo's own code is the part that is not orchestration: a
-shared wall-clock budget, the per-step trace rows that go in the API response
-and get rendered by the UI, a typed provider-failure taxonomy, and
-JSON-Schema validation of every message between agents.
+What is still this repo's own code is the part that is not orchestration:
+the agents' typed contracts, the deterministic validator checks, and a typed
+provider-failure taxonomy. Even the per-step trace rows the UI renders are
+read off the workflow's own event stream.
 
 Learn the pattern from
 [workshop/python/code/07_conditional_repair.py](../workshop/python/code/07_conditional_repair.py) — it

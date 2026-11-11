@@ -11,7 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .config import AzureFoundrySettings
-from .contracts_registry import ContractsRegistry
 from .evidence import EvidenceRetriever
 from .foundry_agents import MafAgentRuntime
 from .plans_store import SavedPlansStore
@@ -30,6 +29,5 @@ class AppServices:
     repos: Repositories
     plans_store: SavedPlansStore
     runtime_audit: RuntimeAuditLog
-    contracts: ContractsRegistry
     evidence_retriever: EvidenceRetriever
     runtime: MafAgentRuntime | None

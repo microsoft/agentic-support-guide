@@ -77,7 +77,7 @@ def map_provider_error(exc: BaseException) -> FoundryProviderError:
     if isinstance(exc, TimeoutError | asyncio.TimeoutError) or "APITimeoutError" in names:
         return FoundryTimeoutError(
             "RUN_TIMEOUT",
-            "Remote agent run did not finish within the configured budget.",
+            "Remote agent run timed out.",
         )
 
     if "RateLimitError" in names or status == 429:

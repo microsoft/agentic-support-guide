@@ -34,12 +34,12 @@ platform and runs `pip install` server-side. Expect several minutes.
 
 Two details in that script decide whether the deployment works.
 
-**The API zip keeps the repo layout.** The app finds sibling directories by
-walking up from its own file — `contracts_registry.py` uses `parents[3]` to
-reach `contracts/`, `prompt_envelope.py` uses `parents[4]` to reach `agents/`.
-Zip `python/services/api/*` at the archive root and both resolve to `/home`, so the
-app fails at import. The zip therefore contains `python/services/api/`, `contracts/`
-and `agents/`, and the start command names the app directory:
+**The API zip keeps the repo layout.** The app finds the agent definitions by
+walking up from its own file — `prompt_envelope.py` uses `parents[5]` to reach
+`agents/`. Zip `python/services/api/*` at the archive root and that resolves
+outside the deployment, so the app fails at import. The zip therefore contains
+`python/services/api/` and `agents/`, and the start command names the app
+directory:
 
 ```
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir python/services/api
@@ -210,7 +210,7 @@ az ad app federated-credential create --id <appId> --parameters '{
 > and use it verbatim rather than guessing.
 
 ```powershell
-gh workflow run deploy.yml -f component=both -f expect_evidence=fixture
+gh workflow run deploy-python.yml -f component=both -f expect_evidence=fixture
 gh run watch --exit-status
 ```
 

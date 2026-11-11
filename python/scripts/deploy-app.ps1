@@ -6,10 +6,9 @@
 #   .\python\scripts\deploy-app.ps1              # both
 #   .\python\scripts\deploy-app.ps1 -Only api    # just the API
 #
-# The API zip deliberately preserves the repo layout. app/contracts_registry.py
-# resolves contracts/ via parents[4] and prompt_envelope.py resolves agents/
-# via parents[5]; flattening python/services/api to the zip root breaks both at
-# import time.
+# The API zip deliberately preserves the repo layout. prompt_envelope.py
+# resolves agents/ via parents[5]; flattening python/services/api to the zip
+# root breaks that at import time.
 
 [CmdletBinding()]
 param(
@@ -55,7 +54,6 @@ function Deploy-Api {
 
     Copy-Item (Join-Path $trackRoot "services\api\app") (Join-Path $src "python\services\api\app") -Recurse
     Copy-Item (Join-Path $trackRoot "services\api\requirements.txt") (Join-Path $src "python\services\api\")
-    Copy-Item (Join-Path $repoRoot "contracts") (Join-Path $src "contracts") -Recurse
     Copy-Item (Join-Path $repoRoot "agents") (Join-Path $src "agents") -Recurse
 
     # Oryx installs from the wwwroot root, but the real pins live with the app.

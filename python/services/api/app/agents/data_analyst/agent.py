@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from ...foundry_agents.maf_runtime import MafAgentRuntime
+from ...foundry_agents.maf_runtime import MafAgentRuntime, RoleResponse
 from ...operations import OperationsSeries
 from ...scores import AreaSeries
 from ..shared.contracts import DataAnalystModelOutput, DataAnalystOutput
@@ -38,13 +38,22 @@ class DataAnalystContext:
     concern_text: str
 
 
+@dataclass(frozen=True)
+class AnalysisResult:
+    """The analysis plus the model call that produced it."""
+
+    output: DataAnalystOutput
+    call: RoleResponse
+
+
 class DataAnalystAgent:
     def __init__(self, runtime: MafAgentRuntime) -> None:
         self._runtime = runtime
 
-    async def analyze(
-        self, context: DataAnalystContext, *, deadline: float | None = None
-    ) -> DataAnalystOutput:
+    async def analyze(self, context: DataAnalystContext) -> DataAnalystOutput:
+        return (await self.analyze_with_call(context)).output
+
+    async def analyze_with_call(self, context: DataAnalystContext) -> AnalysisResult:
         # The series, not just their size. Sending only a record count left
         # the model with nothing to compare across areas or over time, which
         # is the whole analysis this agent is asked for.
@@ -83,12 +92,14 @@ class DataAnalystAgent:
             role=AGENT_NAME,
             user_message=user_prompt,
             response_model=DataAnalystModelOutput,
-            deadline=deadline,
         )
         output = parse_role_response(response, DataAnalystModelOutput)
-        return DataAnalystOutput(
-            contract_version=output.contract_version,
-            dealer_group_id=context.dealer_group_id,
-            analysis=output.analysis,
-            citations=[],
+        return AnalysisResult(
+            output=DataAnalystOutput(
+                contract_version=output.contract_version,
+                dealer_group_id=context.dealer_group_id,
+                analysis=output.analysis,
+                citations=[],
+            ),
+            call=response,
         )

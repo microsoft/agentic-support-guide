@@ -3,11 +3,11 @@
 GenAIOps boundary: agent behavior is defined by `/agents/<id>/agent.md` and
 `manifest.yaml`, versioned in git and loaded by the app at runtime. There is
 nothing to deploy - the runtime builds ephemeral agents per call - so this
-script only checks that the definitions are well formed and consistent with
-the contracts in `/contracts/v1`.
+script only checks that the definitions are well formed and that every schema
+a manifest names exists in that agent's `schemas/` folder.
 
-Infrastructure (DevOps) is provisioned separately by Terraform in `/infra`
-and never creates agents.
+Infrastructure (DevOps) is provisioned separately by Terraform in
+`/python/infra` and never creates agents.
 
 Usage:
   python python/scripts/validate_agent_definitions.py            # offline validation
@@ -36,7 +36,6 @@ from app.foundry_agents import (
 )
 
 AGENTS_DIR = REPO_ROOT / "agents"
-CONTRACTS_DIR = REPO_ROOT / "contracts" / "v1"
 ENV_FILE = TRACK_ROOT / "services" / "api" / ".env"
 
 REQUIRED_MANIFEST_KEYS = (
@@ -112,18 +111,11 @@ def _validate_manifest(agent_dir: Path) -> tuple[dict[str, Any], list[str]]:
                 if not block.get(key):
                     errors.append(f"{agent_dir.name}: contracts.{side} missing '{key}'")
             ref = block.get("schema_ref")
-            if ref and not (CONTRACTS_DIR / ref).is_file():
+            if ref and not (agent_dir / ref).is_file():
                 errors.append(
                     f"{agent_dir.name}: contracts.{side}.schema_ref not found "
-                    f"in /contracts/v1 -> {ref}"
+                    f"in agents/{agent_dir.name} -> {ref}"
                 )
-
-    for handoff in manifest.get("handoff") or []:
-        contract = handoff.get("contract")
-        if contract and not (CONTRACTS_DIR / contract).is_file():
-            errors.append(
-                f"{agent_dir.name}: handoff.contract not found in /contracts/v1 -> {contract}"
-            )
 
     return manifest, errors
 

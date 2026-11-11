@@ -2,7 +2,7 @@
 
 Nothing here talks to Azure. The fake stands in for the client factory the
 runtime calls, so tests exercise the real `MafAgentRuntime` - including its
-timeout clamping, error mapping, and role resolution - without a network.
+error mapping and role resolution - without a network.
 """
 
 from __future__ import annotations
@@ -91,12 +91,10 @@ def make_fake_runtime(
     factory: FakeChatClientFactory | None = None,
     *,
     roles: dict[str, RoleDefinition] | None = None,
-    run_timeout_seconds: float = 30.0,
 ) -> tuple[MafAgentRuntime, FakeChatClientFactory]:
     factory = factory or FakeChatClientFactory()
     runtime = MafAgentRuntime(
         roles=roles if roles is not None else build_role_definitions(),
         client_factory=factory,
-        run_timeout_seconds=run_timeout_seconds,
     )
     return runtime, factory

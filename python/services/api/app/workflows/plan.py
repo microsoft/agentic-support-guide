@@ -38,6 +38,10 @@ class PlanState:
     `require_*` accessors exist because the graph guarantees the order --
     nothing reaches `Validate` without a draft -- but the type checker cannot
     see that through the edges.
+
+    The counters are the enforcement receipt. None means the stage never ran,
+    so the UI renders absence; a zero would claim the stage ran and found
+    nothing, which on a run that died early is false.
     """
 
     concern: str
@@ -46,6 +50,12 @@ class PlanState:
     draft: SupportRecommendationDraft | None = None
     report: ValidatorReport | None = None
     attempts: int = 0
+    evidence_count: int | None = None
+    citation_count: int | None = None
+    citations_proposed: int | None = None
+    citations_accepted: int | None = None
+    validation_reached: bool = False
+    deterministic_checks_total: int | None = None
 
     def with_(self, **changes: Any) -> PlanState:
         return replace(self, **changes)

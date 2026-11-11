@@ -100,9 +100,9 @@ Run `pytest -k prompt_blocks` for the covering tests.
 
 ### Agent-to-agent trust boundaries
 
-- The three agents exchange messages only through the JSON Schemas in
-  [`/contracts/v1`](../contracts/v1). The coordinator validates each
-  message against the corresponding schema before forwarding.
+- The three agents exchange typed objects only. Each agent's reply is
+  parsed into its Pydantic model before the next step sees it, and a
+  reply that does not parse stops the run.
 - The Support Recommendation Agent receives the Data Analyst output
   wrapped as an untrusted block, not injected as instructions.
 - The Validator Agent receives both prior outputs the same way.
@@ -110,12 +110,10 @@ Run `pytest -k prompt_blocks` for the covering tests.
   from fixed templates keyed by issue code — not from raw LLM
   critique text.
 
-**How to verify.** Read `StepRunner.check_protocol` in
-[`python/services/api/app/workflows/steps.py`](../python/services/api/app/workflows/steps.py),
-`PlanRun.check_handoff` in
-[`python/services/api/app/workflows/executors.py`](../python/services/api/app/workflows/executors.py),
-and the payload builders in
-[`python/services/api/app/workflows/envelopes.py`](../python/services/api/app/workflows/envelopes.py).
+**How to verify.** Read `parse_role_response` in
+[`python/services/api/app/agents/shared/responses.py`](../python/services/api/app/agents/shared/responses.py)
+and `_call_agent` in
+[`python/services/api/app/workflows/executors.py`](../python/services/api/app/workflows/executors.py).
 
 ### Keyless auth
 
@@ -228,8 +226,7 @@ the persistent banner in the frontend layout.
 ## Validation gates
 
 - Every remote-agent response is parsed and Pydantic-validated
-  against a typed internal contract, and then validated by the JSON
-  Schema in [`/contracts/v1`](../contracts/v1) before being forwarded.
+  against a typed internal contract before it is used.
 - If validation still fails after one repair pass, no recommendation
   is returned; the API returns a typed `validation_failed` envelope
   with safe issue codes.
@@ -338,9 +335,8 @@ Every request carries a `dealer_group_id` matching pattern
 It is enforced at four layers:
 
 - **HTTP** - required by `SupportPlanRequest`.
-- **Contracts** - required in every JSON Schema in `/contracts/v1/`.
-- **Coordinator** - propagated to every agent context and stamped on
-  every envelope payload.
+- **Contracts** - required on every typed agent output and citation.
+- **Coordinator** - propagated to every agent context.
 - **Validator Agent** - deterministic checks
   (`DRAFT_DEALER_GROUP_MISMATCH`, `CROSS_DEALER_GROUP_CITATION`,
   `UNKNOWN_CITATION_ID`) reject any drift.

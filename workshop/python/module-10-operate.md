@@ -29,22 +29,20 @@ Three terms, used throughout:
   Framework emits to Application Insights.
 
 Each has its own identifier. The response trace carries a **correlation ID**,
-generated per run and returned on the envelope. The spans carry an
+generated per run and returned on the response. The spans carry an
 `operation_Id` that OpenTelemetry assigns. Nothing exports the correlation ID
 as a span attribute, so you cannot search Application Insights by it.
 
 The coordinator generates the correlation ID in `run`:
 
 ```python
-state = RunState(
+context = RunContext(
     correlation_id=str(uuid.uuid4()),
     ...
 )
 ```
 
-and it travels on every inter-agent envelope as `trace_id` (see
-[python/services/api/app/workflows/envelopes.py](../../python/services/api/app/workflows/envelopes.py)),
-on every audit row, and on the response.
+and it travels on every audit row and on the response.
 
 Requests rejected *before* the coordinator runs — a 401, a 404 for an unknown
 dealership, or `provider_missing` — have no correlation ID, because there was
@@ -158,32 +156,21 @@ backs `/api/audit/events`. It restricts by construction — `append` takes
 named metadata arguments, so an audit row has no field that prompt or
 completion text is *supposed* to go in.
 
-`_fetch_audit` in [python/scripts/run_evals.py](../../python/scripts/run_evals.py) pulls
-`/api/audit/events` on a live run, and `score_audit` fails the case if it
-finds either a forbidden key name or the case's own concern text anywhere in
-the payload:
+Check that on the request you made in section 1. Fetch the audit trail and
+search it for the concern text you sent:
 
-```python
-parts = list(_walk_json(audit_payload))
-keys = [text.lower() for kind, text in parts if kind == "key"]
-values = " ".join(text.lower() for kind, text in parts if kind == "value")
-
-# An empty audit trail would pass every leak check below vacuously.
-if not (audit_payload.get("events") or []):
-    _fail(result, "audit payload contains no events")
-
-for unsafe in UNSAFE_AUDIT_KEYS:
-    if any(unsafe in key for key in keys):
-        _fail(result, f"audit payload exposes '{unsafe}'")
-for case in cases:
-    concern = str(case["concern_text"]).strip().lower()
-    if len(concern) >= AUDIT_CANARY_MIN_CHARS and concern in values:
-        _fail(result, f"audit payload contains the concern text of case {case['id']}")
+```powershell
+$audit = Invoke-RestMethod "$api/api/audit/events" -Headers @{ "x-api-key" = $key }
+$audit.events.Count
+($audit | ConvertTo-Json -Depth 10) -match [regex]::Escape("slower than the standard")
 ```
 
+The count must be above zero — an empty audit trail would pass the next line
+vacuously — and the last line must print `False`.
+
 Searching for the input text as a canary is the part that matters. Checking
-key names alone would pass the same content stored under a name the script
-has never heard of.
+key names alone would pass the same content stored under a name nobody
+thought to check.
 
 ## 3. Find that request in Application Insights
 

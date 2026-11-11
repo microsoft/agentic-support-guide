@@ -41,11 +41,11 @@ said**:
 
 - agent role (e.g. `data-analyst-agent`),
 - outcome status (`ok`, `provider_timeout`, `provider_content_filter`,
-  `validation_failed`, `orchestration_budget_exhausted`),
+  `validation_failed`),
 - latency,
 - coarse error code,
 - token estimate when the provider returns usage,
-- a `trace_id` that correlates the three agent steps of one request.
+- a correlation ID that ties together the agent steps of one request.
 
 None of the above requires reading the model's prose.
 
@@ -146,17 +146,17 @@ and drops anything else.
 - Read
   [`python/services/api/app/runtime_audit.py`](../python/services/api/app/runtime_audit.py)
   and confirm the fixed schema.
-- Read how a trace step is built in
-  [`python/services/api/app/workflows/steps.py`](../python/services/api/app/workflows/steps.py)
-  and confirm the model comes from `served_model or LOCAL_STEP_MODEL` --
-  the deployment that actually answered, not a constant. Module 7's routing
-  demonstration depends on that. `PROVIDER_ID` is a constant, in
+- Read `_model_of` in
+  [`python/services/api/app/workflows/executors.py`](../python/services/api/app/workflows/executors.py)
+  and confirm a trace row's model comes from the agent's response, or
+  `LOCAL_STEP_MODEL` when no model was called -- the deployment that
+  actually answered, not a constant. Module 7's routing demonstration
+  depends on that. `PROVIDER_ID` is a constant, in
   [`python/services/api/app/foundry_agents/maf_runtime.py`](../python/services/api/app/foundry_agents/maf_runtime.py).
 - Run the privacy scanner:
   ```powershell
-  cd python\services\api
-  .\.venv\Scripts\Activate.ps1
-  pytest tests\test_no_sensitive_content.py
+  cd maintenance
+  ..\python\services\api\.venv\Scripts\python.exe -m pytest tests\test_no_sensitive_content.py
   ```
 - Run the health-details canary test:
   ```powershell
@@ -211,9 +211,10 @@ enumerated codes only — never prompt or completion text. A field is `null`
 rather than zero when it was not measured, so "not reached" stays
 distinguishable from "measured zero".
 
-That distinction is load-bearing. A run that exceeds its budget never issues
-retrieval, so reporting `evidence_count` as `0` would claim retrieval ran and
-returned nothing. The audit row is a fixed-shape record and stores `0` for an
+That distinction is load-bearing. A run that stops at retrieval never
+reaches the recommender or the validator, so reporting `citations_proposed`
+or `deterministic_checks_total` as `0` would claim those stages ran and found
+nothing. The audit row is a fixed-shape record and stores `0` for an
 unreached stage; the envelope keeps the `null`.
 
 None of these are prompts or completions. They allow a support

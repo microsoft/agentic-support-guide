@@ -71,9 +71,8 @@ jobs:
         id: stamp
         run: echo "build_id=${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
 
-      # The zip keeps the repo layout: contracts_registry.py resolves
-      # contracts/ via parents[4] and prompt_envelope.py resolves agents/ via
-      # parents[5]. Flattening python/services/api breaks both at import time.
+      # The zip keeps the repo layout: prompt_envelope.py resolves agents/ via
+      # parents[5]. Flattening python/services/api breaks that at import time.
       - name: Package API
         if: inputs.component != 'web'
         run: |
@@ -81,7 +80,6 @@ jobs:
           rm -rf build/api && mkdir -p build/api/python/services/api
           cp -r python/services/api/app build/api/python/services/api/app
           cp python/services/api/requirements.txt build/api/python/services/api/
-          cp -r contracts build/api/contracts
           cp -r agents build/api/agents
           echo "-r python/services/api/requirements.txt" > build/api/requirements.txt
           echo -n "${{ steps.stamp.outputs.build_id }}" > build/api/build_id.txt

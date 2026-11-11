@@ -61,7 +61,7 @@ FORBIDDEN = {
     r"\bsanitize_free_text\b": "sanitization was removed; use prompt_blocks",
     r"\bTelemetryRecorder\b": "replaced by Agent Framework instrumentation",
     r"\bapp/telemetry\.py\b": "replaced by app/observability.py",
-    r"\b_protocol_validate\b": "never existed; use StepRunner.check_protocol",
+    r"\b_protocol_validate\b": "never existed; agent replies parse into typed contracts",
     r"\bverify_deployment\.py\b": "deleted; smoke_test.py is the live check",
     r"workshop/basics": "dissolved into numbered modules",
     r"\bcanonical\(": "obfuscation folding was removed from determinations",
@@ -95,8 +95,31 @@ FORBIDDEN = {
 # Prose-only rules. These name real code that exists under a different name
 # elsewhere, so they would false-positive against the source files themselves.
 FORBIDDEN_IN_DOCS = {
-    r"\b_check_handoff\b": "renamed to PlanRun.check_handoff in executors.py",
+    r"\b_check_handoff\b": "removed with the JSON Schema registry",
     r"\bself\._evidence\b": "the executor attribute is self._retriever",
+}
+
+# Hand-written plumbing removed so both tracks use only Agent Framework. ADRs
+# are historical records and may still name these, so they are exempt.
+FORBIDDEN_OUTSIDE_ADRS = {
+    r"\bStepRunner\b": "removed; trace rows come from Agent Framework workflow events",
+    r"\bcheck_protocol\b": "removed; agent replies parse into typed contracts",
+    r"\bcheck_handoff\b": "removed with the JSON Schema registry",
+    r"\bcontracts_registry\b": "removed; nothing validates JSON Schemas at runtime",
+    r"\bContractsRegistry\b": "removed; nothing validates JSON Schemas at runtime",
+    r"contracts/v1": "removed; each agent's schemas live in agents/<id>/schemas",
+    r"\bPROTOCOL_VALIDATION_FAILED\b": "removed with the JSON Schema registry",
+    r"\benvelopes\.py\b": "removed with the JSON Schema registry",
+    r"\brun_evals\.py\b": "removed; grading is run_agent_evals (Agent Framework evals)",
+    r"\bexpected_checks\.yaml\b": "removed with run_evals.py",
+    r"\bORCHESTRATION_TOTAL_BUDGET_SECONDS\b": "removed; the app sets no run budget",
+    r"\bFOUNDRY_RUN_TIMEOUT_SECONDS\b": "removed; the client SDK's own timeout applies",
+    r"\borchestration_budget_exhausted\b": "removed with the run budget",
+    r"\bcollect_call_metrics\b": "removed; model and tokens come from the agent response",
+    r"\bCallMetrics\b": "removed; model and tokens come from the agent response",
+    r"\bdrain_calls\b": "removed; model and tokens come from the agent response",
+    r"\btrace_local\b": "removed; trace rows come from Agent Framework workflow events",
+    r"\bsave_svg\b": ".NET Agent Framework has no SVG export; both tracks emit DOT",
 }
 
 # This file necessarily names the things it forbids. `scanner.py` lists
@@ -130,6 +153,8 @@ def main() -> int:
         rules = dict(FORBIDDEN)
         if path.suffix == ".md":
             rules.update(FORBIDDEN_IN_DOCS)
+        if not rel.startswith("docs/adr/"):
+            rules.update(FORBIDDEN_OUTSIDE_ADRS)
         for pattern, reason in rules.items():
             for match in re.finditer(pattern, text, re.IGNORECASE):
                 line = text[: match.start()].count("\n") + 1

@@ -62,9 +62,8 @@ resource "azurerm_linux_web_app" "api" {
       python_version = "3.13"
     }
 
-    # The deployed zip preserves the repo layout, because
-    # app/contracts_registry.py resolves contracts/ via parents[4] and
-    # prompt_envelope.py resolves agents/ via parents[5]. --app-dir puts
+    # The deployed zip preserves the repo layout, because prompt_envelope.py
+    # resolves agents/ via parents[5]. --app-dir puts
     # python/services/api on sys.path without flattening that structure.
     app_command_line = "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir python/services/api"
 

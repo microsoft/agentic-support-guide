@@ -21,8 +21,9 @@ const API_ORIGIN = (process.env.API_ORIGIN ?? "").replace(/\/$/, "");
 const API_KEY = process.env.API_SHARED_KEY ?? "";
 const ROOT = resolve(fileURLToPath(new URL("./dist", import.meta.url)));
 
-// Longer than the API's 120s orchestration budget, so a slow but legitimate
-// four-agent request is not cut off by the proxy instead of the API.
+// A run has no overall time limit of its own, so the proxy sets one: long
+// enough for a slow but legitimate four-agent request, and shorter than App
+// Service's 230 s front-end limit so the browser gets an answer from us.
 const UPSTREAM_TIMEOUT_MS = 180_000;
 
 // Nothing this app sends is large. A saved plan carries a full recommendation,

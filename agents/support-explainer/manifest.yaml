@@ -3,7 +3,7 @@ name: Support Explainer
 version: 1.0.0
 
 # Published to Foundry as a prompt agent. Foundry runs it; there is no
-# application code. See scripts/publish_prompt_agents.py.
+# application code. See each track's publish_prompt_agents tool.
 foundry:
   model_deployment_env: FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER
   response_format: text

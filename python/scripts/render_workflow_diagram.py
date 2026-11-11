@@ -2,6 +2,7 @@
 
     python python/scripts/render_workflow_diagram.py            # print
     python python/scripts/render_workflow_diagram.py --write    # update the docs
+    python python/scripts/render_workflow_diagram.py --dot      # app graph as DOT
 
 Uses `WorkflowViz`, so the diagram is generated from the workflow that
 actually runs rather than drawn by hand. `tests/test_sample_workflows.py`
@@ -45,10 +46,9 @@ def _app_workflow() -> Any:
     the API calls, with the same nodes and the same edge conditions.
     """
 
-    from app.contracts_registry import load_registry
     from app.evidence import FixtureEvidenceRetriever
     from app.workflows.graph import build_plan_workflow
-    from app.workflows.results import CoordinatorRequest, RunState
+    from app.workflows.results import CoordinatorRequest, RunContext
 
     request = CoordinatorRequest(
         dealer_group_id="GROUP-A",
@@ -67,20 +67,18 @@ def _app_workflow() -> Any:
         allowed_goal_ids=(),
         allowed_strategy_ids=(),
     )
-    state = RunState(
+    context = RunContext(
         correlation_id="diagram",
         dealer_group_id="GROUP-A",
         provider_model="",
-        deadline=0.0,
     )
     return build_plan_workflow(
         request=request,
-        state=state,
+        context=context,
         runtime=cast(Any, None),
-        contracts=load_registry(),
         evidence_retriever=FixtureEvidenceRetriever(),
         provider_display="",
-    ).workflow
+    )
 
 
 def render(key: str) -> str:
@@ -111,19 +109,17 @@ def _pattern(marker: str) -> re.Pattern[str]:
     )
 
 
-def save_app_svg(destination: Path) -> Path:
-    """Write the app graph as SVG using Agent Framework's own renderer.
+def app_dot() -> str:
+    """The app graph in Graphviz DOT, straight from Agent Framework.
 
-    `save_svg` shells out to Graphviz `dot`, which App Service does not have.
-    The SVG is therefore generated here and committed, the same way
-    docs/architecture.svg is, so the UI can serve it as a static asset.
+    Pipe it through Graphviz `dot -Tsvg` to refresh
+    apps/web/public/workflow-graph.svg. The SVG is committed because App
+    Service has no Graphviz.
     """
 
     from agent_framework import WorkflowViz
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    produced = Path(WorkflowViz(_app_workflow()).save_svg(str(destination)))
-    return produced
+    return WorkflowViz(_app_workflow()).to_digraph().strip()
 
 
 def _find_block(text: str, marker: str, path: Path) -> re.Match[str]:
@@ -176,17 +172,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true", help="Update the docs in place.")
     parser.add_argument(
-        "--svg",
+        "--dot",
         action="store_true",
-        help="Also write the app graph SVG the UI serves.",
+        help="Print the app graph as Graphviz DOT and exit.",
     )
     args = parser.parse_args()
 
+    if args.dot:
+        print(app_dot())
+        return 0
+
     changed = 0
     problems = 0
-    if args.svg:
-        out = save_app_svg(REPO_ROOT / "apps" / "web" / "public" / "workflow-graph.svg")
-        print(f"  wrote {out.relative_to(REPO_ROOT)}")
 
     for key, marker, path in DIAGRAMS:
         mermaid = render(key)

@@ -25,10 +25,6 @@ PROTOTYPE_BANNER: str = (
 PROVIDER_DISPLAY_CONFIGURED: str = "Microsoft Foundry (Agent Framework, prompt agents)"
 PROVIDER_DISPLAY_UNCONFIGURED: str = "unconfigured (Microsoft Foundry not set up)"
 
-# Per-run remote agent budget (single Foundry run).
-FOUNDRY_RUN_TIMEOUT_SECONDS: float = 30.0
-# Whole-workflow budget across all remote agent invocations.
-ORCHESTRATION_TOTAL_BUDGET_SECONDS: float = 120.0
 CONCERN_TEXT_MAX_LEN: int = 1000
 
 CONTRACT_VERSION: str = "1.0.0"

@@ -13,12 +13,12 @@ is empty and the Validator Agent will fail the draft.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pydantic import ValidationError
 
 from ...evidence import EvidenceBundle
-from ...foundry_agents.maf_runtime import MafAgentRuntime
+from ...foundry_agents.maf_runtime import MafAgentRuntime, RoleResponse
 from ..shared.contracts import (
     Citation,
     DataAnalystOutput,
@@ -96,6 +96,7 @@ class DraftResult:
     draft: SupportRecommendationDraft
     citations_proposed: int
     citations_accepted: int
+    call: RoleResponse | None = None
 
 
 def _attach_citations(
@@ -143,16 +144,14 @@ class SupportRecommendationAgent:
         context: SupportRecommenderContext,
         *,
         repair_guidance: str = "",
-        deadline: float | None = None,
     ) -> DraftResult:
         response = await self._runtime.invoke(
             role=AGENT_NAME,
             user_message=_build_prompt(analysis, context, repair_guidance),
             response_model=SupportRecommendationModelOutput,
-            deadline=deadline,
         )
         output = parse_role_response(response, SupportRecommendationModelOutput)
-        return _attach_citations(output, context)
+        return replace(_attach_citations(output, context), call=response)
 
     async def recommend(
         self,
@@ -160,12 +159,10 @@ class SupportRecommendationAgent:
         context: SupportRecommenderContext,
         *,
         repair_guidance: str = "",
-        deadline: float | None = None,
     ) -> SupportRecommendationDraft:
         result = await self.recommend_with_counts(
             analysis,
             context,
             repair_guidance=repair_guidance,
-            deadline=deadline,
         )
         return result.draft

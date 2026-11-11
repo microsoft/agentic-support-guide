@@ -27,7 +27,7 @@ DATA_CLOSE = "<<<END_UNTRUSTED_DATA>>>"
 UNTRUSTED_BLOCK_MAX_LEN = 12000
 
 # Uppercase snake case, minimum four characters so freeform tokens like "OK"
-# never survive. Mirrors the issue-code format in contracts/v1/agent-trace.
+# never survive. Issue codes in the agent trace use the same format.
 CODE_REGEX = re.compile(r"^[A-Z][A-Z0-9_]{3,59}$")
 
 

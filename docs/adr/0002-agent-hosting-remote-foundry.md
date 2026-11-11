@@ -35,7 +35,7 @@ directly and does not fall back to a local runtime.
   `/agents/<id>/manifest.yaml` (see the `foundry:` block).
 - Inter-agent protocol lives in `/contracts/v1/*.schema.json` and is
   validated by
-  [`services/api/app/contracts_registry.py`](../../python/services/api/app/contracts_registry.py).
+  `services/api/app/contracts_registry.py` (since removed).
 - Remote agents are created/updated by
   `scripts/sync_foundry_agents.py` (since removed),
   which composes runtime instructions = `agent.md` body + a fixed

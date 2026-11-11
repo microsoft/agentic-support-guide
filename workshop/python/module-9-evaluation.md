@@ -10,13 +10,13 @@ what these graders can and cannot tell you.
 
 ## Two different questions
 
-You met `python/scripts/run_evals.py` in Module 7. It answers:
+The validator's deterministic checks, which you read in Module 3, answer:
 
 > Is the output structurally valid, correctly shaped, dealer group-scoped, and
 > free of prohibited language?
 
-Those are deterministic checks. They pass or fail the same way every time,
-they need no model, and they run offline in about a second.
+They pass or fail the same way every time, they need no model, and they run
+on every request.
 
 They cannot answer:
 
@@ -48,48 +48,44 @@ That is worth saying plainly because it sets the limits:
 
 ## 1. Run the deterministic checks first
 
-`--offline` builds the FastAPI app with canned model responses and drives the
-six cases in [evals/synthetic_cases.jsonl](../../evals/synthetic_cases.jsonl)
-through the real coordinator. No Azure, no tokens.
+The test suite proves each check fires. Run the tests that guard the output
+— no Azure, no tokens:
 
 ```powershell
-.\python\services\api\.venv\Scripts\python.exe python\scripts\run_evals.py --offline
+Push-Location python\services\api
+.\.venv\Scripts\python.exe -m pytest tests/test_agents.py tests/test_validator_citation_checks.py tests/test_validator_hardening.py tests/test_determinations.py
+Pop-Location
 ```
 
-All six cases should pass.
+They should all pass.
 
-Open [evals/expected_checks.yaml](../../evals/expected_checks.yaml) alongside
-`score_envelope` in [python/scripts/run_evals.py](../../python/scripts/run_evals.py). Notice
-what the checks deliberately do *not* do: they never assert on exact model
-prose. They check structure, catalog membership, dealer group scoping, and
-the presence of the human-review caveat:
+Open [checks.py](../../python/services/api/app/agents/validator/checks.py).
+Notice what the checks deliberately do *not* do: they never assert on exact
+model prose. They check structure, catalog membership, dealer group scoping,
+and the presence of the human-review caveat:
 
 ```python
-def _check_recommendation(result: CaseResult, rec: dict[str, Any]) -> None:
-    completeness = rec.get("completeness") or {}
-    if completeness.get("ok") is not True:
-        _fail(result, "recommendation.completeness.ok is not true")
+def check_caveats(payload: ValidatorInput, findings: Findings) -> None:
+    if not payload.draft.caveats:
+        findings.flag("MISSING_CAVEATS", "caveats")
+        return
+    caveat_text = " ".join(payload.draft.caveats).lower()
+    if not all(keyword in caveat_text for keyword in REQUIRED_KEYWORD_CAVEATS):
+        findings.flag("MISSING_HUMAN_REVIEW_CAVEAT", "caveats")
 
-    if not TIER_PATTERN.search(str(rec.get("support_tier", ""))):
-        _fail(result, f"support_tier lacks tier framing: {rec.get('support_tier')!r}")
 
-    window = rec.get("review_window_days")
-    if not isinstance(window, int) or not (7 <= window <= 180):
-        _fail(result, f"review_window_days out of range: {window!r}")
-
-    caveats = " ".join(str(c) for c in (rec.get("caveats") or [])).lower()
-    if REQUIRED_CAVEAT_PHRASE not in caveats:
-        _fail(result, "caveats missing the required 'human review' phrase")
-
-    for field_name in offending_fields(rec, skip=DETERMINATION_SCAN_SKIP):
-        _fail(result, f"{field_name} asserts a forbidden determination")
+def check_support_tier(payload: ValidatorInput, findings: Findings) -> None:
+    tier = payload.draft.support_tier.lower()
+    if not any(pattern in tier for pattern in REQUIRED_TIER_PATTERNS):
+        findings.flag("INVALID_SUPPORT_TIER", "support_tier")
 ```
 
 Prose varies between runs and between model versions. Locking it down creates
 a test that fails for the wrong reasons.
 
-Note that none of these checks short-circuit either. A case that breaks three
-rules reports all three, so one pass over the output tells you everything.
+Note that none of these checks short-circuit either. A draft that breaks
+three rules is told about all three, so one repair round can address
+everything.
 
 ## 2. Grade your agent in the portal
 
@@ -349,7 +345,7 @@ Two useful gates:
 
 ```powershell
 # Fast, free, deterministic. Run on every commit.
-.\python\services\api\.venv\Scripts\python.exe python\scripts\run_evals.py --offline
+Push-Location python\services\api; .\.venv\Scripts\python.exe -m pytest; Pop-Location
 
 # Slow, costs tokens, non-deterministic. Run before a release.
 .\python\services\api\.venv\Scripts\python.exe python\scripts\run_agent_evals.py --apply
@@ -364,10 +360,10 @@ prompt and teach your team to ignore red builds.
 This needs the app registration from
 [Module 1](module-1-deploy-the-app.md), and nothing later depends on it.
 
-The offline gate is already wired.
+The deterministic gate is already wired.
 [.github/workflows/ci-python.yml](../../.github/workflows/ci-python.yml) runs
-`run_evals.py --offline` on every pull request, alongside the linters and tests. It
-needs no Azure credentials, because offline mode calls nothing.
+the test suite on every pull request, alongside the linters. It needs no Azure
+credentials, because the tests call nothing.
 
 The graded one is [.github/workflows/evaluate-python.yml](../../.github/workflows/evaluate-python.yml),
 and it is `workflow_dispatch` only — the same reasoning as above, expressed
@@ -405,7 +401,7 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --body (terraform -chdir=python/i
 Then:
 
 ```powershell
-gh workflow run evaluate.yml
+gh workflow run evaluate-python.yml
 gh run watch --exit-status
 ```
 

@@ -427,7 +427,7 @@ probe. Does the `strict` column diverge?
 | **Citation presence and ownership** | **Your code** | `check_citations` |
 | **Cross-dealer group leakage** | **Your code** | `check_citations`, `check_dealer_group`, the index filter |
 | **Domain determinations** | **Your code** | `check_forbidden_determinations` |
-| **Off-contract JSON** | **Your code** | `step.check_protocol` |
+| **Off-contract JSON** | **Your code** | `parse_role_response` |
 | Claim-level groundedness | **Measured, not enforced** | Module 9 graders |
 
 ---

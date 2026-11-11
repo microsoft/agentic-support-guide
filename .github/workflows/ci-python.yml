@@ -96,9 +96,3 @@ jobs:
       # deploy; this validates the definitions the runtime loads.
       - name: Validate agent definitions
         run: python python/scripts/validate_agent_definitions.py
-
-      # Scores the synthetic cases against evals/expected_checks.yaml using
-      # in-repo fixtures. Structural and safety only, no Azure, no cost.
-      - name: Run evals (offline)
-        run: python ../../scripts/run_evals.py --offline
-        working-directory: python/services/api
