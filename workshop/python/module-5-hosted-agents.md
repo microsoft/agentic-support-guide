@@ -18,9 +18,10 @@ There is no container registry and no Docker build in your CI. The build
 happens server-side, the same way App Service's Oryx build did in Module 1.
 
 The contract your code has to satisfy is the **Responses protocol**: an HTTP
-shape where the caller sends a request and the server streams back a sequence
-of typed events rather than one JSON body. Streaming is why the handler is an
-async generator that `yield`s instead of a function that returns.
+shape where the caller sends a request and the server either returns one JSON
+body or streams back a sequence of typed events. You do not implement it:
+Agent Framework's `ResponsesHostServer` takes an agent and serves it over that
+protocol, streamed or not, as the caller asks.
 
 ## When you actually need one
 
@@ -40,44 +41,51 @@ The identity row is the one people undervalue. Step 6 makes it concrete.
 Two files matter:
 
 - [python/hosted/support-explainer/main.py](../../python/hosted/support-explainer/main.py) —
-  the Responses-protocol server
+  the agent and the server that hosts it
 - [python/hosted/support-explainer/safety.py](../../python/hosted/support-explainer/safety.py) —
   input bounds and the output gate, kept separate so it is unit-testable
   without booting the server
 
-The server itself is small:
+The whole of `main.py` is an agent and a host:
 
 ```python
-app = ResponsesAgentServerHost()
+agent = Agent(
+    client=FoundryChatClient(
+        project_endpoint=os.environ["AZURE_AI_FOUNDRY_PROJECT_ENDPOINT"],
+        model=os.environ["FOUNDRY_MODEL_DEPLOYMENT"],
+        credential=DefaultAzureCredential(),
+    ),
+    name="support-explainer",
+    instructions=Path(__file__).with_name("instructions.md").read_text(encoding="utf-8"),
+    middleware=[SafetyGate()],
+    default_options={"store": False},
+)
 
-
-@app.response_handler
-async def handle(request, context, cancellation_signal):
-    question = extract_question(request)
-    if not question:
-        answer = "Ask a question about dealership support practice."
-    else:
-        answer = gate(await _answer(question))
-    async for event in TextResponse(context, request, text=answer):
-        yield event
+server = ResponsesHostServer(agent, history_source="agent")
 ```
 
-`ResponsesAgentServerHost` is the server; `@app.response_handler` registers
-the one function it calls per request. `cancellation_signal` is how the host
-tells you the caller hung up — a long-running handler should check it rather
-than finish work nobody is waiting for. This one answers in a single model
-call, so it does not.
+`ResponsesHostServer` is the Responses-protocol server; `server.run()` starts
+it on the port Foundry routes to. `SafetyGate` is Agent Framework **agent
+middleware**: it wraps every call the host makes to the agent, so whatever
+arrives — streamed or not — passes through it on the way in and on the way
+out.
 
-Four things to notice before you deploy:
+Things to notice before you deploy:
 
-- **`request` is a plain `dict`, not an object.** `getattr(request, "input")`
-  returns `None`, and your agent silently answers nothing useful. This cost a
-  real deploy cycle to find. `extract_question` handles the dict shape.
 - **This endpoint does its own safety work.** It never reaches the API's
-  coordinator or validator agent, so `safety.py` bounds its input,
-  wraps it as untrusted data, and gates the output. A hosted agent is a new
-  trust boundary, not just a new deployment target, so the fencing has to be
+  coordinator or validator agent, so `SafetyGate` bounds its input, wraps it
+  as untrusted data, and gates the output. A hosted agent is a new trust
+  boundary, not just a new deployment target, so the fencing has to be
   rebuilt here from scratch.
+- **Nothing carries over between requests.** The gate hands the agent only
+  this request's question, with no session and none of the caller's options.
+  An earlier turn, a caller's own `instructions` or a different model never
+  reach the model. An empty question gets a fixed reply and no model call at
+  all.
+- **A streamed answer is held until it is whole.** A gate that has seen half
+  an answer cannot withhold the other half, so for a streamed call the gate
+  buffers the answer, checks it, and releases the result in one piece.
+  Streaming still works; the text simply arrives at once.
 - **Instructions and the shared helpers are not duplicated by hand.** The publish
   script composes instructions from the same
   [agents/support-explainer/agent.md](../../agents/support-explainer/agent.md)
@@ -105,9 +113,9 @@ the zip in memory, and prints its manifest without uploading anything:
 Agent name : asg-hosted-explainer-<your-alias>
 Runtime    : python_3_13
 Entrypoint : python main.py
-Protocol   : responses v1.0.0
+Protocol   : responses v2.0.0
 Resources  : cpu=1 memory=2Gi
-Zip        : 10,418 bytes, sha256=46e69cf6f713cc2b...
+Zip        : 10,695 bytes, sha256=2b87f7d20ad740d7...
              main.py
              requirements.txt
              safety.py
@@ -126,6 +134,7 @@ from the archive root, so nesting the files breaks it.
 Note the sha256. The zip pins a fixed entry timestamp, so two dry runs of
 unchanged source produce the same hash,
 which is how you tell whether a redeploy would actually change anything.
+Foundry reads it the same way — section 5 shows what that saves you.
 
 ## 3. Deploy
 
@@ -135,9 +144,9 @@ which is how you tell whether a redeploy would actually change anything.
 
 ```
 Uploading and starting remote build...
-Upload took 24s. Version: 1
+Upload took 3s. Version: 1
   [   0s] creating
-  [  41s] active
+  [ 112s] active
 ```
 
 The first deploy is the slow one. That poll output is Foundry installing your
@@ -181,76 +190,84 @@ behaviour above is what the script relies on.
 
 ## 5. Measure your change loop
 
+First, publish again without changing anything:
+
 ```powershell
 Measure-Command {
   .\python\services\api\.venv\Scripts\python.exe python\scripts\publish_hosted_agent.py --suffix <your-alias> --apply
 }
 ```
 
-Reference numbers for this agent — one file, four dependencies:
+```
+Upload took 4s. Version: 1
+  [   0s] active
+```
 
-| | Cold | Warm |
-| --- | --- | --- |
-| Upload | 24s | 4-5s |
-| Remote build | ~41s | ~41s |
-| **Change to live** | | **~49s** |
+No new version and no build. Foundry recognised the sha256 and handed back
+the version it already had. That is why the zip's hash is pinned: an
+unchanged deploy costs seconds and changes nothing.
+
+Now change one line — a comment in `main.py` is enough — and run the same
+command. This time you get a new version and a real build. Revert the
+comment afterwards.
+
+Reference numbers for this agent, measured November 2026:
+
+| | Upload | Remote build | Change to live |
+| --- | --- | --- | --- |
+| Unchanged source | 4s | none | **~10s**, same version |
+| Changed source | 4s | ~41s | **~51s**, new version |
+| First build of these dependencies | 3s | ~112s | ~2 minutes |
 
 Compare against Module 4. Editing a prompt agent's instructions and
-republishing takes a couple of seconds. Editing hosted agent code takes ~49
-seconds — and this is a *small* app. More dependencies, longer build.
+republishing takes a couple of seconds. Editing hosted agent code takes
+about 50 seconds — and this is a *small* app. More dependencies, longer build.
 
 **Hosted-agent changes require a remote build.** Hosting costs you a build on every change. You
 pay it for custom dependencies, private network access, and a dedicated
 identity. If you do not need those, do not pay it.
 
-## 6. Find its identity, and grant it access
+## 6. Find its identity, and see what it can reach
 
 Open the agent in the portal and use **Agent info → Endpoint & IDs → View
 details**. Among the IDs is a principal ID that is **not yours**: the agent
 has an identity of its own. Copy it.
 
-Freshly deployed it holds **no permissions at all**, and cannot call the
-model until someone grants it access. Do this one in the portal — the IAM
-blade is where you will be asked to justify a grant, and seeing the agent's
-principal appear in a role assignment list is the lesson:
-1. Open your **AI Services account** → **Access control (IAM)**.
-2. **Add → Add role assignment**.
-3. Role: **Cognitive Services OpenAI User**.
-4. Members: select **User, group, or service principal**, and search for the
-   principal ID you just read. It resolves to the agent, not to you.
-5. Review and assign.
-
-The same grant from a shell, once you know which role you need:
-
-```powershell
-az role assignment create `
-  --assignee-object-id <principal_id> `
-  --assignee-principal-type ServicePrincipal `
-  --role "Cognitive Services OpenAI User" `
-  --scope <ai-services-account-resource-id>
-```
-
-Same three parts as the Terraform in Module 0 — a principal, a role
-definition, and a scope. The difference is the principal: this one is a
-**service principal**, the identity object that represents a workload rather
-than a person. `Cognitive Services OpenAI User` permits inference calls on
-the AI Services account and nothing else.
-
-This is what hosting buys you. You can grant *this agent* access to a
-specific database and audit what *this agent* did, instead of every agent
-sharing one identity. Prompt agents cannot do that — they run under the
-project's identity, so there is nothing to grant to.
-
-With the role assigned, ask it something. `invoke_hosted_agent.py` echoes the
-agent name and the same principal ID you just granted, then puts a question
-through the hosted endpoint:
+Ask it something. `invoke_hosted_agent.py` echoes the agent name and that
+same principal ID, then puts a question through the hosted endpoint:
 
 ```powershell
 .\python\services\api\.venv\Scripts\python.exe python\scripts\invoke_hosted_agent.py --suffix <your-alias>
 ```
 
-Role assignments take a minute or two to propagate. If this returns an
-authorisation error, wait and retry before changing anything.
+It answers. Now look at what that identity has been granted:
+
+```powershell
+az role assignment list --assignee <principal_id> --all -o table
+```
+
+Nothing. Foundry lets a hosted agent call the models in its own project
+without a role assignment. Anything outside the project is different — a
+storage account, a database, another project's models. Each of those needs a
+role assignment for *this* principal, made the same way Module 0's Terraform
+made yours:
+
+```powershell
+az role assignment create `
+  --assignee-object-id <principal_id> `
+  --assignee-principal-type ServicePrincipal `
+  --role "<role>" `
+  --scope <resource-id>
+```
+
+Same three parts — a principal, a role definition, and a scope. The
+difference is the principal: this one is a **service principal**, the
+identity object that represents a workload rather than a person.
+
+This is what hosting buys you. You can grant *this agent* access to a
+specific database and audit what *this agent* did, instead of every agent
+sharing one identity. Prompt agents cannot do that — they run under the
+project's identity, so there is nothing to grant to.
 
 ## 7. How rollback works
 
@@ -270,12 +287,12 @@ The agent's endpoint pins `@latest` at 100%:
 ```
 
 `@latest` is a moving alias, not a version number: it resolves to whatever
-you published most recently. `traffic_percentage` is the share of incoming
-requests that rule takes, so a list of rules whose percentages sum to 100
-describes the whole routing table.
+you published most recently. The endpoint sends all of its traffic to one
+version. The rules are a list, but splitting traffic between versions is not
+supported: one rule, at 100%.
 
-Rolling back means pointing that at a specific version instead of `@latest`,
-which is what `--rollback <version>` does:
+Rolling back means pointing that rule at a specific version instead of
+`@latest`, which is what `--rollback <version>` does:
 
 ```
 asg-hosted-explainer-<your-alias>: 100% of traffic now pinned to v1.
@@ -283,9 +300,24 @@ asg-hosted-explainer-<your-alias>: 100% of traffic now pinned to v1.
 
 **Notice what that does not do: build anything.** The version is already
 there, so recovery is a routing change measured in seconds rather than the
-~49 seconds a deploy costs. That property — rollback must not require a
+minute a changed deploy costs. That property — rollback must not require a
 build — is worth taking to a production design, and it is exactly what the
 App Service deployment in Module 1 does *not* have.
+
+Three things a rollback does not do:
+
+- **It does not move existing sessions.** Each call without a session ID
+  starts a new session, and a session is bound to the version that served it
+  first. A rollback sends *new* sessions to the old version; a caller still
+  using a session from the newer version stays on the newer version.
+- **It does not survive a protocol change.** A session created on a version
+  declaring Responses protocol `2.0.0` failed with *"Foundry hosted requests
+  require a trusted user ID and call ID"* once the endpoint was pinned to a
+  `1.0.0` version. Keep every version you might roll back to on the same
+  protocol.
+- **It does not follow your next publish.** While the rule names a version,
+  a new publish receives no traffic. Pin the newer version the same way to go
+  forward again.
 
 The script also refuses to pin traffic to a version whose build failed:
 
@@ -295,10 +327,6 @@ v2 is 'failed'; refusing to send traffic to it.
 
 That guard matters because of step 4: the version list will happily show you a
 failed version as though it were a candidate.
-
-The same mechanism splits traffic to **canary** a change — two rules with
-percentages that sum to 100, so a new version takes a small share of real
-traffic while you watch it, instead of all of it at once.
 
 ## 8. Notice what hosting did *not* fix
 
@@ -348,32 +376,28 @@ it means encoding what this module showed you:
 A reasonable shape, mirroring
 [.github/workflows/deploy-python.yml](../../.github/workflows/deploy-python.yml):
 `workflow_dispatch` only, federated credentials, publish, `--status`, then a
-real question through the agent as a smoke test. The agent's identity needs
-its own role assignment, as section 6 showed — the pipeline's service
-principal deploying the agent is not the same principal as the agent calling
-the model.
+real question through the agent as a smoke test. Keep the two identities
+apart: the pipeline's service principal deploys the agent, and the agent runs
+as its own principal, so a grant to one is not a grant to the other.
 
 ---
 
 ## Notes on timing
 
-- Deploys are ~49s each, so the edit-deploy-test loop in this module is
-  comfortably hands-on.
+- A changed deploy is about 50 seconds and an unchanged one about 10, so the
+  edit-deploy-test loop in this module is comfortably hands-on. The first
+  build is the slow one, at about two minutes.
 - Each learner deploys into their own project, but the remote build service
   is Azure's. **Concurrency at 30 simultaneous builds has not been
   measured.** If a whole room hits step 3 at the same moment and builds
   queue, that is why — stagger it rather than assuming something is broken.
-- Step 6 needs permission to create a role assignment on your AI Services
-  account. You already have it if you ran Module 0 as `Owner` or
-  `User Access Administrator`, which is why that is on the
-  [prerequisites](../README.md#prerequisites) list.
 
 ## Check yourself
 
 - [ ] You deployed and versioned your own agent.
 - [ ] You can explain why rollback here does not require a build.
 - [ ] You can state your change-to-live time from measurement, not guesswork.
-- [ ] You found your agent's principal ID and know why it needed a role.
+- [ ] You found your agent's principal ID and know what it needs a role assignment for.
 - [ ] You can explain why `list_versions` should not be trusted.
 - [ ] You can explain how the output gate withholds a determination.
 

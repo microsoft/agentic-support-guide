@@ -59,7 +59,7 @@ ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 RUNTIME = "python_3_13"
 ENTRY_POINT = ["python", "main.py"]
 PROTOCOL = "responses"
-PROTOCOL_VERSION = "1.0.0"
+PROTOCOL_VERSION = "2.0.0"
 CPU = "1"
 MEMORY = "2Gi"
 
@@ -137,6 +137,8 @@ def _definition(model_deployment: str, endpoint: str) -> Any:
         environment_variables={
             "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT": endpoint,
             "FOUNDRY_MODEL_DEPLOYMENT": model_deployment,
+            # Session uploads land under $HOME; Python must not import from there.
+            "PYTHONNOUSERSITE": "1",
         },
         code_configuration=CodeConfiguration(
             runtime=RUNTIME,
