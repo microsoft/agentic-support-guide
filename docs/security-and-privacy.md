@@ -53,7 +53,7 @@ by design than to remove later.
 ### Data minimization
 
 - The backend reads only the synthetic in-memory repositories in
-  [`services/api/app/repositories.py`](../services/api/app/repositories.py).
+  [`python/services/api/app/repositories.py`](../python/services/api/app/repositories.py).
 - No database and no file-system state beyond the in-memory saved-plans
   store. Evidence retrieval is the one external read, and only when
   `EVIDENCE_SOURCE=foundry_iq` points it at Azure AI Search.
@@ -61,22 +61,22 @@ by design than to remove later.
   boundary.
 
 **How to verify.** Read
-[`services/api/app/models.py`](../services/api/app/models.py) for the
+[`python/services/api/app/models.py`](../python/services/api/app/models.py) for the
 Pydantic request models and
-[`services/api/app/repositories.py`](../services/api/app/repositories.py)
+[`python/services/api/app/repositories.py`](../python/services/api/app/repositories.py)
 for the synthetic-only data path.
 
 ### Synthetic / non-prod data
 
 - Every dealership, region, KPI, and trend value is produced by
   deterministic factories seeded with `SEED = 20260101` in
-  [`services/api/app/config.py`](../services/api/app/config.py).
+  [`python/services/api/app/config.py`](../python/services/api/app/config.py).
 - No demo path reads from a live database.
 
 **How to verify.** Grep for `SEED` and inspect
-[`services/api/app/mock_data.py`](../services/api/app/mock_data.py).
+[`python/services/api/app/mock_data.py`](../python/services/api/app/mock_data.py).
 The privacy scanner test in
-[`services/api/tests/test_no_sensitive_content.py`](../services/api/tests/test_no_sensitive_content.py)
+[`python/services/api/tests/test_no_sensitive_content.py`](../maintenance/tests/test_no_sensitive_content.py)
 enforces that only allow-listed placeholder values appear anywhere.
 
 ### Prompt-injection boundaries
@@ -95,7 +95,7 @@ enforces that only allow-listed placeholder values appear anywhere.
   are **not** robust to obfuscation, and that is out of scope.
 
 **How to verify.** Read
-[`services/api/app/agents/shared/prompt_blocks.py`](../services/api/app/agents/shared/prompt_blocks.py).
+[`python/services/api/app/agents/shared/prompt_blocks.py`](../python/services/api/app/agents/shared/prompt_blocks.py).
 Run `pytest -k prompt_blocks` for the covering tests.
 
 ### Agent-to-agent trust boundaries
@@ -111,11 +111,11 @@ Run `pytest -k prompt_blocks` for the covering tests.
   critique text.
 
 **How to verify.** Read `StepRunner.check_protocol` in
-[`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py),
+[`python/services/api/app/workflows/steps.py`](../python/services/api/app/workflows/steps.py),
 `PlanRun.check_handoff` in
-[`services/api/app/workflows/executors.py`](../services/api/app/workflows/executors.py),
+[`python/services/api/app/workflows/executors.py`](../python/services/api/app/workflows/executors.py),
 and the payload builders in
-[`services/api/app/workflows/envelopes.py`](../services/api/app/workflows/envelopes.py).
+[`python/services/api/app/workflows/envelopes.py`](../python/services/api/app/workflows/envelopes.py).
 
 ### Keyless auth
 
@@ -126,15 +126,15 @@ and the payload builders in
   account and never reads model keys. No key is written to Key Vault.
 
 **How to verify.** Read
-[`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py)
+[`python/services/api/app/foundry_agents/maf_client.py`](../python/services/api/app/foundry_agents/maf_client.py)
 and
-[`infra/ai_foundry.tf`](../infra/ai_foundry.tf) (the
+[`python/infra/ai_foundry.tf`](../python/infra/ai_foundry.tf) (the
 `local_auth_enabled` setting on the `azurerm_cognitive_account`
 resource).
 
 ### RBAC
 
-`infra/rbac.tf` creates eleven role assignments. They fall into three
+`python/infra/rbac.tf` creates eleven role assignments. They fall into three
 groups.
 
 The learner (or the `principal_id` passed through `terraform.tfvars`):
@@ -169,7 +169,7 @@ learners who share one. Set `grant_search_control_plane = false` to
 withhold it; Module 6 then requires an index created for you.
 
 **How to verify.** Search for `azurerm_role_assignment` in
-[`/infra`](../infra).
+[`/infra`](../python/infra).
 
 ### No prompt / completion logging
 
@@ -183,9 +183,9 @@ withhold it; Module 6 then requires an index created for you.
   concern text, or secrets.
 
 **How to verify.** Read
-[`services/api/app/observability.py`](../services/api/app/observability.py)
+[`python/services/api/app/observability.py`](../python/services/api/app/observability.py)
 and
-[`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py).
+[`python/services/api/app/runtime_audit.py`](../python/services/api/app/runtime_audit.py).
 See [Observability](observability.md) for the safe schema.
 
 ### Metadata-only observability
@@ -196,9 +196,9 @@ See [Observability](observability.md) for the safe schema.
   token.
 
 **How to verify.** Inspect
-[`services/api/app/diagnostics.py`](../services/api/app/diagnostics.py)
+[`python/services/api/app/diagnostics.py`](../python/services/api/app/diagnostics.py)
 and the test at
-[`services/api/tests/test_health_details.py`](../services/api/tests/test_health_details.py)
+[`python/services/api/tests/test_health_details.py`](../python/services/api/tests/test_health_details.py)
 that plants canary values in settings and asserts they never appear
 in the response body.
 
@@ -218,7 +218,7 @@ the persistent banner in the frontend layout.
 
 - `.env`, `terraform.tfvars`, and `*.tfstate` are gitignored.
 - `.env.example`, `terraform.tfvars.example`, and
-  `services/api/.env.example` contain placeholder values
+  `python/services/api/.env.example` contain placeholder values
   only.
 - Application Insights connection string is marked `sensitive = true`
   in Terraform outputs.
@@ -369,7 +369,7 @@ per-dealer group fixtures via `FixtureEvidenceRetriever`. See
 
 Every recommendation is created in `human_review_state = pending_review`.
 Allowed transitions live in
-[`services/api/app/human_review.py`](../services/api/app/human_review.py):
+[`python/services/api/app/human_review.py`](../python/services/api/app/human_review.py):
 
 ```
 draft            -> pending_review

@@ -35,7 +35,7 @@ appear as an assistant in Foundry.
 - [`architecture.svg`](architecture.svg) — the **GitHub-rendered
   companion image**. It is currently a hand-maintained SVG that mirrors
   the DSL model.
-- [`../scripts/render-architecture-diagram.ps1`](../scripts/render-architecture-diagram.ps1)
+- [`../scripts/render-architecture-diagram.ps1`](../maintenance/render-architecture-diagram.ps1)
   — regeneration helper. It shells out to `structurizr-cli` and
   `plantuml` if both are on `PATH`, or exits with a clear installation
   hint if they are not.
@@ -50,7 +50,7 @@ convention.
 When the DSL changes, the operator should either:
 
 1. install `structurizr-cli` and `plantuml`, then run
-   `./scripts/render-architecture-diagram.ps1`, or
+   `./maintenance/render-architecture-diagram.ps1`, or
 2. hand-edit `architecture.svg` to match the new DSL and commit both
    files together.
 

@@ -3,7 +3,7 @@
 This folder holds the versioned JSON Schemas used at the **agent
 boundary**. Agents exchange messages that validate against these
 schemas. Local runtime type stubs may exist inside
-`services/api/app/`, but the schemas here are the source of truth.
+`python/services/api/app/`, but the schemas here are the source of truth.
 
 ## Versioning
 
@@ -67,7 +67,7 @@ Every message across an agent boundary looks like:
 - `issue_codes` and `warning_codes` fields enforce the pattern
   `^[A-Z][A-Z0-9_]{3,59}$`. Free-text critique from an LLM is stripped
   by the runtime before it can reach these fields (see
-  `services/api/app/agents/shared/prompt_blocks.py`).
+  `python/services/api/app/agents/shared/prompt_blocks.py`).
 - Every message that ships to the UI or audit trail must have already
   passed schema validation once. If validation fails, the coordinator
   returns a safe typed error and no payload content.
@@ -81,5 +81,5 @@ Every message across an agent boundary looks like:
   `example.invalid`.
 
 The privacy scanner in
-[`services/api/tests/scanner.py`](../services/api/tests/scanner.py)
+[`python/services/api/tests/scanner.py`](../maintenance/tests/scanner.py)
 scans this folder along with the rest of the repo.

@@ -19,14 +19,14 @@ An agent whose entire definition is instructions plus a model binding, with
 no code. This repo's three roles are prompt agents: the runtime composes
 instructions from `agent.md` in-process and makes a single-turn Responses
 call. The same definitions are also published to Foundry as versioned,
-visible artifacts by `scripts/publish_prompt_agents.py`, but the application
+visible artifacts by `python/scripts/publish_prompt_agents.py`, but the application
 does not call the published copies.
 
 ## Coordinator
 
 Deterministic application code that builds the Agent Framework graph,
 validates inter-agent messages, and enforces timeouts and budgets. Lives in
-[`services/api/app/workflows/`](../services/api/app/workflows/).
+[`python/services/api/app/workflows/`](../python/services/api/app/workflows/).
 The coordinator is **not an agent** — it does not talk to a language
 model.
 
@@ -34,7 +34,7 @@ model.
 
 The **Foundry Agent Service** capability. It hosts agents, their
 versions, and — for hosted agents — the container that runs your code. This
-repo invokes it through [`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py).
+repo invokes it through [`python/services/api/app/foundry_agents/maf_client.py`](../python/services/api/app/foundry_agents/maf_client.py).
 
 ## Foundry Project
 
@@ -48,7 +48,7 @@ A named, region-scoped deployment of a specific model (for example
 `gpt-4.1-mini`) inside an Azure AI Services / Foundry account. Terraform
 provisions three: `asg-chat` for the three roles, `asg-router` for the model
 router, and `asg-judge` for evaluation. Per-role deployments are supported by
-the env-var scheme in `services/api/.env.example`.
+the env-var scheme in `python/services/api/.env.example`.
 
 ## Protocol contract
 
@@ -71,9 +71,9 @@ synthetic cases. Evaluations grade the **structure and safety** of the
 output (does it use only allowed IDs, does it include the required
 human-review caveat), not the exact wording. This repo's synthetic
 cases live in [`/evals`](../evals) and are scored by
-[`scripts/run_evals.py`](../scripts/run_evals.py), which runs offline on
+[`python/scripts/run_evals.py`](../python/scripts/run_evals.py), which runs offline on
 every pull request. Answer quality is graded separately and on demand by
-[`scripts/run_agent_evals.py`](../scripts/run_agent_evals.py), which calls a
+[`python/scripts/run_agent_evals.py`](../python/scripts/run_agent_evals.py), which calls a
 live judge model. Module 9 runs both.
 
 ## GenAIOps
@@ -111,7 +111,7 @@ A pattern where the application never holds a static API key.
 Instead, `DefaultAzureCredential` from `azure-identity` acquires a
 short-lived bearer token for the target resource using the developer's
 `az login`, a managed identity, or a workload identity. This repo
-uses it in [`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py).
+uses it in [`python/services/api/app/foundry_agents/maf_client.py`](../python/services/api/app/foundry_agents/maf_client.py).
 
 ## RBAC
 
@@ -156,7 +156,7 @@ and `confidence`. Never contains the raw document body. Defined in
 ## Evidence bundle
 
 The result of a call to
-[`EvidenceRetriever.retrieve(...)`](../services/api/app/evidence/retrieval.py).
+[`EvidenceRetriever.retrieve(...)`](../python/services/api/app/evidence/retrieval.py).
 Carries a `dealer_group_id` and a collection of `Citation` items scoped
 to that dealer group. Attached to the Support Recommendation Agent's
 context; consumed by the Validator Agent to verify citation
@@ -167,7 +167,7 @@ integrity. See
 
 The lifecycle field on each recommendation: `draft`, `pending_review`,
 `approved`, or `rejected`. Transitions are enforced in
-[`services/api/app/human_review.py`](../services/api/app/human_review.py):
+[`python/services/api/app/human_review.py`](../python/services/api/app/human_review.py):
 `draft -> pending_review`, `pending_review -> approved|rejected`,
 `rejected -> pending_review`. `approved` is terminal. Transitions
 happen through `POST /api/supports/plans/{plan_id}/review` and are

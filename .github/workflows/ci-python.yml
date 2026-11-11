@@ -1,0 +1,104 @@
+name: CI (Python)
+
+# The Python track only. Nothing here installs or calls .NET.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-python-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (FastAPI)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python/services/api
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: python/services/api/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Check formatting
+        run: ruff format --check . ../../scripts ../../hosted
+
+      - name: Lint
+        run: ruff check . ../../scripts ../../hosted
+
+      - name: Type check
+        run: mypy .
+
+      - name: Validate agent definitions
+        working-directory: .
+        run: python python/scripts/validate_agent_definitions.py
+
+      - name: Test
+        run: pytest
+
+  infra:
+    name: Infrastructure (Terraform)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python/infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      # No backend/credentials needed: validate only checks configuration.
+      - name: Initialize without a backend
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate
+
+  agent-definitions:
+    name: Agent definitions (validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: python/services/api/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r python/services/api/requirements-dev.txt
+
+      # Offline GenAIOps gate. Agents are ephemeral, so there is nothing to
+      # deploy; this validates the definitions the runtime loads.
+      - name: Validate agent definitions
+        run: python python/scripts/validate_agent_definitions.py
+
+      # Scores the synthetic cases against evals/expected_checks.yaml using
+      # in-repo fixtures. Structural and safety only, no Azure, no cost.
+      - name: Run evals (offline)
+        run: python ../../scripts/run_evals.py --offline
+        working-directory: python/services/api

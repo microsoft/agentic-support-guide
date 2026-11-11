@@ -68,7 +68,7 @@ A well-run GenAIOps workflow does most of these:
   startup, so the version that runs locally is exactly the version on the
   branch. A prompt edit needs a backend restart, not a publish.
 - Publishing the same definitions to Foundry as prompt agents is a separate,
-  explicit step (`scripts/publish_prompt_agents.py`), which is what makes
+  explicit step (`python/scripts/publish_prompt_agents.py`), which is what makes
   them visible and versioned in the portal. See
   [ADR 0006](adr/0006-published-prompt-agents.md).
 
@@ -90,9 +90,9 @@ Diffs on those files show up in every PR that changes a prompt.
   failures return a typed `PROTOCOL_VALIDATION_FAILED` error and no
   recommendation is surfaced.
 
-**How to verify.** Read [`services/api/app/contracts_registry.py`](../services/api/app/contracts_registry.py)
+**How to verify.** Read [`python/services/api/app/contracts_registry.py`](../python/services/api/app/contracts_registry.py)
 and `StepRunner.check_protocol` in
-[`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py).
+[`python/services/api/app/workflows/steps.py`](../python/services/api/app/workflows/steps.py).
 
 ### 3. Use synthetic eval datasets
 
@@ -101,8 +101,8 @@ and `StepRunner.check_protocol` in
   checks that must hold on the produced recommendation.
 - No real user data is used anywhere.
 
-**How to verify.** Run `python scripts/run_evals.py --offline` for the
-deterministic structural gate, and `python scripts/run_agent_evals.py
+**How to verify.** Run `python python/scripts/run_evals.py --offline` for the
+deterministic structural gate, and `python python/scripts/run_agent_evals.py
 --dry-run` for the graded quality pass. CI already runs the offline gate on
 every pull request; the graded pass is on demand only, and nothing blocks a
 merge on a live-model score.
@@ -110,7 +110,7 @@ merge on a live-model score.
 ### 4. Evaluate structure and safety, not exact prose
 
 - The Validator Agent runs deterministic Python checks in
-  [`services/api/app/agents/validator/checks.py`](../services/api/app/agents/validator/checks.py):
+  [`python/services/api/app/agents/validator/checks.py`](../python/services/api/app/agents/validator/checks.py):
   allowed resource / goal / strategy IDs, required caveats
   (including a "human review" clause), required support-tier framing
   (`baseline`, `focused`, `intensive`, or `advanced`), required
@@ -118,36 +118,36 @@ merge on a live-model score.
 - The LLM critique step may **add** advisory warning codes but cannot
   flip a deterministic pass into a failure. Free-text critique is
   filtered through
-  [`enforce_code()`](../services/api/app/agents/shared/prompt_blocks.py),
+  [`enforce_code()`](../python/services/api/app/agents/shared/prompt_blocks.py),
   which drops anything that is not uppercase snake case of at least
   four characters.
 
 **How to verify.** Read `DETERMINISTIC_CHECKS` in
-`services/api/app/agents/validator/checks.py`, the `validate()` method in
-`services/api/app/agents/validator/agent.py` that runs them, and their unit
+`python/services/api/app/agents/validator/checks.py`, the `validate()` method in
+`python/services/api/app/agents/validator/agent.py` that runs them, and their unit
 tests in
-[`services/api/tests/test_agents.py`](../services/api/tests/test_agents.py).
+[`python/services/api/tests/test_agents.py`](../python/services/api/tests/test_agents.py).
 
 ### 5. Track model deployment/config changes
 
 - The Foundry project, the AI Services account, and the model
-  deployment are provisioned by Terraform in [`/infra`](../infra) with
+  deployment are provisioned by Terraform in [`/infra`](../python/infra) with
   a pinned `.terraform.lock.hcl`.
 - The model deployment name is not hard-coded. The backend reads it
   per role from `FOUNDRY_MODEL_DEPLOYMENT_ANALYST`,
   `FOUNDRY_MODEL_DEPLOYMENT_RECOMMENDER`, and
-  `FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR` in `services/api/.env`.
+  `FOUNDRY_MODEL_DEPLOYMENT_VALIDATOR` in `python/services/api/.env`.
 - The role-to-deployment mapping comes from `manifest.yaml`
   (`foundry.model_deployment_env`) resolved against the environment at
   startup. There is no binding file, because there is no persisted
   agent to bind to.
-- `scripts/validate_agent_definitions.py` prints an `instructions_hash`
+- `python/scripts/validate_agent_definitions.py` prints an `instructions_hash`
   per role. A changed hash means the composed instructions changed, which
   is the drift signal that used to live in the bindings file.
 
 **How to verify.** `terraform state list` in `/infra`; open
-`services/api/.env.example`; run
-`python scripts/validate_agent_definitions.py` from the repo root
+`python/services/api/.env.example`; run
+`python python/scripts/validate_agent_definitions.py` from the repo root
 — it validates every definition and prints each hash with no network I/O.
 
 ### 6. Capture metadata-only traces
@@ -160,11 +160,11 @@ tests in
   schema.
 
 **How to verify.** Read
-[`services/api/app/observability.py`](../services/api/app/observability.py)
+[`python/services/api/app/observability.py`](../python/services/api/app/observability.py)
 and
-[`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py).
+[`python/services/api/app/runtime_audit.py`](../python/services/api/app/runtime_audit.py).
 The privacy scanner test in
-[`services/api/tests/test_no_sensitive_content.py`](../services/api/tests/test_no_sensitive_content.py)
+[`python/services/api/tests/test_no_sensitive_content.py`](../maintenance/tests/test_no_sensitive_content.py)
 also asserts the repo does not leak canary values.
 
 ### 7. Review changes before promotion
@@ -175,16 +175,16 @@ also asserts the repo does not leak canary values.
   loaded at startup. Promotion of the *running* app is just merging.
 - The **published** prompt agents are a separate artifact and can drift
   from the branch. Re-run
-  `python scripts/publish_prompt_agents.py --suffix <your-alias> --apply` after
+  `python python/scripts/publish_prompt_agents.py --suffix <your-alias> --apply` after
   merging a prompt change, and compare the `instructions_hash` from
   `validate_agent_definitions.py` against the version you published.
-- CI runs `scripts/validate_agent_definitions.py` on every pull request,
+- CI runs `python/scripts/validate_agent_definitions.py` on every pull request,
   so a malformed definition or a stale contract reference fails before
   merge.
 
 **How to verify.** Read the `agent-definitions` job in
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) and
-[`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py).
+[`.github/workflows/ci-python.yml`](../.github/workflows/ci-python.yml) and
+[`python/scripts/validate_agent_definitions.py`](../python/scripts/validate_agent_definitions.py).
 
 ### 8. Maintain a rollback path
 
@@ -199,7 +199,7 @@ also asserts the repo does not leak canary values.
 
 **How to verify.** Revert a change to any `agents/*/agent.md`, restart
 the backend, and confirm the `instructions_hash` reported by
-[`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py)
+[`python/scripts/validate_agent_definitions.py`](../python/scripts/validate_agent_definitions.py)
 returns to its previous value.
 
 ## Health / readiness signal
@@ -220,7 +220,7 @@ leaking any configured environment values:
 
 All of these are local checks. The frontend polls this endpoint on every
 page load, so it deliberately makes no network call to Azure. Use
-`python scripts/validate_agent_definitions.py --check-connectivity` for
+`python python/scripts/validate_agent_definitions.py --check-connectivity` for
 the live check.
 
 **How to verify.** `curl.exe -s http://127.0.0.1:8000/api/health/details`
@@ -230,14 +230,14 @@ against a running backend.
 
 - Calling `to_prompt_agent` or `agents.create_version` from application
   code. Publishing is a GenAIOps step, allowlisted to
-  `scripts/publish_prompt_agents.py`; a web request must never publish an
+  `python/scripts/publish_prompt_agents.py`; a web request must never publish an
   agent. `tests/test_no_persisted_agents.py` fails the build if those
   symbols appear anywhere else.
 - Publishing without `--suffix`. The script refuses, because dozens of
   learners share one subscription and unsuffixed names collide.
 - Adding a "just this once" direct model call from the coordinator or
   a role wrapper. Agent Framework's *model client* belongs in
-  `services/api/app/foundry_agents/maf_client.py`.
+  `python/services/api/app/foundry_agents/maf_client.py`.
 - Renaming the provider identifier in Python only. It is also written
   into YAML manifests, TypeScript, PowerShell, and Markdown, which
   cannot import a Python constant.
@@ -256,7 +256,7 @@ existing:
 - **No promotion gate.** A prompt change can be applied to Foundry
   without any eval or safety pass; the guardrail today is human PR
   review plus the CI checks in
-  [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). CI runs
+  [`.github/workflows/ci-python.yml`](../.github/workflows/ci-python.yml). CI runs
   `run_evals.py --offline` against fixtures, but nothing blocks a merge on a
   live-model score.
 - **No signed audit records.** The audit trail is metadata-only but

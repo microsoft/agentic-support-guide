@@ -60,7 +60,7 @@ In this workshop, you learn how to:
 - Comfort reading and editing Python: functions, classes, `async`/`await`.
   Modules 2 and 3 have you edit it.
 
-[Module 0](module-0-provision.md) walks through the setup and ends with a
+[Module 0](python/module-0-provision.md) walks through the setup and ends with a
 passing `verify-demo.ps1`. **Complete it before day one** — it takes 45 to 75
 minutes, and `terraform apply` alone runs 15 to 20 minutes when it works.
 
@@ -72,17 +72,17 @@ minutes, and `terraform apply` alone runs 15 to 20 minutes when it works.
 
 | # | Module | What you do | Time |
 | --- | --- | --- | --- |
-| 0 | [Provision your environment](module-0-provision.md) | Stand up a Foundry project, model deployments, Azure AI Search and storage with Terraform | **Prework**, 45-75 min |
-| 1 | [Deploy the app](module-1-deploy-the-app.md) | Ship an API and UI to App Service and prove your build is the one serving | 25 min |
-| 2 | [Your first agent](module-2-first-agent.md) | Write an agent, give it a tool, and hold a multi-turn session | 25 min |
-| 3 | [Workflows](module-3-workflows.md) | Build a `WorkflowBuilder` graph with executors, edges and a conditional repair loop | 35 min |
-| 4 | [Prompt agents](module-4-prompt-agents.md) | Define an agent declaratively and publish versions to Foundry | 25 min |
-| 5 | [Hosted agents](module-5-hosted-agents.md) | Run your own code as a Foundry-managed agent with its own identity | 30 min |
-| 6 | [Ground it with RAG](module-6-rag.md) | Wire retrieval into the running app and enforce per-group isolation | 35 min |
-| 7 | [Model router](module-7-model-router.md) | Route across models and measure what it costs and returns | 20 min |
-| 8 | [Guardrails](module-8-guardrails.md) | Measure what the platform blocks and what only your code can | 25 min |
-| 9 | [Evaluation](module-9-evaluation.md) | Grade agent output numerically and gate regressions | 25 min |
-| 10 | [Operate](module-10-operate.md) | Trace a request, diagnose a failed deployment, and forecast cost | 20 min |
+| 0 | [Provision your environment](python/module-0-provision.md) | Stand up a Foundry project, model deployments, Azure AI Search and storage with Terraform | **Prework**, 45-75 min |
+| 1 | [Deploy the app](python/module-1-deploy-the-app.md) | Ship an API and UI to App Service and prove your build is the one serving | 25 min |
+| 2 | [Your first agent](python/module-2-first-agent.md) | Write an agent, give it a tool, and hold a multi-turn session | 25 min |
+| 3 | [Workflows](python/module-3-workflows.md) | Build a `WorkflowBuilder` graph with executors, edges and a conditional repair loop | 35 min |
+| 4 | [Prompt agents](python/module-4-prompt-agents.md) | Define an agent declaratively and publish versions to Foundry | 25 min |
+| 5 | [Hosted agents](python/module-5-hosted-agents.md) | Run your own code as a Foundry-managed agent with its own identity | 30 min |
+| 6 | [Ground it with RAG](python/module-6-rag.md) | Wire retrieval into the running app and enforce per-group isolation | 35 min |
+| 7 | [Model router](python/module-7-model-router.md) | Route across models and measure what it costs and returns | 20 min |
+| 8 | [Guardrails](python/module-8-guardrails.md) | Measure what the platform blocks and what only your code can | 25 min |
+| 9 | [Evaluation](python/module-9-evaluation.md) | Grade agent output numerically and gate regressions | 25 min |
+| 10 | [Operate](python/module-10-operate.md) | Trace a request, diagnose a failed deployment, and forecast cost | 20 min |
 
 Modules 2 and 3 matter most if you have never written an agent. Everything
 after them assumes you know what an agent, a tool, an executor and an edge
@@ -108,12 +108,12 @@ covers what each of those is and why this one was chosen.
 | --- | --- |
 | `agents/` | Agent definitions — `agent.md` + `manifest.yaml` |
 | `contracts/v1/` | JSON Schemas for every inter-agent message |
-| `services/api/` | FastAPI backend, workflow graph, evidence retrieval |
+| `python/services/api/` | FastAPI backend, workflow graph, evidence retrieval |
 | `apps/web/` | React UI |
-| `infra/` | Terraform |
+| `python/infra/` | Terraform |
 | `evals/` | Synthetic cases and expected checks |
-| `scripts/` | Publish, validate, evaluate, provision, deploy, smoke test |
-| `workshop/code/` | The runnable samples used in Modules 2 and 3 |
+| `python/scripts/` | Publish, validate, evaluate, provision, deploy, smoke test |
+| `workshop/python/code/` | The runnable samples used in Modules 2 and 3 |
 
-Complete [Module 0](module-0-provision.md) before the workshop, then start at
-[Module 1](module-1-deploy-the-app.md).
+Complete [Module 0](python/module-0-provision.md) before the workshop, then start at
+[Module 1](python/module-1-deploy-the-app.md).

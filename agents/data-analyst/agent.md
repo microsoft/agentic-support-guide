@@ -76,4 +76,4 @@ review** and does not aggregate across the network.
 ## Handoff
 
 Emits `DataAnalystOutput` (contract v1.0.0) for the Support Recommendation
-Agent and Validator Agent. See `services/api/app/agents/shared/contracts.py`.
+Agent and Validator Agent. See `python/services/api/app/agents/shared/contracts.py`.

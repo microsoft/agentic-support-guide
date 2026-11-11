@@ -60,7 +60,7 @@ document.
 
 /.foundry/                     # Local, gitignored Foundry scratch state
 
-/services/api/                 # Orchestration + FastAPI (no direct model calls)
+/python/services/api/                 # Orchestration + FastAPI (no direct model calls)
   app/foundry_agents/          # ONLY place that imports the Foundry SDK
     maf_client.py              #   the Agent Framework model-client import
     maf_runtime.py             #   MafAgentRuntime (role -> Agent per call)
@@ -74,10 +74,10 @@ document.
   app/contracts_registry.py    # Central JSON Schema registry
 
 /apps/web/                     # React + TS UI
-/infra/                        # Terraform for Microsoft Foundry
+/python/infra/                        # Terraform for Microsoft Foundry
 /docs/                         # Architecture, security, ADRs, GenAIOps
 /evals/                        # Synthetic evaluation cases
-/scripts/                      # validate_agent_definitions.py, populate-env.ps1, ...
+/python/scripts/                      # validate_agent_definitions.py, populate-env.ps1, ...
 ```
 
 ## Source-of-truth rules
@@ -89,7 +89,7 @@ document.
   response format).
 - **`/contracts/v1/*.schema.json`** — inter-agent protocol. Every
   message that crosses an agent boundary validates against these.
-- **`/services/api/`** — the orchestration engine and Foundry adapter.
+- **`/python/services/api/`** — the orchestration engine and Foundry adapter.
 
 ## Independence rules
 
@@ -104,7 +104,7 @@ document.
   `chat.completions`. This is asserted by
   `tests/test_no_persisted_agents.py`, which also keeps publishing symbols
   (`to_prompt_agent`, `create_version`) out of the request path - publishing
-  is a GenAIOps step, allowlisted to `scripts/publish_prompt_agents.py`, and
+  is a GenAIOps step, allowlisted to `python/scripts/publish_prompt_agents.py`, and
   must never be triggered by a web request.
 
 ## Runtime execution
@@ -112,7 +112,7 @@ document.
 ### MafAgentRuntime
 
 Location:
-[`services/api/app/foundry_agents/maf_runtime.py`](../services/api/app/foundry_agents/maf_runtime.py).
+[`python/services/api/app/foundry_agents/maf_runtime.py`](../python/services/api/app/foundry_agents/maf_runtime.py).
 
 For a given role name (e.g. `data-analyst-agent`) and user message, the
 adapter:
@@ -128,7 +128,7 @@ adapter:
    `ContentFilterError`, `FoundryTimeoutError`, `RequiresActionError`,
    `FoundryRunError`).
 
-`scripts/validate_agent_definitions.py --check-connectivity` verifies the
+`python/scripts/validate_agent_definitions.py --check-connectivity` verifies the
 definitions load and the configured project answers, without creating
 anything.
 
@@ -156,9 +156,9 @@ only — it cannot flip a deterministic pass to failure.
 ### Coordinator + contracts registry
 
 Location:
-[`services/api/app/workflows/`](../services/api/app/workflows/)
+[`python/services/api/app/workflows/`](../python/services/api/app/workflows/)
 and
-[`services/api/app/contracts_registry.py`](../services/api/app/contracts_registry.py).
+[`python/services/api/app/contracts_registry.py`](../python/services/api/app/contracts_registry.py).
 
 `AgentCoordinator.run()` does three things: it builds a `RunState`, builds a
 fresh Agent Framework workflow with
@@ -176,7 +176,7 @@ carrying a typed failure envelope. A `Workflow` instance rejects concurrent
 runs, so one is built per request.
 
 The sequence itself lives in the graph, not in the coordinator.
-[`graph.py`](../services/api/app/workflows/graph.py) wires six executors with
+[`graph.py`](../python/services/api/app/workflows/graph.py) wires six executors with
 six edges:
 
 ```
@@ -191,7 +191,7 @@ RetrieveEvidence -> Analyse -> Recommend -> Validate -> Finalise
 - `Validate` runs the deterministic checks plus an advisory LLM critique. The
   critique cannot flip a deterministic verdict.
 - The repair bound is the `needs_repair` edge condition in
-  [`plan.py`](../services/api/app/workflows/plan.py), not a loop:
+  [`plan.py`](../python/services/api/app/workflows/plan.py), not a loop:
   `MAX_RECOMMENDER_ATTEMPTS` is 2. When it is exhausted the
   `repair_exhausted` edge routes to `Refuse`, which returns
   `VALIDATION_FAILED_AFTER_REPAIR`. `RetrieveEvidence` and `Analyse` are never
@@ -226,14 +226,14 @@ can exercise with a fake client.
 
 The DevOps and GenAIOps halves are separate: Terraform provisions
 infrastructure and never creates an agent. Publishing agents is a distinct,
-explicit step run by `scripts/publish_prompt_agents.py` and
-`scripts/publish_hosted_agent.py`, and the running application does not depend
+explicit step run by `python/scripts/publish_prompt_agents.py` and
+`python/scripts/publish_hosted_agent.py`, and the running application does not depend
 on it.
 
 1. `terraform apply` in `/infra` provisions the Foundry project and
    model deployments.
-2. `scripts/populate-env.ps1` copies the outputs into
-   `services/api/.env` (including `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
+2. `python/scripts/populate-env.ps1` copies the outputs into
+   `python/services/api/.env` (including `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
    and the per-role `FOUNDRY_MODEL_DEPLOYMENT_*` names).
 3. Start the backend with `--env-file .env`. The app reads its
    configuration from the process environment and does not load `.env`
@@ -245,7 +245,7 @@ on it.
 Editing `/agents/<id>/agent.md` takes effect after a backend restart: the
 runtime loads and composes every role's instructions once at application
 construction and caches them. There is no publish step. Rolling back is a
-revert commit plus a restart, not a redeployment. `python scripts/validate_agent_definitions.py`
+revert commit plus a restart, not a redeployment. `python python/scripts/validate_agent_definitions.py`
 validates the definitions offline and prints an `instructions_hash` per
 role so you can confirm a change landed.
 
@@ -277,7 +277,7 @@ The Validator Agent raises `DRAFT_DEALER_GROUP_MISMATCH` and
 The coordinator retrieves evidence **before** invoking any agent:
 
 ```
-services/api/app/evidence/
+python/services/api/app/evidence/
   retrieval.py    # EvidenceRetriever Protocol (stable interface)
   fixtures.py     # FixtureEvidenceRetriever (synthetic per-dealer group)
 ```
@@ -292,7 +292,7 @@ integrity (`MISSING_CITATIONS`, `UNKNOWN_CITATION_ID`,
 
 Every recommendation is created in `human_review_state = pending_review`.
 Allowed transitions live in
-[`services/api/app/human_review.py`](../services/api/app/human_review.py):
+[`python/services/api/app/human_review.py`](../python/services/api/app/human_review.py):
 
 ```
 draft            -> pending_review

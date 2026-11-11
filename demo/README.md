@@ -76,7 +76,7 @@ meeting or document.
 Application state is in memory, so stopping and restarting `uvicorn` is the
 simplest reset.
 
-For repeated practice, set `DEMO_RESET_ENABLED=true` in `services/api/.env`,
+For repeated practice, set `DEMO_RESET_ENABLED=true` in `python/services/api/.env`,
 **restart the backend** so it picks the setting up, then call:
 
 ```powershell

@@ -64,7 +64,7 @@ None of the above requires reading the model's prose.
 
 Observability is entirely Microsoft Agent Framework instrumentation. The whole
 integration is
-[`services/api/app/observability.py`](../services/api/app/observability.py):
+[`python/services/api/app/observability.py`](../python/services/api/app/observability.py):
 
 ```python
 configure_otel_providers(exporters=exporters or None)
@@ -89,7 +89,7 @@ view draws one request as a waterfall over the whole graph.
 Prompt and completion text is excluded because Agent Framework's
 `enable_sensitive_data` setting defaults to False. This app never calls
 `enable_sensitive_telemetry()`.
-[`tests/test_observability.py`](../services/api/tests/test_observability.py)
+[`tests/test_observability.py`](../python/services/api/tests/test_observability.py)
 pushes a canary string through a real run and asserts it appears in no span,
 so the guarantee is tested rather than assumed.
 
@@ -134,27 +134,27 @@ No agent-trace step ever surfaces prompt content, completion content,
 raw validator critique, or issue-code strings that came directly
 from model output. Validator LLM critique text is filtered through
 `enforce_code()` in
-[`services/api/app/agents/shared/prompt_blocks.py`](../services/api/app/agents/shared/prompt_blocks.py),
+[`python/services/api/app/agents/shared/prompt_blocks.py`](../python/services/api/app/agents/shared/prompt_blocks.py),
 which requires uppercase snake_case codes of at least four characters
 and drops anything else.
 
 ### How to verify
 
 - Read
-  [`services/api/app/observability.py`](../services/api/app/observability.py)
+  [`python/services/api/app/observability.py`](../python/services/api/app/observability.py)
   and confirm it never calls `enable_sensitive_telemetry()`.
 - Read
-  [`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py)
+  [`python/services/api/app/runtime_audit.py`](../python/services/api/app/runtime_audit.py)
   and confirm the fixed schema.
 - Read how a trace step is built in
-  [`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py)
+  [`python/services/api/app/workflows/steps.py`](../python/services/api/app/workflows/steps.py)
   and confirm the model comes from `served_model or LOCAL_STEP_MODEL` --
   the deployment that actually answered, not a constant. Module 7's routing
   demonstration depends on that. `PROVIDER_ID` is a constant, in
-  [`services/api/app/foundry_agents/maf_runtime.py`](../services/api/app/foundry_agents/maf_runtime.py).
+  [`python/services/api/app/foundry_agents/maf_runtime.py`](../python/services/api/app/foundry_agents/maf_runtime.py).
 - Run the privacy scanner:
   ```powershell
-  cd services\api
+  cd python\services\api
   .\.venv\Scripts\Activate.ps1
   pytest tests\test_no_sensitive_content.py
   ```

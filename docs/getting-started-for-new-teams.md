@@ -61,15 +61,15 @@ Each agent folder contains only configuration:
 
 The **runtime** for each role is an in-process Agent Framework `Agent` in
 the API backend, calling a Microsoft Foundry model deployment. The Python code in
-[`services/api/app/agents`](../services/api/app/agents) is a thin
+[`python/services/api/app/agents`](../python/services/api/app/agents) is a thin
 wrapper that builds the user message and calls the ephemeral agent
-through [`MafAgentRuntime`](../services/api/app/foundry_agents/maf_runtime.py).
+through [`MafAgentRuntime`](../python/services/api/app/foundry_agents/maf_runtime.py).
 There is no local language-model call in the recommendation path.
 
 ## What the coordinator is (and is not)
 
 The **coordinator** is deterministic Python in
-[`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py).
+[`python/services/api/app/workflows/coordinator.py`](../python/services/api/app/workflows/coordinator.py).
 It:
 
 - bounds user text,
@@ -94,7 +94,7 @@ it:
 
 - **Model deployments.** Serverless capacity on a chosen model and
   region, billed per token, provisioned by Terraform in
-  [`/infra`](../infra).
+  [`/infra`](../python/infra).
 - **Foundry projects.** A project resource that scopes agents, model
   deployments, RBAC, and observability. This repo provisions one
   project as part of Terraform.
@@ -103,9 +103,9 @@ it:
   the API backend, built from instructions loaded at startup from the
   on-disk `agent.md` and `manifest.yaml` files, calling a Foundry model
   deployment through `MafAgentRuntime`. Those files are checked offline by
-  [`scripts/validate_agent_definitions.py`](../scripts/validate_agent_definitions.py)
+  [`python/scripts/validate_agent_definitions.py`](../python/scripts/validate_agent_definitions.py)
   and published to the portal as versioned prompt agents by
-  [`scripts/publish_prompt_agents.py`](../scripts/publish_prompt_agents.py).
+  [`python/scripts/publish_prompt_agents.py`](../python/scripts/publish_prompt_agents.py).
 
 Authentication is keyless: the backend uses `DefaultAzureCredential`
 and holds only a bearer token acquired for the Foundry endpoint. No
@@ -120,7 +120,7 @@ In this repo, that shows up as:
 
 - **Version control** for everything: agent instructions, contracts,
   Terraform, and application code all live in the same monorepo.
-- **Infrastructure as code.** [`/infra`](../infra) provisions the
+- **Infrastructure as code.** [`/infra`](../python/infra) provisions the
   Foundry project, model deployment, RBAC, Log Analytics, and
   Application Insights with Terraform.
 - **Repeatable local dev.** Backend and frontend both start from
@@ -128,7 +128,7 @@ In this repo, that shows up as:
 - **Local quality gates.** `ruff`, `mypy`, `pytest`, `npm run build`,
   `npm run test`, `terraform fmt`, and `terraform validate` can be run
   by any developer before pushing.
-- **CI.** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs
+- **CI.** [`.github/workflows/ci-python.yml`](../.github/workflows/ci-python.yml) runs
   all of those gates plus `validate_agent_definitions.py` on every
   pull request. No Azure credentials are needed for any of them.
 
@@ -149,7 +149,7 @@ model that Foundry hosts. The MLOps concerns that still apply are:
   will auto-upgrade.
 - How model retirement affects the app.
 
-Those choices live in [`/infra`](../infra) and in each agent's
+Those choices live in [`/infra`](../python/infra) and in each agent's
 [`manifest.yaml`](../agents/data-analyst/manifest.yaml), which is also where
 the role-to-model-deployment binding is recorded.
 
@@ -181,7 +181,7 @@ concrete list of practices this repo already implements versus gaps.
    and skim the instructions. Repeat for the other two roles. (5 min)
 4. Open [`contracts/v1`](../contracts/v1) and skim one request and one
    result schema. (2 min)
-5. Open [`services/api/app/workflows/coordinator.py`](../services/api/app/workflows/coordinator.py)
+5. Open [`python/services/api/app/workflows/coordinator.py`](../python/services/api/app/workflows/coordinator.py)
    and read `AgentCoordinator.run()`. (5 min)
 6. Skim [Security and privacy](security-and-privacy.md) and
    [Observability](observability.md). (1 min each)
@@ -196,10 +196,10 @@ in the root [README](../README.md) under **Set up Microsoft Foundry**.
 In summary:
 
 1. `az login` and set the subscription.
-2. `terraform apply` in [`/infra`](../infra).
-3. `./scripts/populate-env.ps1` to write `services/api/.env` from
+2. `terraform apply` in [`/infra`](../python/infra).
+3. `./python/scripts/populate-env.ps1` to write `python/services/api/.env` from
    Terraform outputs.
-4. `python scripts/validate_agent_definitions.py` to check the agent
+4. `python python/scripts/validate_agent_definitions.py` to check the agent
    definitions. There is nothing to deploy - agents are ephemeral.
 5. Start the backend: `uvicorn app.main:app --host 127.0.0.1
    --port 8000 --reload --env-file .env`. The `--env-file` flag is

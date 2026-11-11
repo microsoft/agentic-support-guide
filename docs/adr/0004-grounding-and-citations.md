@@ -39,9 +39,9 @@ abstraction.
 
 ### Runtime abstraction
 
-- [`app/evidence/retrieval.py::EvidenceRetriever`](../../services/api/app/evidence/retrieval.py)
+- [`app/evidence/retrieval.py::EvidenceRetriever`](../../python/services/api/app/evidence/retrieval.py)
   is the stable interface used by the coordinator.
-- [`app/evidence/fixtures.py::FixtureEvidenceRetriever`](../../services/api/app/evidence/fixtures.py)
+- [`app/evidence/fixtures.py::FixtureEvidenceRetriever`](../../python/services/api/app/evidence/fixtures.py)
   is the current implementation. Serves purely synthetic, per-dealer group
   fixtures.
 - The coordinator calls the retriever **once per request, up front**,

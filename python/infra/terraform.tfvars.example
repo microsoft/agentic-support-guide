@@ -1,0 +1,121 @@
+# ============================================================================
+# agentic-support-guide - Terraform variables
+#
+# HOW TO USE:
+#   1. In VS Code, right-click this file and pick "Copy" -> paste as
+#      terraform.tfvars in the same folder (or from a terminal:
+#      `Copy-Item terraform.tfvars.example terraform.tfvars`).
+#   2. Open terraform.tfvars in VS Code and edit the values below.
+#   3. Save. `terraform.tfvars` is gitignored; this .example file is tracked.
+# ============================================================================
+
+# ---- REQUIRED ---------------------------------------------------------------
+
+# Azure region. There is no default - Terraform will prompt if this is unset.
+# Model, SKU, and quota availability is region-dependent. Common choices:
+#   westus3, eastus2, swedencentral
+location = "westus3"
+
+
+# ---- Resource naming --------------------------------------------------------
+
+resource_group_name = "rg-agentic-support-guide"
+
+
+# ---- Model deployment -------------------------------------------------------
+# The values below are safe defaults for a demo. Change them in this file
+# rather than passing `-var` on the CLI.
+#
+# Model retirement schedule:
+# https://learn.microsoft.com/azure/ai-services/openai/concepts/model-retirements
+
+model_name    = "gpt-4.1-mini"
+model_version = "2025-04-14"
+
+# DataZoneStandard keeps inference traffic inside a single Azure data zone
+# (US or EU). Alternatives: Standard, GlobalStandard, DataZoneBatch.
+model_sku_name = "DataZoneStandard"
+
+# Deployment capacity in thousands of tokens per minute. Requires quota.
+#
+# 10 suits one person working through a module, which is how this workshop is
+# run. Raise it if you see AGENT_PROVIDER_THROTTLING while working, or before
+# pointing anything with real concurrency at the app - each recommendation is
+# four model calls.
+#
+# Quota is pooled PER SUBSCRIPTION and PER REGION, and this is the one thing
+# learners share. Ten people at 10 need 100 in that region, and the last to
+# apply gets InsufficientQuota if it is not free. Agree a number first.
+# Check headroom: az cognitiveservices usage list -l <region> -o table
+model_capacity = 10
+# judge_capacity  = 10    # Module 9 evaluation
+# router_capacity = 10   # Module 7 routing
+
+
+# ---- RBAC principal ---------------------------------------------------------
+# Entra ID Object ID that will receive access to call the model deployment
+# (role: Cognitive Services OpenAI User on the AI Services account).
+#
+# Leave empty ("") to grant access to WHOEVER RUNS `terraform apply` - that
+# identity's Object ID is discovered automatically. That is the normal case
+# for a single-developer demo.
+#
+# Set this to a specific Object ID when:
+#   - a different colleague will run the demo,
+#   - a backend service principal or CI runner will call the model.
+#
+# How to look up an Object ID:
+#   Yours:              az ad signed-in-user show --query id -o tsv
+#   Another user:       az ad user show --id someone@example.invalid --query id -o tsv
+#   Service principal:  az ad sp show --id <app-id> --query id -o tsv
+
+principal_id = ""
+
+
+# ---- Knowledge plane (Module 6) ---------------------------------------------
+# Search capacity is exhausted per-region INDEPENDENTLY of Foundry capacity, so
+# your chosen region is often full. When apply fails with
+# ResourcesForSkuUnavailable, raise search_sku FIRST and re-apply; only move
+# search_location if a larger SKU fails too. Cross-region costs retrieval
+# latency for the whole workshop, a larger SKU only costs money while the
+# environment exists. Keep any fallback in a US region.
+#
+# Rejection has two shapes: a fast 400 in seconds, or a slow failure that sits
+# on "Still creating..." for 10 to 15 minutes and leaves a failed service
+# behind that Terraform did not record. Module 0 covers recovering from both.
+# Settle both values before Module 6: changing either one later REPLACES the
+# Search service, and it comes back with an empty index.
+#
+#   search_sku      = "standard"
+#   search_location = "westus2"
+
+# Module 6 uploads dealer group documents from your machine, which needs public
+# network access on the storage account. Defaults to false because many tenants
+# forbid it by policy, and asking for it where policy says no leaves
+# `terraform plan` in permanent drift rather than failing loudly.
+# Module 6 documents a File knowledge source that needs no storage access.
+#
+#   knowledge_storage_public_access = true
+
+# Extra tags merged over `tags`, for anything your organisation requires on
+# created resources.
+#
+#   additional_tags = { CostCenter = "1234" }
+
+
+# ---- Front-door access ------------------------------------------------------
+# There is no user sign-in. A shared key stops the API hostname being called
+# directly, but the web tier attaches that key for whoever asks, so anyone
+# with the UI URL can drive your deployment and spend your model quota. The
+# records are synthetic; the quota is not.
+#
+# Empty means anyone with the URL. Leave it empty for a working session - you
+# will lock yourself out moving between office, home, and a hotspot. Set it
+# when the deployment will be up longer than that:
+#
+#   web_allowed_ip_ranges = ["203.0.113.4/32"]
+#
+# The web app's Access Restrictions blade shows the address you are calling
+# from right now.
+
+web_allowed_ip_ranges = []

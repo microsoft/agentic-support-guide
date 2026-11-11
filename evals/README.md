@@ -13,13 +13,13 @@ capture full prompts or full completions in committed files.
 
 ## Running evaluations
 
-[`scripts/run_evals.py`](../scripts/run_evals.py) scores every case in
+[`python/scripts/run_evals.py`](../python/scripts/run_evals.py) scores every case in
 `synthetic_cases.jsonl` against `expected_checks.yaml`. It has two modes.
 
 ### Offline (the CI gate)
 
 ```powershell
-cd services\api
+cd python\services\api
 python ..\..\scripts\run_evals.py --offline
 ```
 
@@ -31,7 +31,7 @@ paths fails the build.
 ### Live (against a running backend)
 
 ```powershell
-python scripts\run_evals.py --live http://127.0.0.1:8000
+python python\scripts\run_evals.py --live http://127.0.0.1:8000
 ```
 
 Calls a backend configured for Microsoft Foundry, so it exercises real
@@ -58,7 +58,7 @@ model versions; the checks that matter are:
 Adding a case is one line in `synthetic_cases.jsonl`. It must include
 `dealer_group_id`, and its dealer group/category pair must have evidence
 fixtures, or the run is ungrounded by construction.
-`services/api/tests/test_eval_cases.py` enforces both.
+`python/services/api/tests/test_eval_cases.py` enforces both.
 
 ## What must never be captured
 

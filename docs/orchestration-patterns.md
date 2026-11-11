@@ -48,17 +48,17 @@ flowchart TD
 <!-- app-workflow:end -->
 
 It is built in
-[services/api/app/workflows/graph.py](../services/api/app/workflows/graph.py),
+[python/services/api/app/workflows/graph.py](../python/services/api/app/workflows/graph.py),
 which is about thirty lines and is the whole orchestration.
 
 Nothing chooses the order at runtime. No agent decides who goes next. The
 only branch is the validator's verdict, and that branch is decided by a
 deterministic Python rule set — eight checks in
-[services/api/app/agents/validator/checks.py](../services/api/app/agents/validator/checks.py),
+[python/services/api/app/agents/validator/checks.py](../python/services/api/app/agents/validator/checks.py),
 of which the citation and catalog checks are set-membership tests — not by a
 model.
 
-[workshop/code/07_conditional_repair.py](../workshop/code/07_conditional_repair.py) is
+[workshop/python/code/07_conditional_repair.py](../workshop/python/code/07_conditional_repair.py) is
 this shape as a runnable 150-line file you can execute offline.
 
 ## The five patterns, and why the other four are not here
@@ -81,7 +81,7 @@ must be produced the same way to be auditable.
 The word appears in this repo in a sense that is **not** the pattern above.
 
 - `PlanRun.check_handoff` in
-  [services/api/app/workflows/executors.py](../services/api/app/workflows/executors.py)
+  [python/services/api/app/workflows/executors.py](../python/services/api/app/workflows/executors.py)
   and "handoff" in the agent manifests mean **passing data from one step to
   the next, validated against a JSON schema**. Every hop does it, always, in
   a fixed order.
@@ -111,7 +111,7 @@ workflow = (
 **This repo does neither.** Its workflow runs start to finish without
 pausing. The human review happens *afterwards*, as a state machine over saved
 plans in
-[services/api/app/human_review.py](../services/api/app/human_review.py):
+[python/services/api/app/human_review.py](../python/services/api/app/human_review.py):
 a generated plan is saved `pending_review`, and a person moves it to
 `approved` or `rejected` through `POST /api/supports/plans/{id}/review`.
 
@@ -139,13 +139,13 @@ on a row cannot un-send an email.
 
 ## Where the app's orchestration actually lives
 
-[services/api/app/workflows/graph.py](../services/api/app/workflows/graph.py).
+[python/services/api/app/workflows/graph.py](../python/services/api/app/workflows/graph.py).
 It is a real `WorkflowBuilder` graph — six edges, three of them conditional —
 and the diagram above is generated from that object, so the picture cannot
 drift from the code.
 
 Observability is Agent Framework's too:
-[services/api/app/observability.py](../services/api/app/observability.py)
+[python/services/api/app/observability.py](../python/services/api/app/observability.py)
 calls `configure_otel_providers` and `enable_instrumentation`, and the
 framework then emits `workflow.run`, `executor.process` and `gen_ai` spans
 for everything the graph does.
@@ -156,6 +156,6 @@ and get rendered by the UI, a typed provider-failure taxonomy, and
 JSON-Schema validation of every message between agents.
 
 Learn the pattern from
-[workshop/code/07_conditional_repair.py](../workshop/code/07_conditional_repair.py) — it
+[workshop/python/code/07_conditional_repair.py](../workshop/python/code/07_conditional_repair.py) — it
 is short, runnable, and drawable. Then read `graph.py` and recognise the same
 shape at full size.

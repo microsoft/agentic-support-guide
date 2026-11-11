@@ -11,16 +11,16 @@ call against the Foundry project's Responses API via
 Microsoft Agent Framework. The runtime never calls a published copy, so the
 version that runs is exactly the version on your branch.
 
-Publishing is a separate GenAIOps step: `scripts/publish_prompt_agents.py`
+Publishing is a separate GenAIOps step: `python/scripts/publish_prompt_agents.py`
 pushes these same definitions to Foundry as versioned **prompt agents** so
 they are visible in the portal. See
 [ADR 0006](../docs/adr/0006-published-prompt-agents.md), which supersedes
 [ADR 0005](../docs/adr/0005-agent-framework-ephemeral-agents.md).
 
 The loader is
-[`services/api/app/foundry_agents/role_definitions.py`](../services/api/app/foundry_agents/role_definitions.py),
+[`python/services/api/app/foundry_agents/role_definitions.py`](../python/services/api/app/foundry_agents/role_definitions.py),
 which composes instructions through
-[`prompt_envelope.py`](../services/api/app/foundry_agents/prompt_envelope.py).
+[`prompt_envelope.py`](../python/services/api/app/foundry_agents/prompt_envelope.py).
 
 ## Layout
 
@@ -46,7 +46,7 @@ which composes instructions through
   which do carry those fields, live in
   [`/contracts/v1/`](../contracts/v1/).
 - Agent behavior is tested from the FastAPI suite in
-  [`services/api/tests`](../services/api/tests); there are no
+  [`python/services/api/tests`](../python/services/api/tests); there are no
   agent-scoped test folders.
 
 ## Source-of-truth rules
@@ -66,10 +66,10 @@ which composes instructions through
 1. Edit `agent.md`. Behavioural rules (`constraints`, `safety_rules`,
    `grounding_rules`) live in the YAML frontmatter and **are** sent to the
    model - dropping them yields plausible but off-contract output.
-2. Run `python scripts/validate_agent_definitions.py`. It validates the
+2. Run `python python/scripts/validate_agent_definitions.py`. It validates the
    manifest, contract references, and frontmatter, and prints an
    `instructions_hash` per role so you can see the change took effect.
 3. Restart the backend. There is no deploy or sync step.
 
-CI runs the same validation, plus `scripts/run_evals.py --offline`, on
+CI runs the same validation, plus `python/scripts/run_evals.py --offline`, on
 every pull request.

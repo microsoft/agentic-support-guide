@@ -38,9 +38,9 @@ layer of the recommendation workflow:
    `dealer_group_id` alongside `correlation_id`.
 
 Evidence retrieval is abstracted behind
-[`app/evidence/retrieval.py::EvidenceRetriever`](../../services/api/app/evidence/retrieval.py).
+[`app/evidence/retrieval.py::EvidenceRetriever`](../../python/services/api/app/evidence/retrieval.py).
 The concrete retriever in this build is
-[`FixtureEvidenceRetriever`](../../services/api/app/evidence/fixtures.py),
+[`FixtureEvidenceRetriever`](../../python/services/api/app/evidence/fixtures.py),
 which serves purely synthetic per-dealer group fixtures. Production would
 swap in a Fabric-backed retriever with the same interface.
 

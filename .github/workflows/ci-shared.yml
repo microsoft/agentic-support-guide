@@ -1,0 +1,95 @@
+name: CI (shared)
+
+# Checks for everything both tracks share: the UI, the docs and the repo-wide
+# hygiene tools. Neither track's CI runs these, so neither needs the other's
+# runtime.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-shared-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (React + Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Match the App Service runtime (NODE:22-lts). Building on 20 while
+          # production runs 22 means CI cannot catch a runtime break.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
+
+  repo-hygiene:
+    name: Repo hygiene (links, stale references, privacy, screenshots)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: maintenance/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r maintenance/requirements.txt
+
+      - name: Lint the maintainer tools
+        run: |
+          ruff format --check maintenance
+          ruff check maintenance
+
+      # The privacy scanner and the screenshot checker's own tests.
+      - name: Test the maintainer tools
+        working-directory: maintenance
+        run: pytest -q tests
+
+      # Broken cross-references were previously only caught by hand, and only
+      # under workshop/. This covers both tracks, docs/, the ADRs and the root
+      # README too.
+      - name: Check markdown links
+        run: python maintenance/check_workshop_links.py
+
+      # A removal that lands in code but not in the prose is still valid
+      # markdown, so nothing else catches it.
+      - name: Check for stale references
+        run: python maintenance/check_stale_references.py
+
+      # Screenshots can carry tenant names, subscription ids and UPNs. The
+      # OCR pass needs Tesseract plus its Python bindings.
+      # CI has no deployment, so it has no portal_redact.config.json and runs
+      # the email and GUID scans only. Run it locally with the real config
+      # before publishing new screenshots.
+      - name: Check screenshots for identifiers
+        run: |
+          sudo apt-get update && sudo apt-get install -y tesseract-ocr
+          python -m pip install pillow pytesseract
+          python maintenance/check_screenshot_redaction.py --allow-example-config

@@ -35,7 +35,7 @@ or GenAIOps, read these first — in order — before touching code:
   <img src="docs/architecture.svg" alt="High-level architecture diagram" width="900" />
 </p>
 
-Editable source: [docs/architecture.dsl](docs/architecture.dsl). Regenerate the SVG with `.\scripts\render-architecture-diagram.ps1` after changing the DSL.
+Editable source: [docs/architecture.dsl](docs/architecture.dsl). Regenerate the SVG with `.\maintenance\render-architecture-diagram.ps1` after changing the DSL.
 
 More details: [docs/architecture-diagram.md](docs/architecture-diagram.md).
 
@@ -93,8 +93,8 @@ organizational unit for agents, evaluation, and safety workflows.
 ## Monorepo layout
 
 - [`apps/web`](apps/web/README.md) — React + TS + Vite frontend.
-- [`services/api`](services/api/README.md) — FastAPI backend with the three agents.
-- [`infra`](infra/README.md) — Terraform for Microsoft Foundry.
+- [`python/services/api`](python/services/api/README.md) — FastAPI backend with the three agents.
+- [`infra`](python/infra/README.md) — Terraform for Microsoft Foundry.
 - [`workshop`](workshop/README.md) — the hands-on workshop, modules 0-10.
 - [`demo`](demo/README.md) — the customer demo walkthrough.
 - [`docs`](docs/architecture.md) — architecture, security, ADRs.
@@ -192,11 +192,11 @@ $env:ARM_SUBSCRIPTION_ID = "<your-subscription-id>"
 **Step 2 — configure Terraform variables in VS Code.**
 
 ```powershell
-cd infra
+cd python/infra
 Copy-Item terraform.tfvars.example terraform.tfvars
 ```
 
-Open `infra/terraform.tfvars` in VS Code. The file is commented
+Open `python/infra/terraform.tfvars` in VS Code. The file is commented
 top-to-bottom. At minimum, set `location`. Save and close.
 
 **Step 3 — deploy Microsoft Foundry infrastructure.**
@@ -210,8 +210,8 @@ terraform apply
 Plain `terraform init` respects the committed `.terraform.lock.hcl` and
 gives you the exact provider versions this repo was validated against.
 Use `terraform init -upgrade` **only** when you deliberately want to pull
-newer providers within the version constraints in `infra/providers.tf`;
-see [`infra/README.md`](infra/README.md#commands) for the trade-offs.
+newer providers within the version constraints in `python/infra/providers.tf`;
+see [`python/infra/README.md`](python/infra/README.md#commands) for the trade-offs.
 
 **Step 4 — populate the backend `.env` from Terraform outputs.**
 
@@ -219,16 +219,16 @@ Run the helper script from the repo root:
 
 ```powershell
 cd ..
-.\scripts\populate-env.ps1
+.\python\scripts\populate-env.ps1
 ```
 
 It reads `terraform output` (including the sensitive Application Insights
-connection string), writes `services/api/.env`, and overwrites any
+connection string), writes `python/services/api/.env`, and overwrites any
 previous file. Nothing sensitive is printed to the console. Re-run it
 after any future `terraform apply` that changes outputs.
 
-If you'd rather do it by hand, copy `services/api/.env.example` to
-`services/api/.env`, then run `terraform output` inside `infra/` and
+If you'd rather do it by hand, copy `python/services/api/.env.example` to
+`python/services/api/.env`, then run `terraform output` inside `python/infra/` and
 paste the values into the corresponding keys in `.env`. Use
 `terraform output -raw application_insights_connection_string` to
 reveal the sensitive value.
@@ -240,14 +240,14 @@ backend virtual environment, so create it first, then validate offline and
 publish to Foundry as prompt agents so they show up in the portal:
 
 ```powershell
-cd services\api
+cd python\services\api
 py -3.13 -m venv .venv           # first time only
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 cd ..\..
 
-python scripts/validate_agent_definitions.py
-python scripts/publish_prompt_agents.py --suffix <your-alias> --apply
+python python/scripts/validate_agent_definitions.py
+python python/scripts/publish_prompt_agents.py --suffix <your-alias> --apply
 ```
 
 `--suffix` is required so many people can publish into one Foundry project
@@ -262,7 +262,7 @@ published is what you meant to publish.
 Backend (one terminal):
 
 ```powershell
-cd services\api
+cd python\services\api
 .\.venv\Scripts\Activate.ps1      # created in Step 5
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env
 ```
@@ -271,7 +271,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env
 > `--env-file .env` is required. The application reads configuration from
 > the process environment and does not load `.env` on its own, so omitting
 > the flag leaves `customer_demo_ready` stuck at `false`.
-> `.\scripts\run-backend.ps1` passes it for you.
+> `.\python\scripts\run-backend.ps1` passes it for you.
 
 Frontend (a second terminal):
 
@@ -302,7 +302,7 @@ the missing piece.
 ## Developer test mode
 
 Automated tests inject a fake Foundry client
-(`services/api/tests/fakes.py::FakeChatClientFactory`) into the
+(`python/services/api/tests/fakes.py::FakeChatClientFactory`) into the
 `MafAgentRuntime` via dependency injection. This is only
 available inside `pytest`; there is no environment variable to enable
 it at runtime. When the runtime cannot find bindings or an endpoint,
@@ -312,7 +312,7 @@ sets `"customer_demo_ready": false`.
 To run tests:
 
 ```powershell
-cd services\api
+cd python\services\api
 .\.venv\Scripts\Activate.ps1
 pytest
 ```
@@ -321,7 +321,7 @@ pytest
 
 ## Quality checks
 
-Backend (`services/api`):
+Backend (`python/services/api`):
 
 ```powershell
 ruff format --check .
@@ -346,8 +346,8 @@ terraform validate
 ```
 
 All of the above run automatically on every pull request via
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml), along with
-`python scripts/validate_agent_definitions.py`. None of the CI jobs
+[`.github/workflows/ci-python.yml`](.github/workflows/ci-python.yml), along with
+`python python/scripts/validate_agent_definitions.py`. None of the CI jobs
 need Azure credentials.
 
 ---
@@ -378,17 +378,17 @@ need Azure credentials.
 - `POST /api/recommendations/support-plan` returns
   `status: "provider_missing"`. The project endpoint or the per-role
   deployment names are not configured. Populate
-  `services/api/.env` from the Terraform outputs, then run
-  `python scripts/validate_agent_definitions.py`, then restart the
+  `python/services/api/.env` from the Terraform outputs, then run
+  `python python/scripts/validate_agent_definitions.py`, then restart the
   backend.
 
 ### `.env` exists but `foundry_project_configured` is still `false`
 - The backend was started without `--env-file .env`. The app reads the
   process environment and never loads `.env` implicitly. Restart with
   `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`,
-  or use `.\scripts\run-backend.ps1`.
+  or use `.\python\scripts\run-backend.ps1`.
 - If the file predates the current setup flow, regenerate it with
-  `.\scripts\populate-env.ps1`. Older copies used
+  `.\python\scripts\populate-env.ps1`. Older copies used
   `AZURE_AI_FOUNDRY_DEPLOYMENT` / `AZURE_AI_FOUNDRY_PROJECT_NAME`, which
   the current runtime ignores. The keys that matter now are
   `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` and the three
@@ -399,11 +399,11 @@ need Azure credentials.
   assignment can take time to propagate.
 - Confirm you are signed in as the same principal referenced by
   `principal_id`, or set `principal_id` explicitly in
-  `infra/terraform.tfvars`.
+  `python/infra/terraform.tfvars`.
 
 ### Foundry project or model deployment not found
 - Re-run `terraform apply`. Confirm that the per-role
-  `FOUNDRY_MODEL_DEPLOYMENT_*` values in `services/api/.env` match the
+  `FOUNDRY_MODEL_DEPLOYMENT_*` values in `python/services/api/.env` match the
   deployment name output by Terraform (`model_deployment_name`), and
   that `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` matches
   `foundry_project_endpoint`.
@@ -413,8 +413,8 @@ need Azure credentials.
   means a role's definition failed to load or its
   `FOUNDRY_MODEL_DEPLOYMENT_*` variable is unset — it is not about remote
   agents, which the runtime builds per call.
-- Run `python scripts/validate_agent_definitions.py` to see which definition
-  is malformed, and check `services/api/.env` for the missing deployment
+- Run `python python/scripts/validate_agent_definitions.py` to see which definition
+  is malformed, and check `python/services/api/.env` for the missing deployment
   name.
 
 ### `terraform apply` fails on a soft-deleted resource
@@ -431,12 +431,12 @@ need Azure credentials.
   changes every URL, and it invalidates the GitHub repository variables and
   the federated-credential scope set up in Module 1.
 - Details and the purge-based alternative are in
-  [`infra/README.md`](infra/README.md#troubleshooting-soft-delete).
+  [`python/infra/README.md`](python/infra/README.md#troubleshooting-soft-delete).
 
 ### Two people deploying into one subscription
 - Supported. Every unique-scoped resource name carries a random suffix,
   so parallel stacks do not collide. See
-  [`infra/README.md`](infra/README.md#resource-naming-and-collisions).
+  [`python/infra/README.md`](python/infra/README.md#resource-naming-and-collisions).
 
 ### Model deployment quota or region issues
 - `terraform apply` fails on the deployment. Options:
@@ -471,28 +471,28 @@ need Azure credentials.
 
 ## Scripts
 
-- `scripts/populate-env.ps1` — read `terraform output` and write
-  `services/api/.env` (overwrites).
-- `scripts/validate_agent_definitions.py` — validate `/agents/<id>/agent.md`
+- `python/scripts/populate-env.ps1` — read `terraform output` and write
+  `python/services/api/.env` (overwrites).
+- `python/scripts/validate_agent_definitions.py` — validate `/agents/<id>/agent.md`
   and `manifest.yaml` for structure and consistency. Offline by default;
   `--check-connectivity` additionally verifies the project endpoint and
   credential. It does not create or update anything — publishing agents is
-  `scripts/publish_prompt_agents.py`.
-- `scripts/publish_prompt_agents.py` — publish the prompt agents to Foundry.
+  `python/scripts/publish_prompt_agents.py`.
+- `python/scripts/publish_prompt_agents.py` — publish the prompt agents to Foundry.
   `--suffix` is required, `--variant` gives Module 8 a second addressable agent,
   `--delete` removes the agents published under exactly that suffix.
-- `scripts/provision_foundry_iq.py` — build the Module 6 index, knowledge
+- `python/scripts/provision_foundry_iq.py` — build the Module 6 index, knowledge
   sources and knowledge base.
-- `scripts/deploy-app.ps1` — package and deploy the API and UI, then confirm
+- `python/scripts/deploy-app.ps1` — package and deploy the API and UI, then confirm
   the new `build_id` is actually serving.
-- `scripts/smoke_test.py` — end-to-end checks against a deployment.
-- `scripts/publish_hosted_agent.py` / `scripts/invoke_hosted_agent.py` —
+- `python/scripts/smoke_test.py` — end-to-end checks against a deployment.
+- `python/scripts/publish_hosted_agent.py` / `python/scripts/invoke_hosted_agent.py` —
   Module 5 hosted agent.
-- `scripts/run_agent_evals.py` — Module 9 graded evaluations.
-- `scripts/check_workshop_links.py` — verify every relative markdown link.
-- `scripts/run-backend.ps1` — activate the venv and start uvicorn.
-- `scripts/run-frontend.ps1` — start the Vite dev server.
-- `scripts/verify-demo.ps1` — call `/api/health/details` and print
+- `python/scripts/run_agent_evals.py` — Module 9 graded evaluations.
+- `maintenance/check_workshop_links.py` — verify every relative markdown link.
+- `python/scripts/run-backend.ps1` — activate the venv and start uvicorn.
+- `python/scripts/run-frontend.ps1` — start the Vite dev server.
+- `python/scripts/verify-demo.ps1` — call `/api/health/details` and print
   the demo-readiness fields.
 
 These are optional convenience wrappers around the commands in this

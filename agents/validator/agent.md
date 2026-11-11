@@ -59,7 +59,7 @@ repair guidance.
 ## Determinism first
 
 The deterministic Python checks in
-`services/api/app/agents/validator/checks.py` decide
+`python/services/api/app/agents/validator/checks.py` decide
 pass/fail. If the deterministic checks pass, the plan may be surfaced.
 If they fail, the coordinator may run one repair pass on the Support
 Recommendation Agent using the repair guidance produced from a fixed
@@ -68,7 +68,7 @@ template set.
 The optional LLM critique is layered on top. It may add advisory warning
 codes. It **cannot** populate repair guidance — the model's repair text is
 discarded, and the guidance sent back to the recommender comes only from the
-fixed templates in `services/api/app/agents/validator/repair.py`. It
+fixed templates in `python/services/api/app/agents/validator/repair.py`. It
 **cannot** flip a
 deterministic pass into a failure.
 
@@ -89,4 +89,4 @@ sees it.
 ## Handoff
 
 Emits `ValidatorReport` (contract v1.0.0) to the coordinator. See
-`services/api/app/agents/shared/contracts.py`.
+`python/services/api/app/agents/shared/contracts.py`.
