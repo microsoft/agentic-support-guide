@@ -64,30 +64,33 @@ public static class Conftest
         List<string>? strategyIds = null,
         string tier = "Focused",
         List<string>? caveats = null,
-        List<string>? citedIds = null) => new()
+        List<string>? citedIds = null)
     {
-        ["contract_version"] = "1.0.0",
-        ["detected_need"] = "Enquiry response slower than the group standard",
-        ["support_tier"] = tier,
-        ["recommended_frequency"] = "weekly review, 20-25 min",
-        ["grouping_guidance"] = "single dealership with group oversight",
-        ["resource_ids"] = resourceIds ?? [],
-        ["rationale"] = "Synthetic dealership indicators support focused lead-response work.",
-        ["goal_suggestions"] = goalIds ?? [],
-        ["strategy_suggestions"] = strategyIds ?? [],
-        ["manager_next_steps"] = new List<string> { "Confirm the baseline with a short synthetic check." },
-        ["progress_monitoring"] = new List<string> { "Weekly check on the agreed measure." },
-        ["review_window_days"] = 28,
-        ["decision_rule"] = "IF process_score < 60 THEN targeted.",
-        ["caveats"] = caveats ??
-        [
-            "Illustrative synthetic output only; not a real benchmark.",
-            "Human review is required before any decision or communication.",
-        ],
-        // Citations are no longer auto-attached when the model cites nothing,
-        // so the canned draft must cite explicitly like a real one would.
-        ["cited_ids"] = citedIds ?? ["GROUP-DEMO-lead-01", "GROUP-DEMO-lead-02"],
-    };
+        return new()
+        {
+            ["contract_version"] = "1.0.0",
+            ["detected_need"] = "Enquiry response slower than the group standard",
+            ["support_tier"] = tier,
+            ["recommended_frequency"] = "weekly review, 20-25 min",
+            ["grouping_guidance"] = "single dealership with group oversight",
+            ["resource_ids"] = resourceIds ?? [],
+            ["rationale"] = "Synthetic dealership indicators support focused lead-response work.",
+            ["goal_suggestions"] = goalIds ?? [],
+            ["strategy_suggestions"] = strategyIds ?? [],
+            ["manager_next_steps"] = new List<string> { "Confirm the baseline with a short synthetic check." },
+            ["progress_monitoring"] = new List<string> { "Weekly check on the agreed measure." },
+            ["review_window_days"] = 28,
+            ["decision_rule"] = "IF process_score < 60 THEN targeted.",
+            ["caveats"] = caveats ??
+            [
+                "Illustrative synthetic output only; not a real benchmark.",
+                "Human review is required before any decision or communication.",
+            ],
+            // Citations are no longer auto-attached when the model cites nothing,
+            // so the canned draft must cite explicitly like a real one would.
+            ["cited_ids"] = citedIds ?? ["GROUP-DEMO-lead-01", "GROUP-DEMO-lead-02"],
+        };
+    }
 
     public static Dictionary<string, object?> CannedValidatorCritique() => new()
     {

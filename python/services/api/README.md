@@ -10,6 +10,9 @@ backed by Microsoft Foundry model deployments.
 The FastAPI app mounts every route under `/api`. OpenAPI is at
 `/api/openapi.json` and the docs UI is at `/api/docs`.
 
+The .NET track serves the same API from
+[`dotnet/services/api`](../../../dotnet/services/api/README.md).
+
 ## Requirements
 
 - Python 3.12+ (3.13 is used in local development).
@@ -122,6 +125,6 @@ per call from that cached text.
 
 ## Privacy guardrail
 
-`tests/test_no_sensitive_content.py` runs a rule-based scanner across
-tracked source/text files. See
+[`maintenance/tests/test_no_sensitive_content.py`](../../../maintenance/tests/test_no_sensitive_content.py)
+runs a rule-based scanner across tracked source/text files. See
 [`docs/security-and-privacy.md`](../../../docs/security-and-privacy.md).

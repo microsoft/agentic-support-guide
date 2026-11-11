@@ -7,7 +7,24 @@ folder is how that claim is tested rather than asserted.
 replays the same inputs against the .NET app and compares what comes back.
 Anything that differs fails the .NET build, unless it is listed in
 [allowed_differences.yaml](allowed_differences.yaml) with the reason the two
-tracks may disagree there.
+tracks may disagree there. Strings that name a track's own files — setup
+guidance and error messages that mention a script, a folder or the `.env`
+file — are compared after that file's `track_substitutions` rewrite the
+Python paths to their .NET equivalents.
+
+The replay is in
+[`dotnet/services/api/AgenticSupportGuide.Api.Tests/Conformance/`](../dotnet/services/api/AgenticSupportGuide.Api.Tests/Conformance/):
+[`ScenarioConformanceTests.cs`](../dotnet/services/api/AgenticSupportGuide.Api.Tests/Conformance/ScenarioConformanceTests.cs)
+for the scenarios,
+[`DataConformanceTests.cs`](../dotnet/services/api/AgenticSupportGuide.Api.Tests/Conformance/DataConformanceTests.cs)
+for the data, instructions and determinations, and
+[`HostedConformanceTests.cs`](../dotnet/services/api/AgenticSupportGuide.Api.Tests/Conformance/HostedConformanceTests.cs)
+for the hosted agent. They run with the rest of the .NET suite; to run only
+them, from the repo root:
+
+```powershell
+dotnet test --solution dotnet/AgenticSupportGuide.slnx --filter-namespace "*.Conformance"
+```
 
 ## What is recorded
 
@@ -89,6 +106,7 @@ python python/scripts/generate_conformance.py           # check only; exit 1 if 
 `python/services/api/tests/test_conformance.py` fails when a committed golden
 no longer matches the Python code, so a Python change that is not re-recorded
 cannot merge. The .NET tests then fail until the .NET app does the same thing.
+The .NET track only reads the goldens; nothing in it writes them.
 
 The scenario definitions live in
 [`python/services/api/tests/conformance_cases.py`](../python/services/api/tests/conformance_cases.py).

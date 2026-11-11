@@ -2,7 +2,8 @@
 
 Synthetic evaluation cases for the agents. All cases use synthetic
 dealerships only. Evaluation runs never capture full prompts or full
-completions in committed files.
+completions in committed files. The cases are shared: the Python and .NET
+tracks grade the same file.
 
 ## Layout
 
@@ -12,16 +13,26 @@ completions in committed files.
 ## Running evaluations
 
 The cases are graded with Microsoft Agent Framework's evaluation and
-Foundry's built-in graders. Module 9 walks through it:
+Foundry's built-in graders. Module 9 walks through it. Python:
 
 ```powershell
 .\python\services\api\.venv\Scripts\python.exe python\scripts\run_agent_evals.py --dry-run
 .\python\services\api\.venv\Scripts\python.exe python\scripts\run_agent_evals.py --apply
 ```
 
+.NET, from the repo root:
+
+```powershell
+dotnet run dotnet/scripts/run_agent_evals.cs -- --dry-run
+dotnet run dotnet/scripts/run_agent_evals.cs -- --apply
+```
+
 `--dry-run` prints the plan and calls nothing. `--apply` calls a model for
 every case and a grader for every score, so it costs tokens and is not in
-CI. The **Evaluate** workflow runs it on demand.
+CI. Each track's **Evaluate** workflow —
+[`evaluate-python.yml`](../.github/workflows/evaluate-python.yml) or
+[`evaluate-dotnet.yml`](../.github/workflows/evaluate-dotnet.yml) — runs it
+on demand.
 
 ## What is graded
 
@@ -43,7 +54,9 @@ fires.
 Adding a case is one line in `synthetic_cases.jsonl`. It must include
 `dealer_group_id`, and its dealer group/category pair must have evidence
 fixtures, or the run is ungrounded by construction.
-`python/services/api/tests/test_eval_cases.py` enforces both.
+`python/services/api/tests/test_eval_cases.py` and
+`dotnet/services/api/AgenticSupportGuide.Api.Tests/EvalCasesTests.cs`
+enforce both.
 
 ## What must never be captured
 

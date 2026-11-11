@@ -131,8 +131,9 @@ regions by giving each half a different `search_location`.
 
 **This check does not predict regional capacity.** It reports your
 subscription's allowance, not whether Azure has hardware free. A region can
-report 12 available and still refuse to create one — see
-[Module 0](python/module-0-provision.md#2-pick-your-region) for that failure and how
+report 12 available and still refuse to create one — see Module 0
+([Python](python/module-0-provision.md#2-pick-your-region),
+[.NET](dotnet/module-0-provision.md#2-pick-your-region)) for that failure and how
 to recover from it. Budget time for it: a failed Search create can take 15
 minutes to report.
 
@@ -158,7 +159,7 @@ these have to be reachable.
 | `*.search.windows.net` | Retrieval. |
 | `*.blob.core.windows.net` | Knowledge document upload. |
 | `*.in.applicationinsights.azure.com` and `api.applicationinsights.io` | Telemetry ingestion, and the queries Module 10 runs. |
-| `registry.npmjs.org` and `pypi.org` / `files.pythonhosted.org` | Dependency install. |
+| `registry.npmjs.org`, plus `pypi.org` / `files.pythonhosted.org` (Python track) or `api.nuget.org` (.NET track) | Dependency install. |
 | `aka.ms` | Redirector for the Azure CLI extension index, used by `az extension add`. |
 | GitHub | Clone. A **fork per attendee** is required for the optional CI sections, along with permission to enable Actions and create environment secrets. |
 
@@ -166,7 +167,8 @@ Proxies that perform TLS inspection on the Azure endpoints above will break
 the SDK calls. Confirm this before the workshop.
 
 **Check your Azure Policy assignments too.** Terraform creates the AI Services
-account with a public endpoint and applies tags from `python/infra/variables.tf`. A
+account with a public endpoint and applies tags from `variables.tf` in the
+track's `infra/` folder (`python/infra` or `dotnet/infra`). A
 policy that forbids public endpoints, restricts regions or SKUs, or requires
 specific tags will fail the apply.
 
@@ -210,8 +212,9 @@ only because it is a partial month.
 
 The cost is almost entirely idle time, not usage — but stopping the web apps
 does **not** stop it. App Service plans bill for the plan, not the running
-site, and Search bills hourly regardless. Only `terraform -chdir=python/infra
-destroy` actually stops the meter. Run it when the workshop is over, and
+site, and Search bills hourly regardless. Only `terraform destroy` in the
+track's `infra/` folder (`-chdir=python/infra` or `-chdir=dotnet/infra`)
+actually stops the meter. Run it when the workshop is over, and
 budget for the idle days in between: do not destroy between days, because it
 takes the knowledge base, index and portal-created agents with it.
 
@@ -232,7 +235,8 @@ depends on them.
 > [!IMPORTANT]
 > Cutting Module 7 means skipping the module, not the router *deployment*.
 > Module 8's guardrails list shows `asg-router`, so leave
-> `enable_model_router` on. And whatever you cut, send attendees to
-> [Module 10's Clean up](python/module-10-operate.md#clean-up) at the end — it is
+> `enable_model_router` on. And whatever you cut, send attendees to Module
+> 10's Clean up ([Python](python/module-10-operate.md#clean-up),
+> [.NET](dotnet/module-10-operate.md#clean-up)) at the end — it is
 > the only place that deletes anything, and skipping it leaves the Search
 > service and two App Service plans billing.

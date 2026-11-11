@@ -9,6 +9,16 @@
 > demonstrate architecture and workflow patterns, not to make production
 > pricing, financing, credit, compliance, safety, or staffing decisions.
 
+> **Two tracks, one app.** The application is written twice, in Python and in
+> .NET, and both behave the same: the same API, UI, agent definitions, Azure
+> resources and results. The **Python** track lives under `python/` (FastAPI,
+> Microsoft Agent Framework for Python); the **.NET** track lives under
+> `dotnet/` (ASP.NET Core, Microsoft Agent Framework for .NET). The UI, the
+> agent definitions, the evaluation cases and the docs are shared. Pick one —
+> see [Choose a track](workshop/README.md#choose-a-track) — and follow it
+> throughout: wherever a step below depends on the language, it is given for
+> both.
+
 ## Start here (for teams new to this stack)
 
 If you are new to agentic applications, Microsoft Foundry, DevOps, MLOps,
@@ -59,14 +69,15 @@ produce a structured recommendation that a human reviews and approves.
   candidates, strategies, next steps). It can only choose from an allowed
   catalog.
 - **Validator Agent** checks structure, required caveats, and grounding.
-  It uses deterministic Python rules, plus an advisory model critique.
+  It uses deterministic rules in code, plus an advisory model critique.
 
 Between those three agents sits a **deterministic coordinator** — a
-Microsoft Agent Framework `WorkflowBuilder` graph inside the FastAPI
-service. Six executors and six edges order the calls, stop the run when an
-agent's reply does not parse into its typed contract, and run at most one
-repair pass if the validator rejects the draft. The coordinator is **not** a
-fourth agent; it does not talk to a language model.
+Microsoft Agent Framework `WorkflowBuilder` graph inside the API service
+(FastAPI in the Python track, ASP.NET Core in the .NET track). Six executors
+and six edges order the calls, stop the run when an agent's reply does not
+parse into its typed contract, and run at most one repair pass if the
+validator rejects the draft. The coordinator is **not** a fourth agent; it
+does not talk to a language model.
 
 This is a **Microsoft Agent Framework** workflow, not an imitation of one:
 specialized agents exchanging typed messages across a graph of executors
@@ -91,18 +102,22 @@ organizational unit for agents, evaluation, and safety workflows.
 
 ## Monorepo layout
 
-- [`apps/web`](apps/web/README.md) — React + TS + Vite frontend.
-- [`python/services/api`](python/services/api/README.md) — FastAPI backend with the three agents.
-- [`infra`](python/infra/README.md) — Terraform for Microsoft Foundry.
-- [`workshop`](workshop/README.md) — the hands-on workshop, modules 0-10.
+- [`apps/web`](apps/web/README.md) — React + TS + Vite frontend, shared by both tracks.
+- [`agents`](agents/README.md) — the agent definitions, shared by both tracks.
+- [`evals`](evals/README.md) — synthetic evaluation cases, shared by both tracks.
+- [`python/services/api`](python/services/api/README.md) — Python track: FastAPI backend with the three agents.
+- [`dotnet/services/api`](dotnet/services/api/README.md) — .NET track: ASP.NET Core backend with the three agents.
+- [`python/infra`](python/infra/README.md) and [`dotnet/infra`](dotnet/infra/README.md) — Terraform for Microsoft Foundry, one root per track.
+- [`conformance`](conformance/README.md) — behaviour recorded from the Python track that the .NET tests replay, and where the two may differ.
+- [`workshop`](workshop/README.md) — the hands-on workshop, modules 0-10, in both languages.
 - [`demo`](demo/README.md) — the customer demo walkthrough.
 - [`docs`](docs/architecture.md) — architecture, security, ADRs.
 
-Local ports:
+Local ports, the same in both tracks:
 
 | Component        | URL                     | Notes |
 |------------------|-------------------------|-------|
-| FastAPI backend  | `http://127.0.0.1:8000` | OpenAPI at `/api/openapi.json`, docs at `/api/docs`. |
+| API backend (FastAPI or ASP.NET Core) | `http://127.0.0.1:8000` | OpenAPI at `/api/openapi.json`, docs at `/api/docs`. Local runs only; both are off on App Service. |
 | Vite dev server  | `http://127.0.0.1:5173` | Proxies `/api/*` to the backend without stripping the prefix. |
 
 ---
@@ -113,17 +128,22 @@ Install these once on the machine that will run the app.
 
 ### Local software
 
+You need the language runtime for **your** track only: Python for the Python
+track, the .NET SDK for the .NET track. Everything else is common to both.
+
 | Tool | Minimum version | Purpose | Install / verify |
 | --- | --- | --- | --- |
 | Git | any recent | Clone this repo. | `git --version` |
 | Visual Studio Code | any recent | Editing `terraform.tfvars` and `.env` (this guide assumes VS Code). | `code --version` |
-| Python | 3.13 | Backend service. | `py -3.13 --version` on Windows; `python3 --version` elsewhere |
+| Python | 3.13 | Python track: backend service, scripts and tests. | `py -3.13 --version` on Windows; `python3 --version` elsewhere |
+| .NET SDK | 10.0.404, or a later 10.0 SDK | .NET track: backend service, scripts and tests. [`global.json`](global.json) pins the SDK band and the test runner, so run `dotnet` from inside the repo. | `dotnet --version` |
 | Node.js | 20 LTS (22 tested) | Vite frontend. | `node --version` and `npm --version` |
 | Terraform | 1.9+ | Provisions Microsoft Foundry infrastructure. | `terraform version` |
 | Azure CLI (`az`) | any recent | Sign in for keyless auth (`az login`). | `az version` |
 | PowerShell | 5.1+ or PowerShell 7 | The commands below use PowerShell syntax. macOS/Linux users can adapt with `bash`. | `$PSVersionTable.PSVersion` |
 
-No Docker. No local database. No global npm or pip packages required.
+No Docker. No local database. No global npm or pip packages, and no global
+.NET tools, required.
 
 ### Azure prerequisites
 
@@ -190,15 +210,30 @@ $env:ARM_SUBSCRIPTION_ID = "<your-subscription-id>"
 
 **Step 2 — configure Terraform variables in VS Code.**
 
+Each track has its own Terraform root, with the same resources and its own
+state, so each track provisions its own environment. Work in your track's.
+
+Python:
+
 ```powershell
 cd python/infra
 Copy-Item terraform.tfvars.example terraform.tfvars
 ```
 
-Open `python/infra/terraform.tfvars` in VS Code. The file is commented
-top-to-bottom. At minimum, set `location`. Save and close.
+.NET:
+
+```powershell
+cd dotnet/infra
+Copy-Item terraform.tfvars.example terraform.tfvars
+```
+
+Open `terraform.tfvars` in that folder (`python/infra/` or `dotnet/infra/`)
+in VS Code. The file is commented top-to-bottom. At minimum, set `location`.
+Save and close.
 
 **Step 3 — deploy Microsoft Foundry infrastructure.**
+
+From the same folder:
 
 ```powershell
 terraform init
@@ -209,44 +244,73 @@ terraform apply
 Plain `terraform init` respects the committed `.terraform.lock.hcl` and
 gives you the exact provider versions this repo was validated against.
 Use `terraform init -upgrade` **only** when you deliberately want to pull
-newer providers within the version constraints in `python/infra/providers.tf`;
-see [`python/infra/README.md`](python/infra/README.md#commands) for the trade-offs.
+newer providers within the version constraints in your track's
+`providers.tf` (`python/infra/providers.tf` or `dotnet/infra/providers.tf`);
+see [`python/infra/README.md`](python/infra/README.md#commands) or
+[`dotnet/infra/README.md`](dotnet/infra/README.md#commands) for the
+trade-offs.
 
 **Step 4 — populate the backend `.env` from Terraform outputs.**
 
-Run the helper script from the repo root:
+Run your track's helper script from the repo root, two levels up from the
+infra folder.
+
+Python:
 
 ```powershell
-cd ..
+cd ..\..
 .\python\scripts\populate-env.ps1
 ```
 
-It reads `terraform output` (including the sensitive Application Insights
-connection string), writes `python/services/api/.env`, and overwrites any
-previous file. Nothing sensitive is printed to the console. Re-run it
-after any future `terraform apply` that changes outputs.
+.NET:
 
-If you'd rather do it by hand, copy `python/services/api/.env.example` to
-`python/services/api/.env`, then run `terraform output` inside `python/infra/` and
-paste the values into the corresponding keys in `.env`. Use
+```powershell
+cd ..\..
+.\dotnet\scripts\populate-env.ps1
+```
+
+It reads `terraform output` (including the sensitive Application Insights
+connection string), writes your track's `.env` — `python/services/api/.env`
+or `dotnet/services/api/.env` — and overwrites any previous file. Nothing
+sensitive is printed to the console. Re-run it after any future
+`terraform apply` that changes outputs.
+
+If you'd rather do it by hand: for Python, copy
+`python/services/api/.env.example` to `python/services/api/.env`; for .NET,
+which has no `.env.example`, create `dotnet/services/api/.env` with the keys
+listed in [its README](dotnet/services/api/README.md#environment-variables).
+Then run `terraform output` inside your track's infra folder and paste the
+values into the corresponding keys in `.env`. Use
 `terraform output -raw application_insights_connection_string` to
 reveal the sensitive value.
 
 **Step 5 — validate and publish the agent definitions.**
 
-The role instructions live in `/agents/<id>/agent.md`. These scripts need the
-backend virtual environment, so create it first, then validate offline and
-publish to Foundry as prompt agents so they show up in the portal:
+The role instructions live in `/agents/<id>/agent.md`, shared by both tracks.
+Validate them offline, then publish them to Foundry as prompt agents so they
+show up in the portal.
+
+Python — these scripts need the backend virtual environment, so create it
+first:
 
 ```powershell
 cd python\services\api
 py -3.13 -m venv .venv           # first time only
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-cd ..\..
+cd ..\..\..
 
 python python/scripts/validate_agent_definitions.py
 python python/scripts/publish_prompt_agents.py --suffix <your-alias> --apply
+```
+
+.NET — there is no environment to create. Each script is a single C# file
+that `dotnet run` compiles on its first run; everything after `--` goes to
+the script rather than to `dotnet`. Run them from the repo root:
+
+```powershell
+dotnet run dotnet/scripts/validate_agent_definitions.cs
+dotnet run dotnet/scripts/publish_prompt_agents.cs -- --suffix <your-alias> --apply
 ```
 
 `--suffix` is required so many people can publish into one Foundry project
@@ -258,7 +322,9 @@ published is what you meant to publish.
 
 ### Start the app
 
-Backend (one terminal):
+Backend (one terminal), for your track.
+
+Python:
 
 ```powershell
 cd python\services\api
@@ -272,13 +338,40 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env
 > the flag leaves `customer_demo_ready` stuck at `false`.
 > `.\python\scripts\run-backend.ps1` passes it for you.
 
-Frontend (a second terminal):
+.NET, from the repo root:
+
+```powershell
+.\dotnet\scripts\run-backend.ps1
+```
+
+The script runs the API under `dotnet watch` on `http://127.0.0.1:8000`, so a
+saved change rebuilds and restarts it. It loads `dotnet/services/api/.env`
+into the backend process only: a variable already set in your shell wins, and
+nothing is left behind in the shell when the backend stops, so blanking a line
+in `.env` and restarting really does unset it. It builds into its own
+`obj\watch` folder, because the running app locks the files it was built to;
+that way `dotnet test` and IDE builds keep working while the backend runs.
+
+> [!IMPORTANT]
+> Start the .NET backend with `run-backend.ps1`. Like the Python app, the .NET
+> app reads configuration from the process environment and never loads `.env`
+> itself, and a plain `dotnet run` sets neither the `.env` values nor
+> `ASPNETCORE_URLS=http://127.0.0.1:8000`, the address the Vite dev server
+> proxies to. Without the `.env` values `customer_demo_ready` stays `false`.
+
+Either backend serves the same API on `http://127.0.0.1:8000`, with OpenAPI
+at `/api/openapi.json` and Swagger UI at `/api/docs` on a local run.
+
+Frontend (a second terminal), the same for both tracks:
 
 ```powershell
 cd apps\web
 npm install                       # first time only
 npm run dev
 ```
+
+`.\python\scripts\run-frontend.ps1` and `.\dotnet\scripts\run-frontend.ps1`
+both run `npm run dev` there for you.
 
 Open http://127.0.0.1:5173.
 
@@ -288,27 +381,39 @@ Open http://127.0.0.1:5173.
 
 ### Confirm the setup worked
 
+From any PowerShell terminal, whichever track is running:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/health/details | ConvertTo-Json -Depth 10
+```
+
+Or, with Python on the path:
+
 ```powershell
 curl.exe -s http://127.0.0.1:8000/api/health/details | python -m json.tool
 ```
 
 Look for `"active_provider": "azure_foundry_responses"` and
 `"customer_demo_ready": true`. If either is wrong, the same payload names
-the missing piece.
+the missing piece. Your track's `verify-demo.ps1`
+(`.\python\scripts\verify-demo.ps1` or `.\dotnet\scripts\verify-demo.ps1`)
+checks the same fields and then makes one real recommendation request.
 
 ---
 
 ## Developer test mode
 
-Automated tests inject a fake Foundry client
-(`python/services/api/tests/fakes.py::FakeChatClientFactory`) into the
-`MafAgentRuntime` via dependency injection. This is only
-available inside `pytest`; there is no environment variable to enable
-it at runtime. When the runtime cannot find bindings or an endpoint,
-`/api/health/details` reports `"active_provider": "unconfigured"` and
-sets `"customer_demo_ready": false`.
+Automated tests inject a fake Foundry client, `FakeChatClientFactory`, into
+the `MafAgentRuntime` via dependency injection: Python's is in
+[`python/services/api/tests/fakes.py`](python/services/api/tests/fakes.py),
+.NET's in
+[`dotnet/services/api/AgenticSupportGuide.Api.Tests/Fakes.cs`](dotnet/services/api/AgenticSupportGuide.Api.Tests/Fakes.cs).
+This is only available inside the test suites (`pytest`, or the .NET test
+project); there is no environment variable to enable it at runtime. When the
+runtime cannot find bindings or an endpoint, `/api/health/details` reports
+`"active_provider": "unconfigured"` and sets `"customer_demo_ready": false`.
 
-To run tests:
+To run tests, Python:
 
 ```powershell
 cd python\services\api
@@ -316,11 +421,17 @@ cd python\services\api
 pytest
 ```
 
+.NET, from the repo root:
+
+```powershell
+dotnet test --solution dotnet/AgenticSupportGuide.slnx
+```
+
 ---
 
 ## Quality checks
 
-Backend (`python/services/api`):
+Backend, Python (`python/services/api`):
 
 ```powershell
 ruff format --check .
@@ -329,14 +440,24 @@ mypy .
 pytest
 ```
 
-Frontend (`apps/web`):
+Backend, .NET (from the repo root). Warnings are errors in this track, so the
+build is also the lint and the type check:
+
+```powershell
+dotnet format whitespace dotnet/AgenticSupportGuide.slnx --verify-no-changes
+dotnet build dotnet/AgenticSupportGuide.slnx
+dotnet test --solution dotnet/AgenticSupportGuide.slnx
+dotnet run dotnet/scripts/validate_agent_definitions.cs
+```
+
+Frontend (`apps/web`), shared by both tracks:
 
 ```powershell
 npm run build
 npm run test
 ```
 
-Infrastructure (`infra`):
+Infrastructure (`python/infra` or `dotnet/infra`):
 
 ```powershell
 terraform fmt -check -recursive
@@ -344,20 +465,39 @@ terraform init
 terraform validate
 ```
 
-All of the above run automatically on every pull request via
-[`.github/workflows/ci-python.yml`](.github/workflows/ci-python.yml), along with
-`python python/scripts/validate_agent_definitions.py`. None of the CI jobs
+All of the above run automatically on every pull request, and each track's
+workflow installs only that track's runtime:
+[`.github/workflows/ci-python.yml`](.github/workflows/ci-python.yml) runs the
+Python backend and infrastructure checks, along with
+`python python/scripts/validate_agent_definitions.py`;
+[`.github/workflows/ci-dotnet.yml`](.github/workflows/ci-dotnet.yml) runs the
+.NET ones; and [`.github/workflows/ci-shared.yml`](.github/workflows/ci-shared.yml)
+runs the frontend checks and the repo-wide hygiene checks (markdown links,
+stale references, the privacy scanner and screenshots). None of the CI jobs
 need Azure credentials.
 
 ---
 
 ## Troubleshooting
 
-### Python virtual environment
+### Python virtual environment (Python track)
 - **`python` or `py` command not found.** Install Python 3.12 or newer.
 - **Activation script blocked on Windows.** Run PowerShell as your user
   and execute `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
 - **`pip install` fails behind a proxy.** Set `HTTPS_PROXY` and retry.
+
+### .NET SDK (.NET track)
+- **`dotnet` command not found.** Install the .NET 10 SDK.
+  `run-backend.ps1` stops with *No dotnet found* until it is on `PATH`.
+- **`dotnet` cannot resolve an SDK.** [`global.json`](global.json) pins
+  10.0.404 and rolls forward only to a later 10.0 SDK. Install one, and run
+  `dotnet` from inside the repo so `global.json` applies.
+- **A build or `dotnet test` fails because files are locked.** The running
+  API holds the files it was built to. `run-backend.ps1` builds into
+  `obj\watch` for exactly this reason; an API started some other way, such
+  as a plain `dotnet run`, blocks the next build until it stops.
+- **Scripts are blocked on Windows.** The same execution-policy fix as for
+  Python above applies to `run-backend.ps1` and the other `.ps1` scripts.
 
 ### `npm install`
 - **`npm` not found.** Install Node.js 18 or newer (this project was
@@ -367,7 +507,8 @@ need Azure credentials.
 
 ### Backend not running
 - The frontend shows *API unavailable - start the local backend*.
-  Restart `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`.
+  Python: restart `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`.
+  .NET: re-run `.\dotnet\scripts\run-backend.ps1` from the repo root.
 
 ### Vite proxy / API unavailable
 - Ensure `apps/web/vite.config.ts` still proxies `/api` to
@@ -376,18 +517,26 @@ need Azure credentials.
 ### Missing Microsoft Foundry environment variables
 - `POST /api/recommendations/support-plan` returns
   `status: "provider_missing"`. The project endpoint or the per-role
-  deployment names are not configured. Populate
-  `python/services/api/.env` from the Terraform outputs, then run
-  `python python/scripts/validate_agent_definitions.py`, then restart the
+  deployment names are not configured. Populate your track's `.env`
+  (`python/services/api/.env` or `dotnet/services/api/.env`) from the
+  Terraform outputs, then run
+  `python python/scripts/validate_agent_definitions.py` or
+  `dotnet run dotnet/scripts/validate_agent_definitions.cs`, then restart the
   backend.
 
 ### `.env` exists but `foundry_project_configured` is still `false`
-- The backend was started without `--env-file .env`. The app reads the
-  process environment and never loads `.env` implicitly. Restart with
+- The app reads the process environment and never loads `.env` implicitly,
+  in either track.
+- Python: the backend was started without `--env-file .env`. Restart with
   `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`,
   or use `.\python\scripts\run-backend.ps1`.
-- If the file predates the current setup flow, regenerate it with
-  `.\python\scripts\populate-env.ps1`. Older copies used
+- .NET: the backend was started some other way than
+  `.\dotnet\scripts\run-backend.ps1`, which is what loads
+  `dotnet/services/api/.env` into the backend process. Restart it with the
+  script.
+- If the file predates the current setup flow, regenerate it with your
+  track's `populate-env.ps1` (`.\python\scripts\populate-env.ps1` or
+  `.\dotnet\scripts\populate-env.ps1`). Older copies used
   `AZURE_AI_FOUNDRY_DEPLOYMENT` / `AZURE_AI_FOUNDRY_PROJECT_NAME`, which
   the current runtime ignores. The keys that matter now are
   `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` and the three
@@ -397,12 +546,16 @@ need Azure credentials.
 - Wait a few minutes. The `Cognitive Services OpenAI User` role
   assignment can take time to propagate.
 - Confirm you are signed in as the same principal referenced by
-  `principal_id`, or set `principal_id` explicitly in
-  `python/infra/terraform.tfvars`.
+  `principal_id`, or set `principal_id` explicitly in your track's
+  `terraform.tfvars` (`python/infra/terraform.tfvars` or
+  `dotnet/infra/terraform.tfvars`).
+- .NET only: the app's credential deliberately skips the Visual Studio and
+  VS Code sign-ins, so it calls Azure as your `az login` account. Make sure
+  that is the account the role assignments were made for.
 
 ### Foundry project or model deployment not found
 - Re-run `terraform apply`. Confirm that the per-role
-  `FOUNDRY_MODEL_DEPLOYMENT_*` values in `python/services/api/.env` match the
+  `FOUNDRY_MODEL_DEPLOYMENT_*` values in your track's `.env` match the
   deployment name output by Terraform (`model_deployment_name`), and
   that `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT` matches
   `foundry_project_endpoint`.
@@ -412,9 +565,10 @@ need Azure credentials.
   means a role's definition failed to load or its
   `FOUNDRY_MODEL_DEPLOYMENT_*` variable is unset — it is not about remote
   agents, which the runtime builds per call.
-- Run `python python/scripts/validate_agent_definitions.py` to see which definition
-  is malformed, and check `python/services/api/.env` for the missing deployment
-  name.
+- Run `python python/scripts/validate_agent_definitions.py` or
+  `dotnet run dotnet/scripts/validate_agent_definitions.cs` to see which
+  definition is malformed, and check your track's `.env` for the missing
+  deployment name.
 
 ### `terraform apply` fails on a soft-deleted resource
 - `FlagMustBeSetForRestore ... has been soft-deleted` (AI Services
@@ -427,15 +581,20 @@ need Azure credentials.
   also works, but read what it changes before you run it: it renames the
   resource group, AI Services account, Foundry project, search service,
   storage account and **both web apps**. That is a full recreate, it
-  changes every URL, and it invalidates the GitHub repository variables and
-  the federated-credential scope set up in Module 1.
+  changes every URL, and it invalidates the GitHub variables (repository
+  variables for the Python track, the `workshop-dotnet` environment's
+  variables for the .NET track) and the federated-credential scope set up
+  in Module 1.
 - Details and the purge-based alternative are in
-  [`python/infra/README.md`](python/infra/README.md#troubleshooting-soft-delete).
+  [`python/infra/README.md`](python/infra/README.md#troubleshooting-soft-delete)
+  and [`dotnet/infra/README.md`](dotnet/infra/README.md#troubleshooting-soft-delete).
 
 ### Two people deploying into one subscription
 - Supported. Every unique-scoped resource name carries a random suffix,
-  so parallel stacks do not collide. See
-  [`python/infra/README.md`](python/infra/README.md#resource-naming-and-collisions).
+  so parallel stacks do not collide — including one Python and one .NET
+  stack. See
+  [`python/infra/README.md`](python/infra/README.md#resource-naming-and-collisions)
+  or [`dotnet/infra/README.md`](dotnet/infra/README.md#resource-naming-and-collisions).
 
 ### Model deployment quota or region issues
 - `terraform apply` fails on the deployment. Options:
@@ -455,8 +614,12 @@ need Azure credentials.
 - Confirm the `azurerm` provider version is `>= 4.40.0, < 5.0.0`.
 
 ### Throttling (HTTP 429)
-- The provider retries with jittered backoff. If it persists, request
-  more capacity/quota for the deployment.
+- The provider client retries a throttled call twice before the app sees it,
+  in both tracks. In Python that is the OpenAI client's default, with jittered
+  backoff. In .NET it is System.ClientModel's retry policy, which the app sets
+  to two retries, waiting 0.8 and then 1.6 seconds, or longer when the
+  response's `Retry-After` header asks for it. If it persists, request more
+  capacity/quota for the deployment.
 
 ### Content-filter block
 - The UI shows a specific state and never displays the concern text back.
@@ -470,29 +633,50 @@ need Azure credentials.
 
 ## Scripts
 
-- `python/scripts/populate-env.ps1` — read `terraform output` and write
-  `python/services/api/.env` (overwrites).
-- `python/scripts/validate_agent_definitions.py` — validate `/agents/<id>/agent.md`
-  and `manifest.yaml` for structure and consistency. Offline by default;
-  `--check-connectivity` additionally verifies the project endpoint and
-  credential. It does not create or update anything — publishing agents is
-  `python/scripts/publish_prompt_agents.py`.
-- `python/scripts/publish_prompt_agents.py` — publish the prompt agents to Foundry.
-  `--suffix` is required, `--variant` gives Module 8 a second addressable agent,
-  `--delete` removes the agents published under exactly that suffix.
-- `python/scripts/provision_foundry_iq.py` — build the Module 6 index, knowledge
-  sources and knowledge base.
-- `python/scripts/deploy-app.ps1` — package and deploy the API and UI, then confirm
-  the new `build_id` is actually serving.
-- `python/scripts/smoke_test.py` — end-to-end checks against a deployment.
-- `python/scripts/publish_hosted_agent.py` / `python/scripts/invoke_hosted_agent.py` —
-  Module 5 hosted agent.
-- `python/scripts/run_agent_evals.py` — Module 9 graded evaluations.
-- `maintenance/check_workshop_links.py` — verify every relative markdown link.
+Every script exists once per track and does the same job in both. Python
+scripts run as `python python/scripts/<name>.py`. .NET scripts are
+single-file C# programs, run as
+`dotnet run dotnet/scripts/<name>.cs -- <arguments>`. The PowerShell scripts
+run the same way in both tracks.
+
+- `python/scripts/populate-env.ps1` / `dotnet/scripts/populate-env.ps1` —
+  read `terraform output` and write the track's `.env`
+  (`python/services/api/.env` or `dotnet/services/api/.env`; overwrites).
+- `python/scripts/validate_agent_definitions.py` /
+  `dotnet/scripts/validate_agent_definitions.cs` — validate
+  `/agents/<id>/agent.md` and `manifest.yaml` for structure and consistency.
+  Offline by default; `--check-connectivity` additionally verifies the
+  project endpoint and credential. It does not create or update anything —
+  publishing agents is `python/scripts/publish_prompt_agents.py` /
+  `dotnet/scripts/publish_prompt_agents.cs`.
+- `python/scripts/publish_prompt_agents.py` /
+  `dotnet/scripts/publish_prompt_agents.cs` — publish the prompt agents to
+  Foundry. `--suffix` is required, `--variant` gives Module 8 a second
+  addressable agent, `--delete` removes the agents published under exactly
+  that suffix.
+- `python/scripts/provision_foundry_iq.py` /
+  `dotnet/scripts/provision_foundry_iq.cs` — build the Module 6 index,
+  knowledge sources and knowledge base.
+- `python/scripts/deploy-app.ps1` / `dotnet/scripts/deploy-app.ps1` — package
+  and deploy the API and UI, then confirm the new `build_id` is actually
+  serving. The .NET script deploys `dotnet publish` output, which App Service
+  runs without building.
+- `python/scripts/smoke_test.py` / `dotnet/scripts/smoke_test.cs` —
+  end-to-end checks against a deployment.
+- `python/scripts/publish_hosted_agent.py` / `python/scripts/invoke_hosted_agent.py`,
+  and `dotnet/scripts/publish_hosted_agent.cs` /
+  `dotnet/scripts/invoke_hosted_agent.cs` — Module 5 hosted agent.
+- `python/scripts/run_agent_evals.py` / `dotnet/scripts/run_agent_evals.cs` —
+  Module 9 graded evaluations.
+- `maintenance/check_workshop_links.py` — verify every relative markdown
+  link. Shared repo tooling, written in Python, for both tracks.
 - `python/scripts/run-backend.ps1` — activate the venv and start uvicorn.
-- `python/scripts/run-frontend.ps1` — start the Vite dev server.
-- `python/scripts/verify-demo.ps1` — call `/api/health/details` and print
-  the demo-readiness fields.
+  `dotnet/scripts/run-backend.ps1` — start the API under `dotnet watch`
+  with `.env` loaded for the backend process only.
+- `python/scripts/run-frontend.ps1` / `dotnet/scripts/run-frontend.ps1` —
+  start the Vite dev server.
+- `python/scripts/verify-demo.ps1` / `dotnet/scripts/verify-demo.ps1` — call
+  `/api/health/details` and print the demo-readiness fields.
 
 These are optional convenience wrappers around the commands in this
 README.
@@ -510,8 +694,8 @@ README.
 - [Observability](docs/observability.md)
 - [Glossary](docs/glossary.md)
 - [Orchestration patterns](docs/orchestration-patterns.md)
-- [Workshop](workshop/README.md) — eleven hands-on modules (0-10); Module 0 is
-  prework and the rest fill a day.
+- [Workshop](workshop/README.md) — eleven hands-on modules (0-10), in Python
+  and in .NET; Module 0 is prework and the rest fill a day.
 - [Customer demo](demo/README.md) — the 5–7 minute walkthrough.
 - [ADR — published prompt agents (current)](docs/adr/0006-published-prompt-agents.md)
 - [ADR — agent hosting (original, superseded)](docs/adr/0001-agent-hosting.md)

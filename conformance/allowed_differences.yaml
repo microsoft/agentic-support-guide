@@ -53,6 +53,24 @@ differences:
     dotnet: Agent Framework for .NET reports the failure as an executor-failed event and leaves those spans' status unset. A failed model call still marks its chat and invoke_agent spans as errors.
     compared_by: Each track's observability test asserts that the failing node's span is captured and carries no model output. The API response and the audit row are identical in both tracks.
 
+  - id: runaway-loop-guard
+    where: Workshop sample 7 and Module 3's repair bound (a workflow cycle whose condition never turns false).
+    python: Agent Framework for Python stops a workflow after a fixed number of supersteps, so a runaway cycle ends with an error.
+    dotnet: Agent Framework for .NET has no superstep limit; a runaway cycle runs until it is cancelled.
+    compared_by: Not compared. Both apps bound the repair loop by the attempt count carried in the message, so neither depends on the framework's guard.
+
+  - id: telemetry-span-shapes
+    where: The OpenTelemetry spans each track exports to Application Insights (Module 10).
+    python: Agent calls are INTERNAL spans named `invoke_agent <agent>`, and a failed model call records error.type as the exception's class name.
+    dotnet: Agent calls are CLIENT spans named `invoke_agent <agent>(<id>)` (the app sets the id to the role), each run has a `workflow.session` span above `invoke_workflow`, and a failed model call records the exception's full type name with its message as the span's status description. Sensitive-data capture is off by default in both; in .NET the OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT environment variable also turns it on.
+    compared_by: Not compared span by span. Each track's observability test asserts that every node emits an executor span, that the workflow span exists, and that no user text or model output reaches any span.
+
+  - id: provider-retries
+    where: A model call that fails with a retryable status.
+    python: The OpenAI client retries twice, with jittered exponential waits, on 408, 409, 429 and 5xx.
+    dotnet: System.ClientModel retries twice (the app sets the count to match Python), waiting 0.8 and then 1.6 seconds or as Retry-After asks, on 408, 429, 500, 502, 503 and 504.
+    compared_by: Not compared. Both tracks map an exhausted retry to the same typed status.
+
 # Applied to every golden string before it is compared with this track's
 # output, longest first. Each pair names the same file or step in each track.
 track_substitutions:

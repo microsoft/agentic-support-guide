@@ -1,0 +1,80 @@
+name: CI (.NET)
+
+# The .NET track only. Nothing here installs or calls Python.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ASP.NET Core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # global.json pins the SDK band and the test runner.
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Check formatting
+        run: dotnet format whitespace dotnet/AgenticSupportGuide.slnx --verify-no-changes
+
+      # Warnings are errors in this track, so the build is also the lint and
+      # the type check.
+      - name: Build
+        run: dotnet build dotnet/AgenticSupportGuide.slnx -c Release
+
+      - name: Validate agent definitions
+        run: dotnet run dotnet/scripts/validate_agent_definitions.cs
+
+      - name: Test
+        run: dotnet test --solution dotnet/AgenticSupportGuide.slnx -c Release --no-build
+
+  infra:
+    name: Infrastructure (Terraform)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dotnet/infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+
+      # No backend/credentials needed: validate only checks configuration.
+      - name: Initialize without a backend
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate
+
+  agent-definitions:
+    name: Agent definitions (validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Offline GenAIOps gate. Agents are ephemeral, so there is nothing to
+      # deploy; this validates the definitions the runtime loads.
+      - name: Validate agent definitions
+        run: dotnet run dotnet/scripts/validate_agent_definitions.cs

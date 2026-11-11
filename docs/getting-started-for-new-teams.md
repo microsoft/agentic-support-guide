@@ -5,6 +5,11 @@ agentic applications, Microsoft Foundry, DevOps, MLOps, or GenAIOps.
 Read this first, in order, before opening code. Every term used here
 has a plain-language entry in the [Glossary](glossary.md).
 
+The application is implemented twice, once in Python and once in .NET, and
+the two tracks behave the same; see
+[Choose a track](../workshop/README.md#choose-a-track). Where this page names
+a source file or a command, it names both.
+
 ## Who this repo is for
 
 - Engineers or solution architects who want a working, opinionated
@@ -49,7 +54,7 @@ The three agents live under [`/agents`](../agents):
   strictly from an allowed catalog.
 - [`agents/validator`](../agents/validator) — the **Validator Agent**
   checks structure, required caveats, and grounding. Deterministic
-  Python rules decide pass/fail; the LLM critique is advisory.
+  rules in code decide pass/fail; the LLM critique is advisory.
 
 Each agent folder contains only configuration:
 
@@ -59,18 +64,24 @@ Each agent folder contains only configuration:
   temperature, contract references).
 - `schemas/` — agent-local input/output shapes.
 
-The **runtime** for each role is an in-process Agent Framework `Agent` in
-the API backend, calling a Microsoft Foundry model deployment. The Python code in
-[`python/services/api/app/agents`](../python/services/api/app/agents) is a thin
-wrapper that builds the user message and calls the ephemeral agent
-through [`MafAgentRuntime`](../python/services/api/app/foundry_agents/maf_runtime.py).
+The **runtime** for each role is an in-process Agent Framework agent in
+the API backend, calling a Microsoft Foundry model deployment. The role
+code — [`python/services/api/app/agents`](../python/services/api/app/agents)
+in the Python track,
+[`dotnet/services/api/AgenticSupportGuide.Api/Agents`](../dotnet/services/api/AgenticSupportGuide.Api/Agents)
+in the .NET track — is a thin wrapper that builds the user message and
+calls the ephemeral agent through `MafAgentRuntime`
+([`maf_runtime.py`](../python/services/api/app/foundry_agents/maf_runtime.py) /
+[`MafRuntime.cs`](../dotnet/services/api/AgenticSupportGuide.Api/FoundryAgents/MafRuntime.cs)).
 There is no local language-model call in the recommendation path.
 
 ## What the coordinator is (and is not)
 
-The **coordinator** is deterministic Python in
-[`python/services/api/app/workflows/coordinator.py`](../python/services/api/app/workflows/coordinator.py).
-It:
+The **coordinator** is deterministic code in
+[`python/services/api/app/workflows/coordinator.py`](../python/services/api/app/workflows/coordinator.py)
+(Python) or
+[`dotnet/services/api/AgenticSupportGuide.Api/Workflows/Coordinator.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Workflows/Coordinator.cs)
+(.NET). It:
 
 - bounds user text,
 - runs the three role agents in sequence as an Agent Framework workflow,
@@ -83,7 +94,7 @@ The coordinator **is not a fourth agent**. It does not talk to a
 language model, does not appear as an assistant in Foundry, and does
 not appear in any prompt. It is regular code that unit tests exercise
 with a fake Foundry client. Anywhere you see "the coordinator does X,"
-substitute "a Python function does X."
+substitute "a plain function in the API does X."
 
 ## What Microsoft Foundry provides
 
@@ -93,18 +104,21 @@ it:
 
 - **Model deployments.** Serverless capacity on a chosen model and
   region, billed per token, provisioned by Terraform in
-  [`/infra`](../python/infra).
+  [`python/infra`](../python/infra) or [`dotnet/infra`](../dotnet/infra),
+  one root per track.
 - **Foundry projects.** A project resource that scopes agents, model
   deployments, RBAC, and observability. This repo provisions one
   project as part of Terraform.
 - **Foundry Agent Service.** The agent surface in the portal. The three coordinator
-  roles do *not* run here: each is an in-process Agent Framework `Agent` in
+  roles do *not* run here: each is an in-process Agent Framework agent in
   the API backend, built from instructions loaded at startup from the
   on-disk `agent.md` and `manifest.yaml` files, calling a Foundry model
   deployment through `MafAgentRuntime`. Those files are checked offline by
   [`python/scripts/validate_agent_definitions.py`](../python/scripts/validate_agent_definitions.py)
+  or [`dotnet/scripts/validate_agent_definitions.cs`](../dotnet/scripts/validate_agent_definitions.cs)
   and published to the portal as versioned prompt agents by
-  [`python/scripts/publish_prompt_agents.py`](../python/scripts/publish_prompt_agents.py).
+  [`python/scripts/publish_prompt_agents.py`](../python/scripts/publish_prompt_agents.py)
+  or [`dotnet/scripts/publish_prompt_agents.cs`](../dotnet/scripts/publish_prompt_agents.cs).
 
 Authentication is keyless: the backend uses `DefaultAzureCredential`
 and holds only a bearer token acquired for the Foundry endpoint. No
@@ -119,17 +133,22 @@ In this repo, that shows up as:
 
 - **Version control** for everything: agent instructions, contracts,
   Terraform, and application code all live in the same monorepo.
-- **Infrastructure as code.** [`/infra`](../python/infra) provisions the
-  Foundry project, model deployment, RBAC, Log Analytics, and
-  Application Insights with Terraform.
+- **Infrastructure as code.** [`python/infra`](../python/infra) and
+  [`dotnet/infra`](../dotnet/infra) each provision the Foundry project,
+  model deployment, RBAC, Log Analytics, and Application Insights with
+  Terraform, one environment per track.
 - **Repeatable local dev.** Backend and frontend both start from
   documented commands with no hidden environment.
-- **Local quality gates.** `ruff`, `mypy`, `pytest`, `npm run build`,
-  `npm run test`, `terraform fmt`, and `terraform validate` can be run
-  by any developer before pushing.
-- **CI.** [`.github/workflows/ci-python.yml`](../.github/workflows/ci-python.yml) runs
-  all of those gates plus `validate_agent_definitions.py` on every
-  pull request. No Azure credentials are needed for any of them.
+- **Local quality gates.** `ruff`, `mypy` and `pytest` (Python),
+  `dotnet format`, `dotnet build` and `dotnet test` (.NET),
+  `npm run build`, `npm run test`, `terraform fmt`, and
+  `terraform validate` can be run by any developer before pushing.
+- **CI.** [`.github/workflows/ci-python.yml`](../.github/workflows/ci-python.yml)
+  and [`.github/workflows/ci-dotnet.yml`](../.github/workflows/ci-dotnet.yml)
+  run each track's gates plus its `validate_agent_definitions` script, and
+  [`.github/workflows/ci-shared.yml`](../.github/workflows/ci-shared.yml)
+  runs the frontend's, on every pull request. No Azure credentials are
+  needed for any of them.
 
 Remaining gap: CI proves the code is well-formed, not that agent output
 is good. Nothing blocks a merge on a live-model eval score.
@@ -148,7 +167,9 @@ model that Foundry hosts. The MLOps concerns that still apply are:
   will auto-upgrade.
 - How model retirement affects the app.
 
-Those choices live in [`/infra`](../python/infra) and in each agent's
+Those choices live in your track's Terraform root
+([`python/infra`](../python/infra) or [`dotnet/infra`](../dotnet/infra))
+and in each agent's
 [`manifest.yaml`](../agents/data-analyst/manifest.yaml), which is also where
 the role-to-model-deployment binding is recorded.
 
@@ -178,11 +199,15 @@ concrete list of practices this repo already implements versus gaps.
    this repo follows." (2 min)
 3. Open [`agents/data-analyst/agent.md`](../agents/data-analyst/agent.md)
    and skim the instructions. Repeat for the other two roles. (5 min)
-4. Open
+4. Open your track's contracts —
    [`python/services/api/app/agents/shared/contracts.py`](../python/services/api/app/agents/shared/contracts.py)
-   and skim one agent's output contract. (2 min)
+   or
+   [`dotnet/services/api/AgenticSupportGuide.Api/Agents/Shared/Contracts.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Agents/Shared/Contracts.cs)
+   — and skim one agent's output contract. (2 min)
 5. Open [`python/services/api/app/workflows/coordinator.py`](../python/services/api/app/workflows/coordinator.py)
-   and read `AgentCoordinator.run()`. (5 min)
+   and read `AgentCoordinator.run()`, or
+   [`dotnet/services/api/AgenticSupportGuide.Api/Workflows/Coordinator.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Workflows/Coordinator.cs)
+   and read `AgentCoordinator.RunAsync()`. (5 min)
 6. Skim [Security and privacy](security-and-privacy.md) and
    [Observability](observability.md). (1 min each)
 
@@ -192,18 +217,23 @@ rest by search.
 ## What to run for a customer demo
 
 Only commands that already exist in this repo. Full setup steps live
-in the root [README](../README.md) under **Set up Microsoft Foundry**.
-In summary:
+in the root [README](../README.md) under **Set up Microsoft Foundry**,
+for both tracks. In summary:
 
 1. `az login` and set the subscription.
-2. `terraform apply` in [`/infra`](../python/infra).
-3. `./python/scripts/populate-env.ps1` to write `python/services/api/.env` from
-   Terraform outputs.
-4. `python python/scripts/validate_agent_definitions.py` to check the agent
-   definitions. There is nothing to deploy - agents are ephemeral.
-5. Start the backend: `uvicorn app.main:app --host 127.0.0.1
-   --port 8000 --reload --env-file .env`. The `--env-file` flag is
-   required; the app does not load `.env` by itself.
+2. `terraform apply` in your track's Terraform root,
+   [`python/infra`](../python/infra) or [`dotnet/infra`](../dotnet/infra).
+3. `./python/scripts/populate-env.ps1` to write `python/services/api/.env`,
+   or `./dotnet/scripts/populate-env.ps1` to write
+   `dotnet/services/api/.env`, from Terraform outputs.
+4. `python python/scripts/validate_agent_definitions.py` or
+   `dotnet run dotnet/scripts/validate_agent_definitions.cs` to check the
+   agent definitions. There is nothing to deploy - agents are ephemeral.
+5. Start the backend. Python: `uvicorn app.main:app --host 127.0.0.1
+   --port 8000 --reload --env-file .env`; the `--env-file` flag is
+   required, because the app does not load `.env` by itself. .NET:
+   `./dotnet/scripts/run-backend.ps1`, which loads `.env` into the backend
+   process for the same reason.
 6. Start the frontend: `npm run dev` in [`/apps/web`](../apps/web).
 7. Confirm `GET /api/health/details` reports
    `"customer_demo_ready": true`.

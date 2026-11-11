@@ -9,7 +9,8 @@ and is not repeated here.
 
 **Duration:** 5–7 minutes.
 **Prerequisite:** the app running against Microsoft Foundry, per the root
-README.
+README. Either track will do — the Python and .NET backends serve the same
+API to the same UI, so the demo is identical.
 
 ## Confirm the demo is ready
 
@@ -28,7 +29,13 @@ Run all three checks before you present.
 > configured label on every run, including failures, so it cannot tell you
 > the stack is live.
 
-The quickest single probe:
+The quickest single probe, from PowerShell, whichever track is running:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/health/details | ConvertTo-Json -Depth 10
+```
+
+Or, with Python on the path:
 
 ```powershell
 curl.exe -s http://127.0.0.1:8000/api/health/details | python -m json.tool
@@ -73,10 +80,12 @@ meeting or document.
 
 ## Reset between practice runs
 
-Application state is in memory, so stopping and restarting `uvicorn` is the
-simplest reset.
+Application state is in memory, so stopping and restarting the backend is
+the simplest reset: `uvicorn` in the Python track,
+`.\dotnet\scripts\run-backend.ps1` in the .NET track.
 
-For repeated practice, set `DEMO_RESET_ENABLED=true` in `python/services/api/.env`,
+For repeated practice, set `DEMO_RESET_ENABLED=true` in your track's `.env`
+(`python/services/api/.env` or `dotnet/services/api/.env`),
 **restart the backend** so it picks the setting up, then call:
 
 ```powershell

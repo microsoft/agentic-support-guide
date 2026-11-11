@@ -14,7 +14,8 @@ the diagram uncluttered by C4 metadata jargon.
 
 The **Workflow Coordinator** shown nested inside the API Service is
 **deterministic service-side code**, not a fourth agent. It is regular
-Python inside the FastAPI service that:
+code inside the API service — FastAPI in the Python track, ASP.NET Core in
+the .NET track — that:
 
 - sequences the three remote agents in a fixed order, as a Microsoft
   Agent Framework workflow,
@@ -35,7 +36,7 @@ appear as an assistant in Foundry.
 - [`architecture.svg`](architecture.svg) — the **GitHub-rendered
   companion image**. It is currently a hand-maintained SVG that mirrors
   the DSL model.
-- [`../scripts/render-architecture-diagram.ps1`](../maintenance/render-architecture-diagram.ps1)
+- [`../maintenance/render-architecture-diagram.ps1`](../maintenance/render-architecture-diagram.ps1)
   — regeneration helper. It shells out to `structurizr-cli` and
   `plantuml` if both are on `PATH`, or exits with a clear installation
   hint if they are not.
@@ -82,7 +83,7 @@ in use and is not currently applied in the DSL styles.
 - One person: `Demo User`.
 - One internal software system, `Agentic Support Guide`, with six
   containers (`Web App`, `API Service`, `Synthetic Data`,
-  `Human Review`, `Agent Definitions`, `Protocol Contracts`) plus one
+  `Human Review`, `Agent Definitions`, `Typed Contracts`) plus one
   C4 component nested inside `API Service`: `Workflow Coordinator`.
 - One external software system, `Microsoft Foundry`, with four
   containers (`Foundry Project`, `Ephemeral Foundry Agents`,
@@ -102,6 +103,11 @@ agents for portal visibility — see
 The three agents share a single `Model Deployment`, shown by one
 grouped arrow labeled *uses shared model deployment* rather than three
 separate connections.
+
+The diagram labels the `API Service` a FastAPI backend, which is the Python
+track. In the .NET track the same container is the ASP.NET Core API, with the
+same nested coordinator and the same relationships; nothing else in the
+diagram depends on the track.
 
 The dealer group isolation rule is enforced in the API and the retrieval
 filter rather than by a container boundary (see

@@ -38,10 +38,11 @@ internal static class Nodes
     /// </summary>
     /// <remarks>
     /// The exception carries no inner exception, and that is a privacy
-    /// control, not style: Agent Framework records a failing executor's
-    /// exception on its spans, and a provider or parse error can carry model
-    /// output derived from a dealer group's evidence. The typed code is all
-    /// that leaves.
+    /// control, not style: Agent Framework hands a failing executor's
+    /// exception to the workflow's event stream, where anything that logs it
+    /// would record the whole chain, and a provider or parse error can carry
+    /// model output derived from a dealer group's evidence. The typed code is
+    /// all that leaves.
     /// </remarks>
     public static async Task<StepFailedException> FailAsync(
         IWorkflowContext context,

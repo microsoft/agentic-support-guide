@@ -1,5 +1,10 @@
 # Infra - Terraform for agentic-support-guide
 
+This is the **Python** track's Terraform root. The .NET track's,
+[`dotnet/infra`](../../dotnet/infra/README.md), provisions the same resources
+with its own state; the only difference is how the API web app runs (Python
+3.13 under uvicorn here, .NET 10 there).
+
 Provisions the minimum Microsoft Foundry resources needed for real LLM
 calls from the three implemented agents:
 
@@ -122,10 +127,10 @@ terraform destroy
 ## Populate the backend `.env` from outputs
 
 After `terraform apply`, the fastest path is the helper script from the
-repo root:
+repo root, two levels up from `python/infra`:
 
 ```powershell
-cd ..
+cd ..\..
 .\python\scripts\populate-env.ps1
 ```
 

@@ -38,8 +38,10 @@
 //   retriever produced. A second model asked "is this well cited?" would be an
 //   opinion; `Contains` is an answer.
 // - **The loop is bounded by data, not by hope.** `Draft.Attempts` travels in
-//   the message, and the repair condition checks it. The workflow also stops
-//   a runaway loop on its own, but that is a guard, not your retry policy.
+//   the message, and the repair condition checks it. Nothing else stops it:
+//   Agent Framework for .NET keeps running a cycle for as long as its
+//   conditions keep firing, so a condition that never turns false is an
+//   endless loop.
 // - **Failing twice does not produce output.** `GiveUp` yields a refusal, not
 //   a recommendation. A workflow that returns something plausible when it
 //   could not do the job is worse than one that returns nothing.

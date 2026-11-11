@@ -1,3 +1,4 @@
+using System.ClientModel.Primitives;
 using AgenticSupportGuide.Api.Parity;
 using Azure.AI.Projects;
 using Azure.Core;
@@ -32,7 +33,12 @@ public sealed class FoundryResponsesClientFactory
         {
             throw new ConfigurationException("PROJECT_ENDPOINT_MISSING", "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.");
         }
-        _project = new AIProjectClient(new Uri(projectEndpoint), credential ?? Credentials.Default(), options ?? new AIProjectClientOptions());
+        options ??= new AIProjectClientOptions();
+        // Two retries, as the Python track's OpenAI client makes by default.
+        // System.ClientModel's own default is three, which would make a
+        // throttled call slower and costlier here than in the other track.
+        options.RetryPolicy ??= new ClientRetryPolicy(maxRetries: 2);
+        _project = new AIProjectClient(new Uri(projectEndpoint), credential ?? Credentials.Default(), options);
         _loggerFactory = loggerFactory;
     }
 

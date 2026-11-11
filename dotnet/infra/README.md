@@ -1,5 +1,11 @@
 # Infra - Terraform for agentic-support-guide
 
+This is the **.NET** track's Terraform root. The Python track's,
+[`python/infra`](../../python/infra/README.md), provisions the same resources
+with its own state; the only difference is how the API web app runs (.NET 10
+here, running the `dotnet publish` output with no build on App Service;
+Python 3.13 under uvicorn there).
+
 Provisions the minimum Microsoft Foundry resources needed for real LLM
 calls from the three implemented agents:
 
@@ -122,15 +128,15 @@ terraform destroy
 ## Populate the backend `.env` from outputs
 
 After `terraform apply`, the fastest path is the helper script from the
-repo root:
+repo root, two levels up from `dotnet/infra`:
 
 ```powershell
-cd ..
-.\scripts\populate-env.ps1
+cd ..\..
+.\dotnet\scripts\populate-env.ps1
 ```
 
 The script reads all Terraform outputs (including the sensitive
-Application Insights connection string), writes `services/api/.env`,
+Application Insights connection string), writes `dotnet/services/api/.env`,
 overwrites any prior file, and never prints the sensitive value to the
 console. Re-run it after any future `terraform apply` that changes
 outputs.
@@ -139,9 +145,11 @@ outputs.
 
 If you'd rather do it by hand:
 
-1. Copy `services/api/.env.example` to `services/api/.env`.
-2. From `infra/`, run `terraform output`.
-3. Open `services/api/.env` in VS Code and paste the values into the
+1. Create `dotnet/services/api/.env`. This track has no `.env.example`;
+   [the API README](../services/api/README.md#environment-variables) lists
+   the keys.
+2. From `dotnet/infra/`, run `terraform output`.
+3. Open `dotnet/services/api/.env` in VS Code and paste the values into the
    corresponding `AZURE_AI_FOUNDRY_*` keys:
 
    - `foundry_project_endpoint` → `AZURE_AI_FOUNDRY_PROJECT_ENDPOINT`
@@ -153,8 +161,7 @@ If you'd rather do it by hand:
      `terraform output -raw application_insights_connection_string`) →
      `APPLICATIONINSIGHTS_CONNECTION_STRING`
 
-4. Save. `.env` is gitignored; `.env.example` is tracked and contains
-   only placeholders.
+4. Save. `.env` is gitignored.
 
 ## Expected cost
 
