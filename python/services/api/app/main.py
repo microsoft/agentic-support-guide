@@ -142,6 +142,8 @@ def create_app(
     # FastAPI's default 422 body echoes the rejected value back in `input`,
     # which puts submitted concern text into an HTTP response and any log that
     # records it. Report where the request was wrong, never what was in it.
+    # A body that is not JSON at all is reported as "body": the parser's
+    # character offset is not a field, and it differs between JSON parsers.
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
@@ -151,7 +153,12 @@ def create_app(
                 "error_code": "REQUEST_VALIDATION_FAILED",
                 "error_message": "The request body did not match the expected shape.",
                 "fields": sorted(
-                    {".".join(str(p) for p in err.get("loc", ())) for err in exc.errors()}
+                    {
+                        "body"
+                        if err.get("type") == "json_invalid"
+                        else ".".join(str(p) for p in err.get("loc", ()))
+                        for err in exc.errors()
+                    }
                 ),
             },
         )

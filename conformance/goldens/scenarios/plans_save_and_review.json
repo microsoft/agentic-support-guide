@@ -1,0 +1,421 @@
+{
+  "scenario": "plans_save_and_review",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard.",
+          "selected_goal": "GOAL-lead-response-1",
+          "selected_strategies": [
+            "ST-lead-response-1"
+          ],
+          "recommendation": {
+            "dealer_group_id": "GROUP-DEMO",
+            "detected_need": "Enquiry response slower than the group standard",
+            "evidence_summary": [
+              "Process score below target across two periods."
+            ],
+            "rationale": "Synthetic indicators support focused lead-response work.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Process Kit 001",
+                "kind": "playbook"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the baseline with a short synthetic check."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "IF process_score < 60 THEN targeted.",
+            "caveats": [
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-lead-response-1"
+            ],
+            "strategy_suggestions": [
+              "ST-lead-response-1"
+            ],
+            "citations": [],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "conformance"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "plan_id": "PLN-U0011",
+          "dealership_id": "DLR-0001",
+          "dealer_group_id": "GROUP-DEMO",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard.",
+          "selected_goal": "GOAL-lead-response-1",
+          "selected_strategies": [
+            "ST-lead-response-1"
+          ],
+          "created_at": "<now>",
+          "recommendation": {
+            "dealer_group_id": "GROUP-DEMO",
+            "detected_need": "Enquiry response slower than the group standard",
+            "evidence_summary": [
+              "Process score below target across two periods."
+            ],
+            "rationale": "Synthetic indicators support focused lead-response work.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Process Kit 001",
+                "kind": "playbook"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the baseline with a short synthetic check."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "IF process_score < 60 THEN targeted.",
+            "caveats": [
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-lead-response-1"
+            ],
+            "strategy_suggestions": [
+              "ST-lead-response-1"
+            ],
+            "citations": [],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "conformance"
+          },
+          "human_review_state": "pending_review"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/supports/plans?tail=1"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "plans": [
+            {
+              "plan_id": "PLN-U0011",
+              "dealership_id": "DLR-0001",
+              "dealer_group_id": "GROUP-DEMO",
+              "category": "lead-response",
+              "concern_text": "First response to online enquiries is slower than the standard.",
+              "selected_goal": "GOAL-lead-response-1",
+              "selected_strategies": [
+                "ST-lead-response-1"
+              ],
+              "created_at": "<now>",
+              "recommendation": {
+                "dealer_group_id": "GROUP-DEMO",
+                "detected_need": "Enquiry response slower than the group standard",
+                "evidence_summary": [
+                  "Process score below target across two periods."
+                ],
+                "rationale": "Synthetic indicators support focused lead-response work.",
+                "support_tier": "Focused",
+                "recommended_frequency": "weekly review, 20-25 min",
+                "grouping_guidance": "single dealership with group oversight",
+                "resource_matches": [
+                  {
+                    "id": "RES-001",
+                    "label": "Process Kit 001",
+                    "kind": "playbook"
+                  }
+                ],
+                "manager_next_steps": [
+                  "Confirm the baseline with a short synthetic check."
+                ],
+                "progress_monitoring": [
+                  "Weekly check on the agreed measure."
+                ],
+                "review_window_days": 28,
+                "decision_rule": "IF process_score < 60 THEN targeted.",
+                "caveats": [
+                  "Human review is required before any decision or communication."
+                ],
+                "goal_suggestions": [
+                  "GOAL-lead-response-1"
+                ],
+                "strategy_suggestions": [
+                  "ST-lead-response-1"
+                ],
+                "citations": [],
+                "completeness": {
+                  "ok": true,
+                  "missing": []
+                },
+                "human_review_state": "pending_review",
+                "generated_by": "conformance"
+              },
+              "human_review_state": "pending_review"
+            }
+          ],
+          "total": 11
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans/PLN-U0001/review",
+        "json": {
+          "to_state": "approved"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Unknown plan_id"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans/PLN-U0001/review",
+        "json": {
+          "to_state": "pending_review"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Unknown plan_id"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans/PLN-U0001/review",
+        "json": {
+          "to_state": "draft"
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.to_state"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans/PLN-NOPE/review",
+        "json": {
+          "to_state": "approved"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Unknown plan_id"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans/PLN-0001/review",
+        "json": {
+          "to_state": "rejected"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "plan_id": "PLN-0001",
+          "dealership_id": "DLR-0069",
+          "dealer_group_id": "GROUP-DEMO",
+          "category": "inventory-ageing",
+          "concern_text": "Scheduled ageing reviews are being missed on part of the stock.",
+          "selected_goal": "GOAL-inventory-ageing-1",
+          "selected_strategies": [
+            "ST-inventory-ageing-1",
+            "ST-inventory-ageing-2"
+          ],
+          "created_at": "2026-01-06T09:01:31Z",
+          "recommendation": {
+            "dealer_group_id": "GROUP-DEMO",
+            "detected_need": "Seeded example for category 'inventory-ageing'.",
+            "evidence_summary": [
+              "Synthetic seeded evidence line 1.",
+              "Synthetic seeded evidence line 2."
+            ],
+            "rationale": "Seeded example recommendation. Regenerate via the plan builder for a live agent-produced version.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Seeded Kit 001",
+                "kind": "playbook"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the review slot.",
+              "Brief the sales manager."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "Seeded stub - see the coordinator for live decision rules.",
+            "caveats": [
+              "Illustrative synthetic output only; not a real benchmark.",
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-inventory-ageing-1"
+            ],
+            "strategy_suggestions": [
+              "ST-inventory-ageing-1"
+            ],
+            "citations": [
+              {
+                "citation_id": "GROUP-DEMO-seed-inventory-ageing",
+                "dealer_group_id": "GROUP-DEMO",
+                "source_type": "synthetic_fixture",
+                "source_title": "Seeded synthetic fixture",
+                "section_or_page": "",
+                "evidence_summary": "Seeded synthetic citation attached to a stub plan.",
+                "source_ref": "fixture://group-demo/inventory-ageing/seed",
+                "retrieved_at": "2026-01-05T09:00:00Z",
+                "confidence": 0.7
+              }
+            ],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "Seeded synthetic stub. Not a real agent output."
+          },
+          "human_review_state": "rejected"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/audit/events?tail=2"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "events": [
+            {
+              "event_id": "AUD-0060",
+              "timestamp": "2026-01-17T11:17:00Z",
+              "endpoint": "/api/dealerships",
+              "context": "trend-review",
+              "user": "S-12",
+              "provider_model": "local-rules / mock-reasoner-v0",
+              "duration_ms": 45,
+              "token_estimate": 320,
+              "status": "ok",
+              "correlation_id": "",
+              "dealer_group_id": "",
+              "evidence_count": 0,
+              "citation_count": 0,
+              "validator_status": ""
+            },
+            {
+              "event_id": "AUD-R00001",
+              "timestamp": "<now>",
+              "endpoint": "/api/supports/plans/{plan_id}/review",
+              "context": "review:pending_review->rejected",
+              "user": "web-tier",
+              "provider_model": "human-review",
+              "duration_ms": 0,
+              "token_estimate": 0,
+              "status": "rejected",
+              "correlation_id": "PLN-0001",
+              "dealer_group_id": "GROUP-DEMO",
+              "evidence_count": 1,
+              "citation_count": 0,
+              "validator_status": "post-hoc"
+            }
+          ],
+          "total": 61,
+          "disclaimer": "Seeded synthetic rows plus in-memory metadata for LLM calls made during the current process. No prompts, completions, raw validator critique, or secrets are stored."
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

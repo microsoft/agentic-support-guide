@@ -1,0 +1,25 @@
+{
+  "scenario": "demo_reset_disabled",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/demo/reset"
+      },
+      "response": {
+        "status": 403,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Demo reset is disabled. Set DEMO_RESET_ENABLED=true to enable (development use only)."
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

@@ -174,13 +174,3 @@ class ValidatorCritiqueModelOutput(BaseModel):
 
     warning_codes: list[str] = Field(default_factory=list, max_length=20)
     repair_guidance: str = Field(default="", max_length=1000)
-
-
-class AgentEnvelope(BaseModel):
-    """Envelope used by the coordinator when carrying prior-agent output."""
-
-    model_config = ConfigDict(frozen=True)
-    contract_version: Literal["1.0.0"] = CONTRACT_VERSION
-    source_agent: str
-    payload_kind: str
-    payload_json: str = Field(max_length=8000)

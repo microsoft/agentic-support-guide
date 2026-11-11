@@ -1,0 +1,122 @@
+[
+  {
+    "plan_id": "PLN-0001",
+    "dealership_id": "DLR-0069",
+    "category": "inventory-ageing",
+    "concern_text": "Scheduled ageing reviews are being missed on part of the stock.",
+    "selected_goal_id": "GOAL-inventory-ageing-1",
+    "selected_strategy_ids": [
+      "ST-inventory-ageing-1",
+      "ST-inventory-ageing-2"
+    ],
+    "created_at": "2026-01-06T09:01:31Z"
+  },
+  {
+    "plan_id": "PLN-0002",
+    "dealership_id": "DLR-0081",
+    "category": "listing-completeness",
+    "concern_text": "Listings are publishing without required photos and label data.",
+    "selected_goal_id": "GOAL-listing-completeness-1",
+    "selected_strategy_ids": [
+      "ST-listing-completeness-1",
+      "ST-listing-completeness-2"
+    ],
+    "created_at": "2026-01-07T09:03:02Z"
+  },
+  {
+    "plan_id": "PLN-0003",
+    "dealership_id": "DLR-0051",
+    "category": "multi-area",
+    "concern_text": "Enquiry handling, test drives, and listing quality all declined.",
+    "selected_goal_id": "GOAL-multi-area-1",
+    "selected_strategy_ids": [
+      "ST-multi-area-1",
+      "ST-multi-area-2"
+    ],
+    "created_at": "2026-01-08T09:04:33Z"
+  },
+  {
+    "plan_id": "PLN-0004",
+    "dealership_id": "DLR-0086",
+    "category": "inventory-ageing",
+    "concern_text": "Scheduled ageing reviews are being missed on part of the stock.",
+    "selected_goal_id": "GOAL-inventory-ageing-1",
+    "selected_strategy_ids": [
+      "ST-inventory-ageing-1",
+      "ST-inventory-ageing-2"
+    ],
+    "created_at": "2026-01-09T09:06:04Z"
+  },
+  {
+    "plan_id": "PLN-0005",
+    "dealership_id": "DLR-0100",
+    "category": "test-drive-conversion",
+    "concern_text": "Booked test drives are attended less often than last quarter.",
+    "selected_goal_id": "GOAL-test-drive-conversion-1",
+    "selected_strategy_ids": [
+      "ST-test-drive-conversion-1",
+      "ST-test-drive-conversion-2"
+    ],
+    "created_at": "2026-01-10T09:07:35Z"
+  },
+  {
+    "plan_id": "PLN-0006",
+    "dealership_id": "DLR-0100",
+    "category": "listing-completeness",
+    "concern_text": "Listings are publishing without required photos and label data.",
+    "selected_goal_id": "GOAL-listing-completeness-1",
+    "selected_strategy_ids": [
+      "ST-listing-completeness-1",
+      "ST-listing-completeness-2"
+    ],
+    "created_at": "2026-01-11T09:09:06Z"
+  },
+  {
+    "plan_id": "PLN-0007",
+    "dealership_id": "DLR-0091",
+    "category": "inventory-ageing",
+    "concern_text": "Scheduled ageing reviews are being missed on part of the stock.",
+    "selected_goal_id": "GOAL-inventory-ageing-1",
+    "selected_strategy_ids": [
+      "ST-inventory-ageing-1",
+      "ST-inventory-ageing-2"
+    ],
+    "created_at": "2026-01-12T09:10:37Z"
+  },
+  {
+    "plan_id": "PLN-0008",
+    "dealership_id": "DLR-0107",
+    "category": "test-drive-conversion",
+    "concern_text": "Booked test drives are attended less often than last quarter.",
+    "selected_goal_id": "GOAL-test-drive-conversion-1",
+    "selected_strategy_ids": [
+      "ST-test-drive-conversion-1",
+      "ST-test-drive-conversion-2"
+    ],
+    "created_at": "2026-01-13T09:12:08Z"
+  },
+  {
+    "plan_id": "PLN-0009",
+    "dealership_id": "DLR-0041",
+    "category": "multi-area",
+    "concern_text": "Enquiry handling, test drives, and listing quality all declined.",
+    "selected_goal_id": "GOAL-multi-area-1",
+    "selected_strategy_ids": [
+      "ST-multi-area-1",
+      "ST-multi-area-2"
+    ],
+    "created_at": "2026-01-14T09:13:39Z"
+  },
+  {
+    "plan_id": "PLN-0010",
+    "dealership_id": "DLR-0050",
+    "category": "test-drive-conversion",
+    "concern_text": "Booked test drives are attended less often than last quarter.",
+    "selected_goal_id": "GOAL-test-drive-conversion-1",
+    "selected_strategy_ids": [
+      "ST-test-drive-conversion-1",
+      "ST-test-drive-conversion-2"
+    ],
+    "created_at": "2026-01-15T09:15:10Z"
+  }
+]

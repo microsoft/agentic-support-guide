@@ -1,0 +1,67 @@
+{
+  "scenario": "health_app_service_without_key",
+  "config": {
+    "provider": "fake",
+    "api_key": null,
+    "app_service": true
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health",
+        "auth": "none"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "ok",
+          "service": "agentic-support-guide-api",
+          "version": "0.3.0",
+          "banner": "Prototype - synthetic data, three collaborating agents hosted in Foundry Agent Service, not a production system.",
+          "provider_configured": true,
+          "foundry_auth_mode": "entra",
+          "build_id": "conformance"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health/details",
+        "auth": "none"
+      },
+      "response": {
+        "status": 503,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "API_SHARED_KEY is not configured; refusing to serve unauthenticated."
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/dealerships",
+        "auth": "none"
+      },
+      "response": {
+        "status": 503,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "API_SHARED_KEY is not configured; refusing to serve unauthenticated."
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

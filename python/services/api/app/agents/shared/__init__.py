@@ -1,7 +1,6 @@
 """Shared agent package. Contracts only. No implementation imports."""
 
 from .contracts import (
-    AgentEnvelope,
     AnalysisSummary,
     Citation,
     CitationSourceType,
@@ -12,7 +11,6 @@ from .contracts import (
 )
 
 __all__ = [
-    "AgentEnvelope",
     "AnalysisSummary",
     "Citation",
     "CitationSourceType",

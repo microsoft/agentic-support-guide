@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "AnalysisSummary": {
+      "properties": {
+        "detected_need": {
+          "maxLength": 300,
+          "title": "Detected Need",
+          "type": "string"
+        },
+        "evidence_bullets": {
+          "items": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Evidence Bullets",
+          "type": "array"
+        },
+        "missing_data_flags": {
+          "items": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Missing Data Flags",
+          "type": "array"
+        },
+        "analysis_confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Analysis Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "detected_need",
+        "analysis_confidence"
+      ],
+      "title": "AnalysisSummary",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "analysis": {
+      "$ref": "#/$defs/AnalysisSummary"
+    }
+  },
+  "required": [
+    "analysis"
+  ],
+  "title": "DataAnalystModelOutput",
+  "type": "object"
+}

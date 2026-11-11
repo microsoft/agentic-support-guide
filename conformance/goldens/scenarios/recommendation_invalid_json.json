@@ -1,0 +1,92 @@
+{
+  "scenario": "recommendation_invalid_json",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "replies": {
+    "data-analyst-agent": [
+      {
+        "text": "not json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_model_json",
+          "error_code": "AGENT_INVALID_JSON",
+          "error_message": "Remote agent returned invalid or off-schema JSON.",
+          "recommendation": null,
+          "agent_trace": [
+            {
+              "agent": "evidence-retrieval",
+              "status": "ok",
+              "provider": "fixture",
+              "model": "synthetic",
+              "latency_ms": "<ms>",
+              "token_estimate": null,
+              "issue_codes": [],
+              "warning_codes": [],
+              "citation_count": 2
+            },
+            {
+              "agent": "data-analyst-agent",
+              "status": "invalid_model_json",
+              "provider": "azure_foundry_responses",
+              "model": "Microsoft Foundry (Agent Framework, prompt agents)",
+              "latency_ms": "<ms>",
+              "token_estimate": null,
+              "issue_codes": [
+                "AGENT_INVALID_JSON_UNPARSEABLE"
+              ],
+              "warning_codes": [],
+              "citation_count": 0
+            }
+          ],
+          "provider_model": "Microsoft Foundry (Agent Framework, prompt agents)",
+          "correlation_id": "<uuid>",
+          "dealer_group_id": "GROUP-DEMO",
+          "evidence_count": 2,
+          "citation_count": null,
+          "citations_proposed": null,
+          "citations_accepted": null,
+          "resources_proposed": null,
+          "resources_accepted": null,
+          "unknown_resource_ids": [],
+          "validator_status": "",
+          "validation_reached": false,
+          "attempts": null,
+          "deterministic_checks_total": null
+        }
+      },
+      "model_calls": [
+        {
+          "role": "data-analyst-agent",
+          "model": "fake-deployment",
+          "instructions_sha256": "cfe607284b6ecdbd595748f66c1dcdf1798cffb19f49945c446b318be915a12f",
+          "temperature": 0.2,
+          "max_output_tokens": 800,
+          "store": false,
+          "response_model": "DataAnalystModelOutput",
+          "user_message": "Analyze the synthetic dealership indicators below and produce the structured output required by your instructions.\n<<<UNTRUSTED_DATA>>> kind=synthetic_facts\n{\"dealership_label\": \"Dealership 0001\", \"region_id\": \"REG-001\", \"segment\": \"SEG-VOLUME\", \"process_score\": 42.3, \"appointment_attendance_rate\": 0.722, \"followup_index\": 87.4, \"engagement_index\": 91.2, \"category\": \"lead-response\", \"score_periods\": [\"2026-04\", \"2026-05\", \"2026-06\", \"2026-07\", \"2026-08\", \"2026-09\"], \"score_by_process_area\": {\"inventory-ageing\": [45, 50, 50, 54, 55, 59], \"lead-response\": [43, 46, 49, 53, 55, 60], \"listing-completeness\": [25, 28, 33, 36, 38, 44], \"price-data-freshness\": [42, 43, 48, 49, 52, 58], \"test-drive-conversion\": [41, 47, 46, 52, 57, 58]}, \"latest_band_by_process_area\": {\"inventory-ageing\": \"Developing\", \"lead-response\": \"On track\", \"listing-completeness\": \"Developing\", \"price-data-freshness\": \"Developing\", \"test-drive-conversion\": \"Developing\"}, \"area_score_count\": 30, \"duplicate_area_records\": 0, \"operations_periods\": [\"2026-04\", \"2026-05\", \"2026-06\", \"2026-07\", \"2026-08\", \"2026-09\"], \"appointment_attendance_rate_by_period\": [0.733, 0.724, 0.721, 0.729, 0.726, 0.719], \"escalations_by_period\": [4, 3, 0, 2, 4, 2], \"followup_completion_by_period\": [86.2, 87.6, 85.7, 88.9, 88.3, 89.1], \"operations_record_count\": 6}\n<<<END_UNTRUSTED_DATA>>>\n<<<UNTRUSTED_DATA>>> kind=concern_text\nFirst response to online enquiries is slower than the standard.\n<<<END_UNTRUSTED_DATA>>>"
+        }
+      ]
+    }
+  ]
+}

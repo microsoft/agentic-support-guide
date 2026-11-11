@@ -56,6 +56,7 @@ class FakeChatClientFactory:
                 "response_model": response_model,
                 "store": False,
                 "temperature": definition.temperature,
+                "max_output_tokens": definition.max_output_tokens,
             }
         )
         queue = self._queues[definition.role]
