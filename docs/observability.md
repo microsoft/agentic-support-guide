@@ -71,17 +71,19 @@ configure_otel_providers(exporters=exporters or None)
 enable_instrumentation()
 ```
 
-Agent Framework then emits OpenTelemetry spans for everything it runs. All of
-them are `INTERNAL` or `PRODUCER`, so the Azure Monitor exporter writes them
+Agent Framework then emits OpenTelemetry spans for everything it runs. None of
+them is a server span (model calls are `CLIENT`, the rest `INTERNAL` or
+`PRODUCER`), so the Azure Monitor exporter writes them all
 to the `dependencies` table with span attributes in `customDimensions`.
 
 | Span | One per | Notable attributes |
 | --- | --- | --- |
-| `workflow.run` | request | `workflow.id`, `workflow.name` |
+| `invoke_workflow support-plan` | request | `workflow.id`, `gen_ai.workflow.name` |
 | `workflow.build` | graph construction | `workflow.definition` (the full graph as JSON) |
 | `executor.process <id>` | node | `executor.id`, `executor.type` |
 | `edge_group.process …` | edge delivery | `edge_group.delivered`, `edge_group.delivery_status` |
-| `chat` / `invoke_agent` | model call | `gen_ai.response.model`, input/output tokens, `error.type` |
+| `invoke_agent <agent>` | agent call | `gen_ai.agent.name`, `error.type` |
+| `chat <deployment>` | model call | `gen_ai.response.model`, input/output tokens, `error.type` |
 
 Spans are properly parented, so Application Insights' end-to-end transaction
 view draws one request as a waterfall over the whole graph.
@@ -105,10 +107,10 @@ so the guarantee is tested rather than assumed.
   IDs, or region names.
 
 The model deployment name is **not** excluded: Agent Framework records it as
-`gen_ai.request.model`. Nor is exception detail — on failure the framework
-sets `error.type` to the exception class name and calls
-`span.record_exception`, which carries the exception message, regardless of
-`enable_sensitive_data`.
+`gen_ai.request.model` and in the `chat` span's name. A failure records only
+its type: the framework sets `error.type` to the exception class name (for
+example `ChatClientException` or `StepFailed`), with no message and no stack
+trace.
 - Synthetic dealership detail (labels, indicators, or scores).
 
 ### What the audit trail exposes

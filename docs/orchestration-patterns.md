@@ -146,8 +146,8 @@ drift from the code.
 Observability is Agent Framework's too:
 [python/services/api/app/observability.py](../python/services/api/app/observability.py)
 calls `configure_otel_providers` and `enable_instrumentation`, and the
-framework then emits `workflow.run`, `executor.process` and `gen_ai` spans
-for everything the graph does.
+framework then emits `invoke_workflow`, `executor.process`, `invoke_agent`
+and `chat` spans for everything the graph does.
 
 What is still this repo's own code is the part that is not orchestration:
 the agents' typed contracts, the deterministic validator checks, and a typed

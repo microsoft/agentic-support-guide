@@ -186,8 +186,9 @@ operators. Five cover most of what you need:
 | `summarize` | Aggregate — `count()`, `percentile()`, `avg()` — optionally `by` a column |
 | `order by` | Sort |
 
-Agent Framework's spans are all `INTERNAL` or `PRODUCER`, so the Azure Monitor
-exporter writes them to the **`dependencies`** table, not `traces`. The span
+Agent Framework's spans are `CLIENT`, `INTERNAL` or `PRODUCER` — never
+`SERVER` — so the Azure Monitor exporter writes them to the
+**`dependencies`** table, not `requests` or `traces`. The span
 name is `name`, its duration is `duration`, and its attributes land in
 `customDimensions`, which is why the queries below cast out of it.
 
@@ -195,11 +196,12 @@ These are the span names you will see:
 
 | Span | One per |
 | --- | --- |
-| `workflow.run` | request |
+| `invoke_workflow support-plan` | request |
 | `workflow.build` | graph construction |
 | `executor.process <id>` | node — `data-analyst`, `support-recommender`, `validator`, … |
 | `edge_group.process …` | edge delivery, with `edge_group.delivered` |
-| `chat` / `invoke_agent` | model call, with `gen_ai.*` token and model attributes |
+| `invoke_agent <agent>` | agent call — `invoke_agent data-analyst-agent`, … |
+| `chat <deployment>` | model call, with `gen_ai.*` token and model attributes |
 
 Do this in the portal the first time. The schema is in front of you,
 `customDimensions` is expandable, and the end-to-end transaction view is one
@@ -212,7 +214,7 @@ run:
 ```kusto
 dependencies
 | where timestamp > ago(1h)
-| where name == "workflow.run"
+| where name == "invoke_workflow support-plan"
 | project timestamp, operation_Id, duration, success
 | order by timestamp desc
 ```

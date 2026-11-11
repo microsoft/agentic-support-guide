@@ -3,12 +3,13 @@
 There is no recorder and no custom event schema here. `enable_instrumentation`
 makes Agent Framework emit OpenTelemetry spans for everything it runs:
 
-    workflow.build            the graph, with its full definition as JSON
-    workflow.run              one request end to end
-    executor.process <id>     one node, e.g. `executor.process support-recommender`
-    edge_group.process        an edge firing, with its delivery status
-    chat / invoke_agent       one model call, with gen_ai.* attributes:
-                              response model, input/output tokens, error type
+    workflow.build                the graph, with its full definition as JSON
+    invoke_workflow support-plan  one request end to end
+    executor.process <id>         one node, e.g. `executor.process support-recommender`
+    edge_group.process            an edge firing, with its delivery status
+    invoke_agent <agent>          one agent call
+    chat <deployment>             one model call, with gen_ai.* attributes:
+                                  response model, input/output tokens, error type
 
 That is a superset of the hand-written recorder this replaced, which kept a
 bounded in-memory list and exported an allowlisted subset through a logger.

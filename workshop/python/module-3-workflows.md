@@ -297,8 +297,8 @@ codes that sent the recommender back.
 
 > [!NOTE]
 > Telemetry is deliberately absent from that list. Agent Framework
-> instruments the graph itself — `workflow.run`, `executor.process`,
-> `edge_group.process` and a `gen_ai` span per model call — so a
+> instruments the graph itself — `invoke_workflow`, `executor.process`,
+> `edge_group.process`, and an `invoke_agent` and `chat` span per model call — so a
 > hand-written event stream would be a lower-fidelity copy. See
 > [observability.py](../../python/services/api/app/observability.py); the whole
 > integration is two function calls.

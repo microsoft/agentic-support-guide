@@ -27,6 +27,7 @@ import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.trace import StatusCode
 
 from .conftest import canned_data_analyst_output
 from .test_coordinator import _make_coord, _request
@@ -100,6 +101,7 @@ def _dump(span: ReadableSpan) -> str:
     return json.dumps(
         {
             "name": span.name,
+            "status": span.status.description or "",
             "attributes": {k: str(v) for k, v in (span.attributes or {}).items()},
             "events": [
                 {
@@ -128,13 +130,13 @@ async def test_every_workflow_node_emits_an_executor_span() -> None:
     assert not missing, f"nodes that ran with no executor span: {sorted(missing)}"
 
 
-async def test_workflow_run_is_a_span() -> None:
+async def test_workflow_invocation_is_a_span() -> None:
     coord, _ = _make_coord()
     with _spans() as spans:
         await coord.run(_request())
 
     names = {span.name for span in spans}
-    assert "workflow.run" in names
+    assert "invoke_workflow support-plan" in names
     assert any(name.startswith("executor.process") for name in names)
 
 
@@ -155,10 +157,10 @@ async def test_no_user_text_reaches_any_span() -> None:
 async def test_no_model_output_reaches_a_failure_span() -> None:
     """The failure path leaked where the success path did not.
 
-    Agent Framework records the escaping exception on both the executor and
-    the workflow span, and a formatted traceback carries the chained cause.
-    A Pydantic failure quotes the offending value, which is model output, so
-    `StepFailed` is raised `from None` to break the chain.
+    Agent Framework marks the executor and workflow spans as failed. Earlier
+    releases also attached the formatted traceback, whose chained cause was a
+    Pydantic error quoting the offending value -- model output. `StepFailed`
+    is raised `from None` so that chain never exists to be recorded.
     """
 
     bad = json.loads(json.dumps(canned_data_analyst_output()))
@@ -172,12 +174,7 @@ async def test_no_model_output_reaches_a_failure_span() -> None:
 
     assert result.status == "invalid_model_json"
 
-    traces = [
-        str(dict(event.attributes or {}).get("exception.stacktrace") or "")
-        for span in spans
-        for event in span.events
-        if event.name == "exception"
-    ]
-    assert traces, "no exception was recorded; this assertion would be vacuous"
-    for stacktrace in traces:
-        assert CANARY not in stacktrace, "model output leaked into an exception span"
+    failed = [span for span in spans if span.status.status_code is StatusCode.ERROR]
+    assert failed, "no span recorded the failure; this assertion would be vacuous"
+    for span in spans:
+        assert CANARY not in _dump(span), f"model output leaked into span {span.name}"
