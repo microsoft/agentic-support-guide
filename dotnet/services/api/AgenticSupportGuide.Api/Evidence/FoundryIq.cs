@@ -45,7 +45,7 @@ public sealed class FoundryIqEvidenceRetriever : IEvidenceRetriever
         // replace of "-kb-" silently no-ops on that name and leaves the
         // retriever querying a source that does not exist.
         _knowledgeSource = knowledgeSource.Length > 0 ? knowledgeSource : DeriveSourceName(knowledgeBase);
-        _credentialFactory = credentialFactory ?? (() => new DefaultAzureCredential());
+        _credentialFactory = credentialFactory ?? (() => Credentials.Default());
     }
 
     public string ProviderName => "foundry_iq";

@@ -6,6 +6,11 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- The scripts and workshop samples are file-based apps. The tests compile
+         them too, as Python's tests import them: the `#:` lines are ignored here,
+         and UNDER_TEST leaves out the top-level statements that run them. -->
+    <Features>$(Features);FileBasedProgram</Features>
+    <DefineConstants>$(DefineConstants);UNDER_TEST</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,10 +18,18 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="System.CommandLine" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AgenticSupportGuide.Api\AgenticSupportGuide.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The hosted agent's gate, compiled against the API's shared code, as the
+         hosted project itself does. Tested without booting its server. -->
+    <Compile Include="..\..\..\hosted\support-explainer\SafetyGate.cs" Link="Hosted\SafetyGate.cs" />
+    <Compile Include="..\..\..\scripts\publish_hosted_agent.cs" Link="Scripts\publish_hosted_agent.cs" />
   </ItemGroup>
 
   <ItemGroup>

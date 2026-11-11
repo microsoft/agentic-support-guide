@@ -820,6 +820,14 @@ _HOSTED_ANSWERS = (
     "```json\nnot json\n```",
     "Plain answer.\n\n" + determinations.HUMAN_REVIEW_CAVEAT,
     "  Leading and trailing space.  ",
+    # json.loads reads these tokens; System.Text.Json does not.
+    '{"answer": "Keep a callback log.", "score": NaN}',
+    '{"answer": "Log the slow cases.", "low": -Infinity, "high": Infinity}',
+    '{"answer": "Not parsed.", "score": -NaN}',
+    '{"answer": "Not parsed.", "score": 1NaN}',
+    # A repeated key: the last one wins.
+    '{"answer": "first", "answer": "second"}',
+    '{"answer": "  ", "response": "From the response key."}',
 )
 
 # Each question is the text blocks of one request; a (char, count) pair is a

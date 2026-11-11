@@ -190,6 +190,36 @@
       "answer": "  Leading and trailing space.  ",
       "plain_text": "  Leading and trailing space.  ",
       "gate": "  Leading and trailing space.  \n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
+    },
+    {
+      "answer": "{\"answer\": \"Keep a callback log.\", \"score\": NaN}",
+      "plain_text": "Keep a callback log.",
+      "gate": "Keep a callback log.\n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
+    },
+    {
+      "answer": "{\"answer\": \"Log the slow cases.\", \"low\": -Infinity, \"high\": Infinity}",
+      "plain_text": "Log the slow cases.",
+      "gate": "Log the slow cases.\n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
+    },
+    {
+      "answer": "{\"answer\": \"Not parsed.\", \"score\": -NaN}",
+      "plain_text": "{\"answer\": \"Not parsed.\", \"score\": -NaN}",
+      "gate": "{\"answer\": \"Not parsed.\", \"score\": -NaN}\n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
+    },
+    {
+      "answer": "{\"answer\": \"Not parsed.\", \"score\": 1NaN}",
+      "plain_text": "{\"answer\": \"Not parsed.\", \"score\": 1NaN}",
+      "gate": "{\"answer\": \"Not parsed.\", \"score\": 1NaN}\n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
+    },
+    {
+      "answer": "{\"answer\": \"first\", \"answer\": \"second\"}",
+      "plain_text": "second",
+      "gate": "second\n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
+    },
+    {
+      "answer": "{\"answer\": \"  \", \"response\": \"From the response key.\"}",
+      "plain_text": "From the response key.",
+      "gate": "From the response key.\n\nA human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use."
     }
   ]
 }

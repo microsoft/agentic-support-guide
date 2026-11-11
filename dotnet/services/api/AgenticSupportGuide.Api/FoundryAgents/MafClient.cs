@@ -32,7 +32,7 @@ public sealed class FoundryResponsesClientFactory
         {
             throw new ConfigurationException("PROJECT_ENDPOINT_MISSING", "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.");
         }
-        _project = new AIProjectClient(new Uri(projectEndpoint), credential ?? new DefaultAzureCredential(), options ?? new AIProjectClientOptions());
+        _project = new AIProjectClient(new Uri(projectEndpoint), credential ?? Credentials.Default(), options ?? new AIProjectClientOptions());
         _loggerFactory = loggerFactory;
     }
 
