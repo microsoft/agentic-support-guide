@@ -1,9 +1,8 @@
 """Forbidden-determination policy.
 
-One definition enforced in four places: the validator agent, the hosted
-agent's output gate, the prompt envelope every model receives, and the
-offline eval gate. Each of those used to carry its own phrase list and they
-had already drifted apart.
+One definition enforced in three places: the validator agent, the hosted
+agent's output gate, and the prompt envelope every model receives. Each of
+those used to carry its own phrase list and they had already drifted apart.
 
 This is a denylist, and denylists leak — Module 8 measures exactly that. What
 this module owes the rest of the system is that it fails *closed*: an

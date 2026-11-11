@@ -59,7 +59,7 @@
               "name": "backend",
               "label": "Backend service running",
               "ok": true,
-              "detail": "FastAPI is responding to requests."
+              "detail": "The API is responding to requests."
             },
             {
               "name": "foundry_project_endpoint",
@@ -107,7 +107,7 @@
           "warnings": [
             "Microsoft Foundry project endpoint is not configured. Recommendation requests will fail with a typed provider_missing error until AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is set."
           ],
-          "guidance": "Not demo-ready. To finish setup: run Terraform in /python/infra, run .\\python\\scripts\\populate-env.ps1 to write python/services/api/.env, then start the backend with --env-file .env. No agent deployment step is needed - agent definitions live in /agents and load at runtime."
+          "guidance": "Not demo-ready. To finish setup: run Terraform in /python/infra, run .\\python\\scripts\\populate-env.ps1 to write python/services/api/.env, then start the backend with .\\python\\scripts\\run-backend.ps1. No agent deployment step is needed - agent definitions live in /agents and load at runtime."
         }
       },
       "model_calls": []

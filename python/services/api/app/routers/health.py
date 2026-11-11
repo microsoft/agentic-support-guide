@@ -76,11 +76,5 @@ def post_demo_reset(
         )
     audit_removed = audit.clear()
     plans_removed = plans.clear()
-    plans.seed(
-        specs=repos.seeded_plans,
-        dealerships=repos.dealerships,
-        area_scores=repos.area_scores,
-        operations=repos.operations,
-        resources=repos.resources,
-    )
+    plans.seed(specs=repos.seeded_plans, dealerships=repos.dealerships)
     return DemoResetResponse(status="ok", plans_reset=plans_removed, audit_reset=audit_removed)

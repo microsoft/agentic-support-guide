@@ -17,6 +17,12 @@ placeholders:
     accepts: Any non-negative integer.
 
 differences:
+  - id: track-paths
+    where: Setup guidance and error messages that name a script, a folder or the env file.
+    python: Names python/ paths and .py scripts.
+    dotnet: Names the same steps under dotnet/.
+    compared_by: Golden strings are rewritten with track_substitutions below, then compared exactly.
+
   - id: json-number-formatting
     where: JSON response bodies
     python: json.dumps writes a float with an integral value as 72.0.
@@ -41,3 +47,19 @@ differences:
     python: FastAPI's generated OpenAPI document and Swagger UI.
     dotnet: ASP.NET Core's generated OpenAPI document and Swagger UI.
     compared_by: Not compared. Both list the same endpoints; the generated documents differ in framework detail.
+
+# Applied to every golden string before it is compared with this track's
+# output, longest first. Each pair names the same file or step in each track.
+track_substitutions:
+  - python: 'python python/scripts/validate_agent_definitions.py'
+    dotnet: 'dotnet run dotnet/scripts/validate_agent_definitions.cs'
+  - python: 'python/scripts/validate_agent_definitions.py'
+    dotnet: 'dotnet/scripts/validate_agent_definitions.cs'
+  - python: '.\python\scripts\populate-env.ps1'
+    dotnet: '.\dotnet\scripts\populate-env.ps1'
+  - python: '.\python\scripts\run-backend.ps1'
+    dotnet: '.\dotnet\scripts\run-backend.ps1'
+  - python: 'python/services/api/.env'
+    dotnet: 'dotnet/services/api/.env'
+  - python: '/python/infra'
+    dotnet: '/dotnet/infra'

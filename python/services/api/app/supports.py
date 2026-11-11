@@ -1,13 +1,11 @@
-"""Support options catalog and rule-based recommendation engine."""
+"""Support options catalog: the categories, goals and strategies a plan can use."""
 
 from __future__ import annotations
 
-from .mock_data import PROCESS_AREAS, ResourceItem
 from .models import (
     CategoryOption,
     GoalOption,
     Option,
-    RecommendationResource,
     StrategyOption,
     SupportOptions,
 )
@@ -146,24 +144,3 @@ def build_support_options(
         strategies=_strategies(),
         dealer_groups=dealer_groups or [],
     )
-
-
-def resource_matches_for(
-    category: str, resources: list[ResourceItem]
-) -> list[RecommendationResource]:
-    """Resources for a category, spread across areas for a cross-area plan.
-
-    `multi-area` is a plan scope, not a measured area, so nothing is tagged
-    with it. Matching on the name alone returned an empty list.
-    """
-
-    if category in PROCESS_AREAS:
-        matches = [r for r in resources if r.process_area == category]
-    else:
-        first_per_area: dict[str, ResourceItem] = {}
-        for item in resources:
-            first_per_area.setdefault(item.process_area, item)
-        matches = [first_per_area[area] for area in PROCESS_AREAS if area in first_per_area]
-    return [
-        RecommendationResource(id=r.resource_id, label=r.label, kind=r.kind) for r in matches[:5]
-    ]

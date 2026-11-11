@@ -10,13 +10,7 @@ from __future__ import annotations
 import threading
 
 from .human_review import HumanReviewState
-from .mock_data import (
-    AreaScoreRecord,
-    Dealership,
-    OperationsRecord,
-    ResourceItem,
-    SeededPlanSpec,
-)
+from .mock_data import Dealership, SeededPlanSpec
 from .models import (
     Recommendation,
     RecommendationCitation,
@@ -90,15 +84,7 @@ class SavedPlansStore:
         self._max = max_plans
         self._lock = threading.Lock()
 
-    def seed(
-        self,
-        specs: list[SeededPlanSpec],
-        dealerships: list[Dealership],
-        area_scores: list[AreaScoreRecord],
-        operations: list[OperationsRecord],
-        resources: list[ResourceItem],
-    ) -> None:
-        del area_scores, operations, resources
+    def seed(self, specs: list[SeededPlanSpec], dealerships: list[Dealership]) -> None:
         dealerships_by_id = {d.dealership_id: d for d in dealerships}
         # Every other mutator takes the lock. `demo/reset` calls this while
         # other requests are reading and appending, so without it the list and

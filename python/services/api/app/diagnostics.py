@@ -121,7 +121,7 @@ def _checks(state: SetupState) -> list[HealthCheckItem]:
             name="backend",
             label="Backend service running",
             ok=True,
-            detail="FastAPI is responding to requests.",
+            detail="The API is responding to requests.",
         ),
         HealthCheckItem(
             name="foundry_project_endpoint",
@@ -209,7 +209,8 @@ def _warnings(state: SetupState) -> list[str]:
         warnings.append(
             "Foundry project is configured but per-role model deployments are "
             "missing. Run .\\python\\scripts\\populate-env.ps1 to regenerate "
-            "python/services/api/.env, then restart the backend with --env-file .env."
+            "python/services/api/.env, then restart the backend with "
+            ".\\python\\scripts\\run-backend.ps1."
         )
     elif not state.definitions_valid:
         warnings.append(
@@ -233,7 +234,7 @@ def _guidance(active_provider: str) -> str:
     return (
         "Not demo-ready. To finish setup: run Terraform in /python/infra, run "
         ".\\python\\scripts\\populate-env.ps1 to write python/services/api/.env, then start the "
-        "backend with --env-file .env. No agent deployment step is needed - "
+        "backend with .\\python\\scripts\\run-backend.ps1. No agent deployment step is needed - "
         "agent definitions live in /agents and load at runtime."
     )
 

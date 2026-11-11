@@ -22,8 +22,8 @@ STATE_ATTR = "services"
 
 @dataclass
 class AppServices:
-    """Not frozen: tests and the offline eval harness swap `settings` and
-    `runtime` on an app they have already built."""
+    """Not frozen: tests swap `settings` and `runtime` on an app they have
+    already built."""
 
     settings: AzureFoundrySettings
     repos: Repositories

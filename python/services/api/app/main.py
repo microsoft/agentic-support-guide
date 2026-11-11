@@ -165,13 +165,7 @@ def create_app(
 
     repos = build_repositories()
     plans_store = SavedPlansStore()
-    plans_store.seed(
-        specs=repos.seeded_plans,
-        dealerships=repos.dealerships,
-        area_scores=repos.area_scores,
-        operations=repos.operations,
-        resources=repos.resources,
-    )
+    plans_store.seed(specs=repos.seeded_plans, dealerships=repos.dealerships)
 
     setattr(
         app.state,
