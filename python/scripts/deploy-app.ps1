@@ -120,18 +120,6 @@ function Deploy-Web {
     }
 }
 
-if ($Only -in @("both", "api")) { Deploy-Api }
-if ($Only -in @("both", "web")) { Deploy-Web }
-
-Write-Host ""
-Write-Host "Deployed." -ForegroundColor Green
-Write-Host "  API : $apiUrl"
-Write-Host "  UI  : $webUrl"
-
-# App Service cold start after a zip deploy is slow; poll rather than
-# declaring failure on the first attempt.
-Write-Host ""
-
 # The page must load the bundle this run built; a lingering worker keeps
 # serving the previous one.
 function Wait-UiBundle {
@@ -156,6 +144,17 @@ function Wait-UiBundle {
     return $false
 }
 
+if ($Only -in @("both", "api")) { Deploy-Api }
+if ($Only -in @("both", "web")) { Deploy-Web }
+
+Write-Host ""
+Write-Host "Deployed." -ForegroundColor Green
+Write-Host "  API : $apiUrl"
+Write-Host "  UI  : $webUrl"
+
+# App Service cold start after a zip deploy is slow; poll rather than
+# declaring failure on the first attempt.
+Write-Host ""
 if ($Only -in @("both", "web") -and -not (Wait-UiBundle)) { exit 1 }
 if ($Only -eq "web") { exit 0 }
 
