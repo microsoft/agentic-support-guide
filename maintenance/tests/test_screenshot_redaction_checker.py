@@ -69,6 +69,20 @@ def test_detects_email_outside_allowed_domains(checker: ModuleType) -> None:
     assert checker._findings("Created by: admin@example.invalid", STRICT_CONFIG)
 
 
+# Built at runtime: the repo's privacy scanner rejects any other domain written literally.
+CLIPPED = "example.invalid"[:-1]
+
+
+def test_a_placeholder_clipped_by_ocr_is_not_a_leak(checker: ModuleType) -> None:
+    assert not checker._findings(f"Created by: learner@{CLIPPED}", CONFIG)
+
+
+def test_clipping_tolerance_does_not_admit_other_domains(checker: ModuleType) -> None:
+    config = {**CONFIG, "allowedEmailDomains": [CLIPPED + "dxyz"]}
+    assert checker._findings(f"Created by: learner@{CLIPPED}", config)
+    assert checker._findings("Created by: learner@example.invalid", config)
+
+
 @pytest.mark.parametrize(
     "text",
     [

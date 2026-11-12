@@ -141,7 +141,7 @@ def _findings(text: str, config: dict) -> list[str]:
 
     allowed_domains = {d.casefold() for d in config["allowedEmailDomains"]}
     for match in EMAIL.findall(text):
-        if match.rsplit("@", 1)[-1].casefold() not in allowed_domains:
+        if not _allowed_domain(match.rsplit("@", 1)[-1].casefold(), allowed_domains):
             found.append(match)
 
     allowed_guids = {g.casefold() for g in config["allowedGuids"]}
@@ -150,6 +150,11 @@ def _findings(text: str, config: dict) -> list[str]:
             found.append(match)
 
     return found
+
+
+def _allowed_domain(domain: str, allowed: set[str]) -> bool:
+    # OCR can drop the last letter or two of a placeholder, e.g. `example.invali`.
+    return any(a == domain or (a.startswith(domain) and len(a) - len(domain) <= 2) for a in allowed)
 
 
 def main() -> int:
