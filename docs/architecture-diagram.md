@@ -104,10 +104,10 @@ The three agents share a single `Model Deployment`, shown by one
 grouped arrow labeled *uses shared model deployment* rather than three
 separate connections.
 
-The diagram labels the `API Service` a FastAPI backend, which is the Python
-track. In the .NET track the same container is the ASP.NET Core API, with the
-same nested coordinator and the same relationships; nothing else in the
-diagram depends on the track.
+The diagram labels the `API Service` a FastAPI or ASP.NET Core backend: the
+Python track's FastAPI API and the .NET track's ASP.NET Core API are the same
+container, with the same nested coordinator and the same relationships;
+nothing else in the diagram depends on the track.
 
 The dealer group isolation rule is enforced in the API and the retrieval
 filter rather than by a container boundary (see

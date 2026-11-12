@@ -137,10 +137,11 @@ track, the .NET SDK for the .NET track. Everything else is common to both.
 | Visual Studio Code | any recent | Editing `terraform.tfvars` and `.env` (this guide assumes VS Code). | `code --version` |
 | Python | 3.13 | Python track: backend service, scripts and tests. | `py -3.13 --version` on Windows; `python3 --version` elsewhere |
 | .NET SDK | 10.0.404, or a later 10.0 SDK | .NET track: backend service, scripts and tests. [`global.json`](global.json) pins the SDK band and the test runner, so run `dotnet` from inside the repo. | `dotnet --version` |
-| Node.js | 20 LTS (22 tested) | Vite frontend. | `node --version` and `npm --version` |
+| Node.js | 22 LTS | Vite frontend. | `node --version` and `npm --version` |
 | Terraform | 1.9+ | Provisions Microsoft Foundry infrastructure. | `terraform version` |
 | Azure CLI (`az`) | any recent | Sign in for keyless auth (`az login`). | `az version` |
-| PowerShell | 5.1+ or PowerShell 7 | The commands below use PowerShell syntax. macOS/Linux users can adapt with `bash`. | `$PSVersionTable.PSVersion` |
+| PowerShell | 7.4 | The commands below use PowerShell syntax. macOS/Linux users can adapt with `bash`. | `$PSVersionTable.PSVersion` |
+| GitHub CLI (`gh`) | any recent | Optional: only the CI sections of workshop Modules 1 and 9 use it. | `gh --version` |
 
 No Docker. No local database. No global npm or pip packages, and no global
 .NET tools, required.
@@ -164,9 +165,9 @@ No Docker. No local database. No global npm or pip packages, and no global
 
 ### Time and cost
 
-- End-to-end setup from a fresh clone takes roughly 15–25 minutes,
-  most of which is `terraform apply` provisioning the Cognitive Services
-  account and model deployment.
+- End-to-end setup from a fresh clone takes 45 to 75 minutes. `terraform
+  apply` alone runs 15 to 20 minutes, provisioning the Foundry account, the
+  model deployments and Azure AI Search.
 - Cost is **pay-as-you-go** based on the model deployment and telemetry.
   For intermittent use, expect single-digit USD per day. Run
   `terraform destroy` when finished.
@@ -275,10 +276,9 @@ or `dotnet/services/api/.env` — and overwrites any previous file. Nothing
 sensitive is printed to the console. Re-run it after any future
 `terraform apply` that changes outputs.
 
-If you'd rather do it by hand: for Python, copy
-`python/services/api/.env.example` to `python/services/api/.env`; for .NET,
-which has no `.env.example`, create `dotnet/services/api/.env` with the keys
-listed in [its README](dotnet/services/api/README.md#environment-variables).
+If you'd rather do it by hand, copy your track's `.env.example` —
+`python/services/api/.env.example` or `dotnet/services/api/.env.example` — to
+`.env` in the same folder.
 Then run `terraform output` inside your track's infra folder and paste the
 values into the corresponding keys in `.env`. Use
 `terraform output -raw application_insights_connection_string` to
@@ -481,7 +481,7 @@ need Azure credentials.
 ## Troubleshooting
 
 ### Python virtual environment (Python track)
-- **`python` or `py` command not found.** Install Python 3.12 or newer.
+- **`python` or `py` command not found.** Install Python 3.13.
 - **Activation script blocked on Windows.** Run PowerShell as your user
   and execute `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
 - **`pip install` fails behind a proxy.** Set `HTTPS_PROXY` and retry.
@@ -500,15 +500,12 @@ need Azure credentials.
   Python above applies to `run-backend.ps1` and the other `.ps1` scripts.
 
 ### `npm install`
-- **`npm` not found.** Install Node.js 18 or newer (this project was
-  tested with Node 25).
-- **`npm` reports vulnerabilities.** They are transitive dev dependencies
-  and do not block build/test.
+- **`npm` not found.** Install Node.js 22 LTS.
 
 ### Backend not running
 - The frontend shows *API unavailable - start the local backend*.
-  Python: restart `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --env-file .env`.
-  .NET: re-run `.\dotnet\scripts\run-backend.ps1` from the repo root.
+  Re-run your track's `run-backend.ps1` from the repo root:
+  `.\python\scripts\run-backend.ps1` or `.\dotnet\scripts\run-backend.ps1`.
 
 ### Vite proxy / API unavailable
 - Ensure `apps/web/vite.config.ts` still proxies `/api` to
@@ -698,6 +695,7 @@ README.
   and in .NET; Module 0 is prework and the rest fill a day.
 - [Customer demo](demo/README.md) — the 5–7 minute walkthrough.
 - [ADR — published prompt agents (current)](docs/adr/0006-published-prompt-agents.md)
+- [ADR — two tracks, Python and .NET (current)](docs/adr/0007-two-tracks.md)
 - [ADR — agent hosting (original, superseded)](docs/adr/0001-agent-hosting.md)
 - [ADR — agent hosting on remote Foundry (superseded)](docs/adr/0002-agent-hosting-remote-foundry.md)
 - [ADR — Foundry Terraform choices](docs/adr/0001-foundry-project.md)

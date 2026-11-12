@@ -216,10 +216,12 @@ These are the span names you will see:
 
 | Span | One per |
 | --- | --- |
+| `workflow.session` | request, as the parent of `invoke_workflow` |
 | `invoke_workflow support-plan` | request |
 | `workflow.build` | graph construction |
 | `executor.process <id>` | node — `data-analyst`, `support-recommender`, `validator`, … |
-| `edge_group.process …` | edge delivery, with `edge_group.delivered` |
+| `edge_group.process` | edge delivery, with `edge_group.delivered` |
+| `message.send` | message handed from one node to the next |
 | `invoke_agent <agent>(<id>)` | agent call — `invoke_agent data-analyst-agent(data-analyst-agent)`, … |
 | `chat <deployment>` | model call, with `gen_ai.*` token and model attributes |
 
@@ -523,9 +525,9 @@ anything.
 
 > [!NOTE]
 > The optional CI sections create things Terraform does not own: an Entra app
-> registration and federated credential (Module 1), and a GitHub environment
-> with its variables and secrets, plus a role assignment (Modules 1 and 9). If
-> you did those, remove them separately.
+> registration with its federated credential and three role assignments, and a
+> GitHub environment with its variables and secrets (Modules 1 and 9). If you
+> did those, remove them separately.
 
 Delete the agents first, while the project still exists. Each command
 matches your suffix exactly, so a colleague's agents on the same project

@@ -145,9 +145,7 @@ outputs.
 
 If you'd rather do it by hand:
 
-1. Create `dotnet/services/api/.env`. This track has no `.env.example`;
-   [the API README](../services/api/README.md#environment-variables) lists
-   the keys.
+1. Copy `dotnet/services/api/.env.example` to `dotnet/services/api/.env`.
 2. From `dotnet/infra/`, run `terraform output`.
 3. Open `dotnet/services/api/.env` in VS Code and paste the values into the
    corresponding `AZURE_AI_FOUNDRY_*` keys:
@@ -161,7 +159,8 @@ If you'd rather do it by hand:
      `terraform output -raw application_insights_connection_string`) →
      `APPLICATIONINSIGHTS_CONNECTION_STRING`
 
-4. Save. `.env` is gitignored.
+4. Save. `.env` is gitignored; `.env.example` is tracked and contains
+   only placeholders.
 
 ## Expected cost
 

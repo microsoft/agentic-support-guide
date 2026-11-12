@@ -62,7 +62,7 @@ differences:
   - id: telemetry-span-shapes
     where: The OpenTelemetry spans each track exports to Application Insights (Module 10).
     python: Agent calls are INTERNAL spans named `invoke_agent <agent>`, and a failed model call records error.type as the exception's class name.
-    dotnet: Agent calls are CLIENT spans named `invoke_agent <agent>(<id>)` (the app sets the id to the role), each run has a `workflow.session` span above `invoke_workflow`, and a failed model call records the exception's full type name with its message as the span's status description. Sensitive-data capture is off by default in both; in .NET the OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT environment variable also turns it on.
+    dotnet: Agent calls are CLIENT spans named `invoke_agent <agent>(<id>)` (the app sets the id to the role), each run has a `workflow.session` span above `invoke_workflow`, edge spans are named `edge_group.process` without the edge-group type Python appends, and a failed model call records the exception's full type name with its message as the span's status description. Sensitive-data capture is off by default in both; in .NET the OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT environment variable also turns it on.
     compared_by: Not compared span by span. Each track's observability test asserts that every node emits an executor span, that the workflow span exists, and that no user text or model output reaches any span.
 
   - id: provider-retries

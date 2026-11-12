@@ -7,6 +7,7 @@ makes Agent Framework emit OpenTelemetry spans for everything it runs:
     invoke_workflow support-plan  one request end to end
     executor.process <id>         one node, e.g. `executor.process support-recommender`
     edge_group.process            an edge firing, with its delivery status
+    message.send                  a message handed from one node to the next
     invoke_agent <agent>          one agent call
     chat <deployment>             one model call, with gen_ai.* attributes:
                                   response model, input/output tokens, error type

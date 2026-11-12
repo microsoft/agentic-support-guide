@@ -37,8 +37,8 @@ dotnet build dotnet/AgenticSupportGuide.slnx
 ```
 
 `populate-env.ps1` writes `dotnet/services/api/.env` from the Terraform
-outputs (see the [infra README](../../infra/README.md)). This track has no
-`.env.example`; [Environment variables](#environment-variables) lists the keys.
+outputs (see the [infra README](../../infra/README.md)).
+[`.env.example`](.env.example) lists the same keys with placeholders.
 
 The build copies the shared agent definitions from the repo root's `agents/`
 folder next to the app, which reads them from there. The build output is
@@ -104,9 +104,9 @@ runs the same checks on every pull request, without installing Python.
 
 ## Environment variables
 
-There is no `.env.example` in this track. The canonical list is what
-[`populate-env.ps1`](../../scripts/populate-env.ps1) writes, and every name is
-the same as in the Python track.
+[`.env.example`](.env.example) has every key with a placeholder, and
+[`populate-env.ps1`](../../scripts/populate-env.ps1) writes the real values.
+Every name is the same as in the Python track.
 
 | Variable | Purpose |
 | --- | --- |

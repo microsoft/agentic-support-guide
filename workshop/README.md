@@ -71,6 +71,7 @@ In this workshop, you learn how to:
 - Git 2.40, PowerShell 7.4, Azure CLI 2.84 plus its `application-insights`
   extension, Terraform 1.9, Node.js 22 LTS, and Visual Studio Code. Do not pin
   an older Azure CLI — `az search usage list` is missing from older builds.
+  The GitHub CLI is optional: only the CI sections of Modules 1 and 9 use it.
 - For the **Python** track, Python 3.13. For the **.NET** track, the .NET 10
   SDK, version 10.0.404 or later.
 - Network access to the Azure endpoints the SDKs call, including

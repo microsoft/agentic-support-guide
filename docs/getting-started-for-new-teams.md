@@ -252,3 +252,5 @@ For the demo talk track, see the [customer demo guide](../demo/README.md).
 - [ADR 0006 — published prompt agents](adr/0006-published-prompt-agents.md)
   — the current decision. It supersedes ADR 0005, which superseded
   [ADR 0002](adr/0002-agent-hosting-remote-foundry.md).
+- [ADR 0007 — two tracks, Python and .NET](adr/0007-two-tracks.md) — why
+  the app exists twice and how the tracks are kept identical.

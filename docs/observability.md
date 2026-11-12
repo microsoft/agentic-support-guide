@@ -122,17 +122,20 @@ writes them all to the `dependencies` table with span attributes in
 | `invoke_workflow support-plan` | request | `workflow.id`, `gen_ai.workflow.name` |
 | `workflow.build` | graph construction | `workflow.definition` (the full graph as JSON) |
 | `executor.process <id>` | node | `executor.id`, `executor.type` |
-| `edge_group.process …` | edge delivery | `edge_group.delivered`, `edge_group.delivery_status` |
+| `edge_group.process …` (.NET: `edge_group.process`) | edge delivery | `edge_group.delivered`, `edge_group.delivery_status` |
+| `message.send` | message handed from one node to the next | |
 | `invoke_agent <agent>` (.NET: `invoke_agent <agent>(<id>)`) | agent call | `gen_ai.agent.name`, `error.type` |
 | `chat <deployment>` | model call | `gen_ai.response.model`, input/output tokens, `error.type` |
 | `workflow.session` (.NET only) | request, as the parent of `invoke_workflow` | |
 
-The names match across the tracks except in two places. Agent Framework for
+The names match across the tracks except in three places. Agent Framework for
 .NET names an agent span after the agent's name and its id, and the app sets
 the id to the role, so the Python track's `invoke_agent data-analyst-agent`
 is `invoke_agent data-analyst-agent(data-analyst-agent)` in .NET — the same
-on every call, so it still groups cleanly. And Agent Framework for .NET opens
+on every call, so it still groups cleanly. Agent Framework for .NET opens
 one more span per run, `workflow.session`, with `invoke_workflow` beneath it.
+And Agent Framework for Python appends the edge group's type to
+`edge_group.process` (`edge_group.process SingleEdgeGroup`), where .NET does not.
 
 Spans are properly parented, so Application Insights' end-to-end transaction
 view draws one request as a waterfall over the whole graph.
