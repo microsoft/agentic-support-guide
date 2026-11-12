@@ -3,6 +3,8 @@
 This page first explains the general security and privacy pattern for
 agentic applications, then documents how this repo applies each piece.
 It uses plain language and does not assume prior security expertise.
+The app exists in a Python track and a .NET track that apply every control
+the same way; where a control lives in code, both tracks' files are named.
 
 ## The pattern for agentic apps
 
@@ -53,31 +55,42 @@ by design than to remove later.
 ### Data minimization
 
 - The backend reads only the synthetic in-memory repositories in
-  [`services/api/app/repositories.py`](../services/api/app/repositories.py).
+  [`python/services/api/app/repositories.py`](../python/services/api/app/repositories.py)
+  or
+  [`dotnet/services/api/AgenticSupportGuide.Api/Repositories.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Repositories.cs).
 - No database and no file-system state beyond the in-memory saved-plans
   store. Evidence retrieval is the one external read, and only when
   `EVIDENCE_SOURCE=foundry_iq` points it at Azure AI Search.
-- The FastAPI request models bound and validate all inputs at the
+- The API's request models bound and validate all inputs at the
   boundary.
 
 **How to verify.** Read
-[`services/api/app/models.py`](../services/api/app/models.py) for the
+[`python/services/api/app/models.py`](../python/services/api/app/models.py) for the
 Pydantic request models and
-[`services/api/app/repositories.py`](../services/api/app/repositories.py)
-for the synthetic-only data path.
+[`python/services/api/app/repositories.py`](../python/services/api/app/repositories.py)
+for the synthetic-only data path; in .NET,
+[`RequestModels.cs`](../dotnet/services/api/AgenticSupportGuide.Api/RequestModels.cs)
+and `Repositories.cs`.
 
 ### Synthetic / non-prod data
 
 - Every dealership, region, KPI, and trend value is produced by
   deterministic factories seeded with `SEED = 20260101` in
-  [`services/api/app/config.py`](../services/api/app/config.py).
+  [`python/services/api/app/config.py`](../python/services/api/app/config.py)
+  (`Config.Seed` in
+  [`Config.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Config.cs)).
+  Both tracks generate byte-identical data from it; the conformance tests
+  check that.
 - No demo path reads from a live database.
 
 **How to verify.** Grep for `SEED` and inspect
-[`services/api/app/mock_data.py`](../services/api/app/mock_data.py).
+[`python/services/api/app/mock_data.py`](../python/services/api/app/mock_data.py)
+or
+[`MockData.cs`](../dotnet/services/api/AgenticSupportGuide.Api/MockData.cs).
 The privacy scanner test in
-[`services/api/tests/test_no_sensitive_content.py`](../services/api/tests/test_no_sensitive_content.py)
-enforces that only allow-listed placeholder values appear anywhere.
+[`maintenance/tests/test_no_sensitive_content.py`](../maintenance/tests/test_no_sensitive_content.py),
+shared by both tracks, enforces that only allow-listed placeholder values
+appear anywhere.
 
 ### Prompt-injection boundaries
 
@@ -95,14 +108,19 @@ enforces that only allow-listed placeholder values appear anywhere.
   are **not** robust to obfuscation, and that is out of scope.
 
 **How to verify.** Read
-[`services/api/app/agents/shared/prompt_blocks.py`](../services/api/app/agents/shared/prompt_blocks.py).
-Run `pytest -k prompt_blocks` for the covering tests.
+[`python/services/api/app/agents/shared/prompt_blocks.py`](../python/services/api/app/agents/shared/prompt_blocks.py)
+or
+[`dotnet/services/api/AgenticSupportGuide.Api/Agents/Shared/PromptBlocks.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Agents/Shared/PromptBlocks.cs).
+Run `pytest -k prompt_blocks`, or
+`dotnet test --solution dotnet\AgenticSupportGuide.slnx --filter-class "*.PromptBlocksTests"`,
+for the covering tests.
 
 ### Agent-to-agent trust boundaries
 
-- The three agents exchange messages only through the JSON Schemas in
-  [`/contracts/v1`](../contracts/v1). The coordinator validates each
-  message against the corresponding schema before forwarding.
+- The three agents exchange typed objects only. Each agent's reply is
+  parsed into its typed contract (a Pydantic model in Python, a record in
+  `Contracts.cs` in .NET) before the next step sees it, and a reply that
+  does not parse stops the run.
 - The Support Recommendation Agent receives the Data Analyst output
   wrapped as an untrusted block, not injected as instructions.
 - The Validator Agent receives both prior outputs the same way.
@@ -110,32 +128,41 @@ Run `pytest -k prompt_blocks` for the covering tests.
   from fixed templates keyed by issue code — not from raw LLM
   critique text.
 
-**How to verify.** Read `StepRunner.check_protocol` in
-[`services/api/app/workflows/steps.py`](../services/api/app/workflows/steps.py),
-`PlanRun.check_handoff` in
-[`services/api/app/workflows/executors.py`](../services/api/app/workflows/executors.py),
-and the payload builders in
-[`services/api/app/workflows/envelopes.py`](../services/api/app/workflows/envelopes.py).
+**How to verify.** Read `parse_role_response` in
+[`python/services/api/app/agents/shared/responses.py`](../python/services/api/app/agents/shared/responses.py)
+and `_call_agent` in
+[`python/services/api/app/workflows/executors.py`](../python/services/api/app/workflows/executors.py);
+in .NET, `Responses.ParseRoleResponse` in
+[`Responses.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Agents/Shared/Responses.cs)
+and `Nodes.CallAgentAsync` in
+[`Executors.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Workflows/Executors.cs).
 
 ### Keyless auth
 
 - The Foundry SDK client acquires bearer tokens through
   `DefaultAzureCredential`, which uses `az login`, managed identity,
-  or workload identity. No API key is stored.
+  or workload identity. No API key is stored. The .NET track's credential,
+  in
+  [`Credentials.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Credentials.cs),
+  leaves out the Visual Studio and VS Code sign-ins, so both tracks call
+  Azure as the same identity.
 - Terraform sets `local_auth_enabled = false` on the AI Services
   account and never reads model keys. No key is written to Key Vault.
 
 **How to verify.** Read
-[`services/api/app/foundry_agents/maf_client.py`](../services/api/app/foundry_agents/maf_client.py)
-and
-[`infra/ai_foundry.tf`](../infra/ai_foundry.tf) (the
+[`python/services/api/app/foundry_agents/maf_client.py`](../python/services/api/app/foundry_agents/maf_client.py)
+or
+[`dotnet/services/api/AgenticSupportGuide.Api/FoundryAgents/MafClient.cs`](../dotnet/services/api/AgenticSupportGuide.Api/FoundryAgents/MafClient.cs)
+and your track's `ai_foundry.tf` —
+[`python/infra/ai_foundry.tf`](../python/infra/ai_foundry.tf) or
+[`dotnet/infra/ai_foundry.tf`](../dotnet/infra/ai_foundry.tf) (the
 `local_auth_enabled` setting on the `azurerm_cognitive_account`
 resource).
 
 ### RBAC
 
-`infra/rbac.tf` creates eleven role assignments. They fall into three
-groups.
+Each track's `rbac.tf` (`python/infra/rbac.tf`, `dotnet/infra/rbac.tf`)
+creates the same eleven role assignments. They fall into three groups.
 
 The learner (or the `principal_id` passed through `terraform.tfvars`):
 
@@ -169,24 +196,30 @@ learners who share one. Set `grant_search_control_plane = false` to
 withhold it; Module 6 then requires an index created for you.
 
 **How to verify.** Search for `azurerm_role_assignment` in
-[`/infra`](../infra).
+[`python/infra`](../python/infra) or [`dotnet/infra`](../dotnet/infra).
 
 ### No prompt / completion logging
 
 - Telemetry captures structural metadata only: span name, executor id,
   duration, model, token counts, coarse error type.
-- Spans come from Agent Framework, whose `enable_sensitive_data` setting
-  defaults to False; this app never calls `enable_sensitive_telemetry()`.
-  A canary test asserts no user text reaches a span.
+- Spans come from Agent Framework, whose sensitive-data setting defaults to
+  off in both tracks: this app never calls `enable_sensitive_telemetry()`
+  in Python and never turns on `EnableSensitiveData` in .NET. A canary
+  test in each track asserts no user text reaches a span.
 - The audit endpoint returns seeded synthetic rows plus in-memory
   metadata rows and never surfaces prompts, completions, raw
   concern text, or secrets.
 
 **How to verify.** Read
-[`services/api/app/observability.py`](../services/api/app/observability.py)
+[`python/services/api/app/observability.py`](../python/services/api/app/observability.py)
 and
-[`services/api/app/runtime_audit.py`](../services/api/app/runtime_audit.py).
-See [Observability](observability.md) for the safe schema.
+[`python/services/api/app/runtime_audit.py`](../python/services/api/app/runtime_audit.py),
+or
+[`Observability.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Observability.cs)
+and
+[`Audit.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Audit.cs).
+See [Observability](observability.md) for the safe schema, and for how a
+failed call is recorded differently by the two frameworks.
 
 ### Metadata-only observability
 
@@ -196,11 +229,14 @@ See [Observability](observability.md) for the safe schema.
   token.
 
 **How to verify.** Inspect
-[`services/api/app/diagnostics.py`](../services/api/app/diagnostics.py)
+[`python/services/api/app/diagnostics.py`](../python/services/api/app/diagnostics.py)
 and the test at
-[`services/api/tests/test_health_details.py`](../services/api/tests/test_health_details.py)
+[`python/services/api/tests/test_health_details.py`](../python/services/api/tests/test_health_details.py)
 that plants canary values in settings and asserts they never appear
-in the response body.
+in the response body — or, in .NET,
+[`Diagnostics.cs`](../dotnet/services/api/AgenticSupportGuide.Api/Diagnostics.cs)
+and
+[`HealthDetailsTests.cs`](../dotnet/services/api/AgenticSupportGuide.Api.Tests/HealthDetailsTests.cs).
 
 ### Human review
 
@@ -217,9 +253,11 @@ the persistent banner in the frontend layout.
 ## Secret handling
 
 - `.env`, `terraform.tfvars`, and `*.tfstate` are gitignored.
-- `.env.example`, `terraform.tfvars.example`, and
-  `services/api/.env.example` contain placeholder values
-  only.
+- `apps/web/.env.example`, `python/services/api/.env.example`, and each
+  track's `infra/terraform.tfvars.example` contain placeholder values
+  only. The .NET track has no `.env.example`;
+  `dotnet/scripts/populate-env.ps1` writes its `.env` from Terraform
+  outputs.
 - Application Insights connection string is marked `sensitive = true`
   in Terraform outputs.
 - The privacy scanner test flags 32+ character base64/hex values on
@@ -227,18 +265,19 @@ the persistent banner in the frontend layout.
 
 ## Validation gates
 
-- Every remote-agent response is parsed and Pydantic-validated
-  against a typed internal contract, and then validated by the JSON
-  Schema in [`/contracts/v1`](../contracts/v1) before being forwarded.
+- Every remote-agent response is parsed and validated against a typed
+  internal contract (Pydantic in Python, `Contracts.cs` in .NET) before it
+  is used.
 - If validation still fails after one repair pass, no recommendation
   is returned; the API returns a typed `validation_failed` envelope
   with safe issue codes.
 
 ## Content-filter handling
 
-- The Foundry adapter classifies content-filter responses (via
-  terminal run status and error code) and raises
-  `ContentFilterError("CONTENT_FILTER", ...)`.
+- The Foundry adapter classifies content-filter responses (by the error's
+  type name or its `content_filter` code) and raises
+  `ContentFilterError("CONTENT_FILTER", ...)` —
+  `ContentFilterException("CONTENT_FILTER", ...)` in .NET.
 - The coordinator maps that to a `provider_content_filter` status
   code and returns a safe user-facing message.
 - The UI shows a distinct safe state for content-filter blocks with
@@ -285,8 +324,9 @@ hostname, because either would mean the proxy had been bypassed.
   unauthenticated. Forgetting a setting must not be the same as turning
   authentication off.
 - Local development needs no key: the Vite dev server proxies `/api` to
-  uvicorn, mirroring production, and the API only insists on a key when
-  it detects App Service.
+  the local backend (uvicorn, or `dotnet watch` in the .NET track),
+  mirroring production, and the API only insists on a key when it detects
+  App Service.
 
 ### What this does not protect
 
@@ -338,9 +378,8 @@ Every request carries a `dealer_group_id` matching pattern
 It is enforced at four layers:
 
 - **HTTP** - required by `SupportPlanRequest`.
-- **Contracts** - required in every JSON Schema in `/contracts/v1/`.
-- **Coordinator** - propagated to every agent context and stamped on
-  every envelope payload.
+- **Contracts** - required on every typed agent output and citation.
+- **Coordinator** - propagated to every agent context.
 - **Validator Agent** - deterministic checks
   (`DRAFT_DEALER_GROUP_MISMATCH`, `CROSS_DEALER_GROUP_CITATION`,
   `UNKNOWN_CITATION_ID`) reject any drift.
@@ -369,7 +408,9 @@ per-dealer group fixtures via `FixtureEvidenceRetriever`. See
 
 Every recommendation is created in `human_review_state = pending_review`.
 Allowed transitions live in
-[`services/api/app/human_review.py`](../services/api/app/human_review.py):
+[`python/services/api/app/human_review.py`](../python/services/api/app/human_review.py)
+and
+[`dotnet/services/api/AgenticSupportGuide.Api/HumanReview.cs`](../dotnet/services/api/AgenticSupportGuide.Api/HumanReview.cs):
 
 ```
 draft            -> pending_review
@@ -382,7 +423,8 @@ Transitions:
 
 - Are made through `POST /api/supports/plans/{plan_id}/review`.
 - Are validated against the state machine; invalid transitions raise
-  `InvalidReviewTransitionError` (HTTP 409).
+  `InvalidReviewTransitionError` (`InvalidReviewTransitionException` in
+  .NET), returned as HTTP 409.
 - Are recorded in the runtime audit log as `review_transition` events
   with `correlation_id`, `dealer_group_id`, old state, new state, and a
   reviewer identifier. No prompt or completion text is stored.

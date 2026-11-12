@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="services/api/AgenticSupportGuide.Api/AgenticSupportGuide.Api.csproj" />
+  <Project Path="services/api/AgenticSupportGuide.Api.Tests/AgenticSupportGuide.Api.Tests.csproj" />
+  <Project Path="hosted/support-explainer/SupportExplainer.csproj" />
+</Solution>

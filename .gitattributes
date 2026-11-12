@@ -1,0 +1,2 @@
+# Both tracks compare the conformance goldens byte for byte.
+conformance/goldens/** text eol=lf

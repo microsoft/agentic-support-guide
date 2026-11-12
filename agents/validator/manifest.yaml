@@ -13,17 +13,15 @@ runtime:
 
 contracts:
   input:
-    schema_ref: validation-request.schema.json
+    schema_ref: schemas/input.schema.json
     schema_version: 1.0.0
   output:
-    schema_ref: validation-result.schema.json
+    schema_ref: schemas/output.schema.json
     schema_version: 1.0.0
 
 # Validator output goes back to the coordinator, not another agent.
 handoff:
   - agent: coordinator
-    contract: validation-result.schema.json
-    version: 1.0.0
 
 safety:
   human_review_required: true

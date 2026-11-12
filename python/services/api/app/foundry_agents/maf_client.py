@@ -1,0 +1,227 @@
+"""The only module that imports Microsoft Agent Framework SDK symbols.
+
+Keeping the import surface here means the rest of the app depends on the
+`maf_runtime` interface, and a drift test can assert that persisted-agent
+symbols are never imported anywhere.
+"""
+
+from __future__ import annotations
+
+import inspect
+import logging
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from pydantic import BaseModel
+
+from .errors import ConfigurationError, FoundryRunError
+from .maf_runtime import RoleDefinition
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ChatResult:
+    text: str
+    parsed: Any
+    # The deployment that actually served the call. With a model router this
+    # differs from the deployment name that was requested.
+    model: str = ""
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+
+class FoundryResponsesClientFactory:
+    """Builds and invokes a MAF Agent per call.
+
+    `store=False` is set on every call: the OpenAI Responses client used under
+    the hood stores by default, and this prototype must not leave response
+    bodies server-side.
+    """
+
+    def __init__(self, *, project_endpoint: str, credential_factory: Any) -> None:
+        if not project_endpoint:
+            raise ConfigurationError(
+                "PROJECT_ENDPOINT_MISSING",
+                "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is not set.",
+            )
+        self._project_endpoint = project_endpoint
+        self._credential_factory = credential_factory
+
+    async def __call__(
+        self,
+        definition: RoleDefinition,
+        user_message: str,
+        response_model: type[BaseModel] | None,
+    ) -> ChatResult:
+        from agent_framework import Agent
+        from agent_framework.foundry import FoundryChatClient
+
+        credential = self._credential_factory()
+        # Pre-assigned so the finally block cannot raise UnboundLocalError and
+        # replace a real construction failure with a confusing one, which also
+        # skipped the credential close.
+        client: Any = None
+        try:
+            client = FoundryChatClient(
+                project_endpoint=self._project_endpoint,
+                model=definition.model_deployment,
+                credential=credential,
+            )
+            options: dict[str, Any] = {"store": False}
+            if definition.temperature is not None:
+                options["temperature"] = definition.temperature
+            if definition.max_output_tokens is not None:
+                options["max_tokens"] = definition.max_output_tokens
+            if response_model is not None:
+                options["response_format"] = _response_format(definition, response_model)
+
+            async with Agent(
+                client=client,
+                name=definition.role,
+                instructions=definition.instructions,
+            ) as agent:
+                response = await agent.run(user_message, options=options)
+        finally:
+            # Independent on purpose: the comment used to claim this while the
+            # calls were sequential, so one close failure stranded the rest.
+            await _aclose_all(aclose_foundry_client(client), _aclose(credential))
+
+        text = str(getattr(response, "text", "") or "")
+        parsed = _safe_value(response)
+        if parsed is None and not text:
+            raise FoundryRunError(
+                "EMPTY_RESPONSE",
+                "Remote agent returned no content.",
+            )
+        return ChatResult(
+            text=text,
+            parsed=parsed,
+            model=_served_model(response, definition.model_deployment)
+            or definition.model_deployment,
+            input_tokens=_usage(response, "input_token_count"),
+            output_tokens=_usage(response, "output_token_count"),
+        )
+
+
+def _response_format(definition: RoleDefinition, response_model: type[BaseModel]) -> dict[str, Any]:
+    """The reply's JSON schema, handed over as data rather than as the class.
+
+    Given the Pydantic class, Agent Framework validates the reply itself and
+    raises a generic client error on a mismatch, so an off-contract reply would
+    reach the trace as a provider failure instead of `invalid_model_json`. The
+    schema sent is the agent folder's `output.schema.json`, which a test holds
+    equal to the contract's strict schema, so the request is unchanged and the
+    verdict stays with `parse_role_response` - the same in the .NET track.
+    """
+
+    if definition.response_schema is None:
+        raise ConfigurationError(
+            "RESPONSE_SCHEMA_MISSING",
+            f"Role '{definition.role}' has no output schema in its agent folder.",
+        )
+    return {
+        "format": {
+            "type": "json_schema",
+            "name": response_model.__name__,
+            "schema": definition.response_schema,
+            "strict": True,
+        }
+    }
+
+
+def _served_model(response: Any, deployment: str) -> str:
+    """The model that answered. `AgentResponse` has no model field; the layers under it do.
+
+    `ChatResponse.model` is the service's `x-ms-served-model` header: the
+    snapshot behind an ordinary deployment (`gpt-4.1-mini-2025-04-14` for
+    `asg-chat`), but the router itself (`model-router-2025-11-18`) for a
+    model-router deployment. The model the router picked is in the response
+    body one layer down, which for an ordinary deployment only echoes the
+    deployment name back.
+    """
+
+    raw = getattr(response, "raw_representation", None)
+    routed = getattr(getattr(raw, "raw_representation", None), "model", None)
+    if isinstance(routed, str) and routed and routed != deployment:
+        return routed
+    for candidate in (response, raw):
+        model = getattr(candidate, "model", None)
+        if isinstance(model, str) and model:
+            return model
+    return ""
+
+
+def _usage(response: Any, key: str) -> int | None:
+    """`usage_details` is a mapping, not an object - getattr silently misses."""
+
+    usage = getattr(response, "usage_details", None)
+    if usage is None:
+        raw = getattr(response, "raw_representation", None)
+        usage = getattr(raw, "usage_details", None)
+    if isinstance(usage, Mapping):
+        value = usage.get(key)
+        return value if isinstance(value, int) else None
+    value = getattr(usage, key, None)
+    return value if isinstance(value, int) else None
+
+
+async def _aclose(obj: Any) -> None:
+    close = getattr(obj, "close", None)
+    if close is None:
+        return
+    result = close()
+    if inspect.isawaitable(result):
+        await result
+
+
+async def aclose_foundry_client(client: Any) -> None:
+    """Release a FoundryChatClient's HTTP sessions.
+
+    `FoundryChatClient` has no `close()`, and exiting `async with Agent(...)`
+    leaves its inner `AsyncOpenAI` open (verified: `is_closed()` is False
+    afterwards). The sessions hang off `.client` and `.project_client`.
+    """
+
+    if client is None:
+        return
+    await _aclose_all(
+        _aclose(getattr(client, "client", None)),
+        _aclose(getattr(client, "project_client", None)),
+        _aclose(client),
+    )
+
+
+async def _aclose_all(*closers: Any) -> None:
+    """Await every closer even if an earlier one raises.
+
+    Cleanup failures are logged rather than raised: a close error must not
+    replace a result the caller already produced.
+    """
+
+    for closer in closers:
+        try:
+            await closer
+        except Exception:  # noqa: BLE001 - cleanup must not mask the result
+            _LOGGER.debug("close failed during cleanup", exc_info=True)
+
+
+def _safe_value(response: Any) -> Any:
+    """`.value` re-parses the structured output and can raise on bad JSON.
+
+    Returning None on failure is what makes the raw-text fallback reachable.
+    """
+
+    try:
+        return getattr(response, "value", None)
+    except Exception:  # noqa: BLE001 - fall back to parsing text
+        return None
+
+
+def default_credential_factory() -> Any:
+    """Async credential - the Foundry client wraps an async project client."""
+
+    from azure.identity.aio import DefaultAzureCredential
+
+    return DefaultAzureCredential()

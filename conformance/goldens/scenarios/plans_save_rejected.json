@@ -1,0 +1,243 @@
+{
+  "scenario": "plans_save_rejected",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard.",
+          "selected_goal": "GOAL-lead-response-1",
+          "selected_strategies": [
+            "ST-lead-response-1"
+          ],
+          "recommendation": {
+            "dealer_group_id": "GROUP-A",
+            "detected_need": "Enquiry response slower than the group standard",
+            "evidence_summary": [
+              "Process score below target across two periods."
+            ],
+            "rationale": "Synthetic indicators support focused lead-response work.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Process Kit 001",
+                "kind": "playbook"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the baseline with a short synthetic check."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "IF process_score < 60 THEN targeted.",
+            "caveats": [
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-lead-response-1"
+            ],
+            "strategy_suggestions": [
+              "ST-lead-response-1"
+            ],
+            "citations": [],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "conformance"
+          }
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans",
+        "json": {
+          "dealer_group_id": "GROUP-ZZZ",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard.",
+          "selected_goal": "GOAL-lead-response-1",
+          "selected_strategies": [
+            "ST-lead-response-1"
+          ],
+          "recommendation": {
+            "dealer_group_id": "GROUP-ZZZ",
+            "detected_need": "Enquiry response slower than the group standard",
+            "evidence_summary": [
+              "Process score below target across two periods."
+            ],
+            "rationale": "Synthetic indicators support focused lead-response work.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Process Kit 001",
+                "kind": "playbook"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the baseline with a short synthetic check."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "IF process_score < 60 THEN targeted.",
+            "caveats": [
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-lead-response-1"
+            ],
+            "strategy_suggestions": [
+              "ST-lead-response-1"
+            ],
+            "citations": [],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "conformance"
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Unknown dealer_group_id"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/supports/plans",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard.",
+          "selected_goal": "GOAL-lead-response-1",
+          "selected_strategies": [
+            "ST-0",
+            "ST-1",
+            "ST-2",
+            "ST-3",
+            "ST-4",
+            "ST-5",
+            "ST-6",
+            "ST-7",
+            "ST-8",
+            "ST-9",
+            "ST-10",
+            "ST-11",
+            "ST-12",
+            "ST-13",
+            "ST-14",
+            "ST-15",
+            "ST-16",
+            "ST-17",
+            "ST-18",
+            "ST-19",
+            "ST-20"
+          ],
+          "recommendation": {
+            "dealer_group_id": "GROUP-DEMO",
+            "detected_need": "Enquiry response slower than the group standard",
+            "evidence_summary": [
+              "Process score below target across two periods."
+            ],
+            "rationale": "Synthetic indicators support focused lead-response work.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Process Kit 001",
+                "kind": "playbook"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the baseline with a short synthetic check."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "IF process_score < 60 THEN targeted.",
+            "caveats": [
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-lead-response-1"
+            ],
+            "strategy_suggestions": [
+              "ST-lead-response-1"
+            ],
+            "citations": [],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "conformance"
+          }
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.selected_strategies"
+          ]
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

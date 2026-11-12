@@ -13,16 +13,14 @@ runtime:
 
 contracts:
   input:
-    schema_ref: support-recommendation-request.schema.json
+    schema_ref: schemas/input.schema.json
     schema_version: 1.0.0
   output:
-    schema_ref: support-recommendation-result.schema.json
+    schema_ref: schemas/output.schema.json
     schema_version: 1.0.0
 
 handoff:
   - agent: validator-agent
-    contract: support-recommendation-result.schema.json
-    version: 1.0.0
 
 safety:
   human_review_required: true

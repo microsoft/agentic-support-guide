@@ -1,0 +1,277 @@
+{
+  "scenario": "recommendation_cross_group_citation",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "replies": {
+    "data-analyst-agent": [
+      {
+        "json": {
+          "contract_version": "1.0.0",
+          "analysis": {
+            "detected_need": "Slow enquiry response",
+            "evidence_bullets": [
+              "Process score below target across two periods.",
+              "Appointment attendance within expected range."
+            ],
+            "missing_data_flags": [],
+            "analysis_confidence": 0.8
+          }
+        }
+      }
+    ],
+    "support-recommendation-agent": [
+      {
+        "json": {
+          "contract_version": "1.0.0",
+          "detected_need": "Enquiry response slower than the group standard",
+          "support_tier": "Focused",
+          "recommended_frequency": "weekly review, 20-25 min",
+          "grouping_guidance": "single dealership with group oversight",
+          "resource_ids": [
+            "RES-001"
+          ],
+          "rationale": "Synthetic dealership indicators support focused lead-response work.",
+          "goal_suggestions": [
+            "GOAL-lead-response-1"
+          ],
+          "strategy_suggestions": [
+            "ST-lead-response-1"
+          ],
+          "manager_next_steps": [
+            "Confirm the baseline with a short synthetic check."
+          ],
+          "progress_monitoring": [
+            "Weekly check on the agreed measure."
+          ],
+          "review_window_days": 28,
+          "decision_rule": "IF process_score < 60 THEN targeted.",
+          "caveats": [
+            "Illustrative synthetic output only; not a real benchmark.",
+            "Human review is required before any decision or communication."
+          ],
+          "cited_ids": [
+            "GROUP-A-lead-01",
+            "GROUP-DEMO-lead-01"
+          ]
+        }
+      },
+      {
+        "json": {
+          "contract_version": "1.0.0",
+          "detected_need": "Enquiry response slower than the group standard",
+          "support_tier": "Focused",
+          "recommended_frequency": "weekly review, 20-25 min",
+          "grouping_guidance": "single dealership with group oversight",
+          "resource_ids": [
+            "RES-001"
+          ],
+          "rationale": "Synthetic dealership indicators support focused lead-response work.",
+          "goal_suggestions": [
+            "GOAL-lead-response-1"
+          ],
+          "strategy_suggestions": [
+            "ST-lead-response-1"
+          ],
+          "manager_next_steps": [
+            "Confirm the baseline with a short synthetic check."
+          ],
+          "progress_monitoring": [
+            "Weekly check on the agreed measure."
+          ],
+          "review_window_days": 28,
+          "decision_rule": "IF process_score < 60 THEN targeted.",
+          "caveats": [
+            "Illustrative synthetic output only; not a real benchmark.",
+            "Human review is required before any decision or communication."
+          ],
+          "cited_ids": [
+            "GROUP-A-lead-01"
+          ]
+        }
+      }
+    ],
+    "validator-agent": [
+      {
+        "json": {
+          "warning_codes": [],
+          "repair_guidance": ""
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "ok",
+          "error_code": null,
+          "error_message": null,
+          "recommendation": {
+            "dealer_group_id": "GROUP-DEMO",
+            "detected_need": "Slow enquiry response",
+            "evidence_summary": [
+              "Process score below target across two periods.",
+              "Appointment attendance within expected range."
+            ],
+            "rationale": "Synthetic dealership indicators support focused lead-response work.",
+            "support_tier": "Focused",
+            "recommended_frequency": "weekly review, 20-25 min",
+            "grouping_guidance": "single dealership with group oversight",
+            "resource_matches": [
+              {
+                "id": "RES-001",
+                "label": "Process Kit 001",
+                "kind": "checklist"
+              }
+            ],
+            "manager_next_steps": [
+              "Confirm the baseline with a short synthetic check."
+            ],
+            "progress_monitoring": [
+              "Weekly check on the agreed measure."
+            ],
+            "review_window_days": 28,
+            "decision_rule": "IF process_score < 60 THEN targeted.",
+            "caveats": [
+              "Illustrative synthetic output only; not a real benchmark.",
+              "Human review is required before any decision or communication."
+            ],
+            "goal_suggestions": [
+              "GOAL-lead-response-1"
+            ],
+            "strategy_suggestions": [
+              "ST-lead-response-1"
+            ],
+            "citations": [
+              {
+                "citation_id": "GROUP-DEMO-lead-01",
+                "dealer_group_id": "GROUP-DEMO",
+                "source_type": "synthetic_fixture",
+                "source_title": "Demo group - Enquiry Response Benchmarks",
+                "section_or_page": "section 1",
+                "evidence_summary": "Synthetic benchmark describing the expected first-response window for online enquiries and the median response time recorded this review period.",
+                "source_ref": "fixture://group-demo/lead-01",
+                "retrieved_at": "<now>",
+                "confidence": 0.8
+              }
+            ],
+            "completeness": {
+              "ok": true,
+              "missing": []
+            },
+            "human_review_state": "pending_review",
+            "generated_by": "Generated by three collaborating agents via Microsoft Foundry (Agent Framework, prompt agents)."
+          },
+          "agent_trace": [
+            {
+              "agent": "evidence-retrieval",
+              "status": "ok",
+              "provider": "fixture",
+              "model": "synthetic",
+              "latency_ms": "<ms>",
+              "token_estimate": null,
+              "issue_codes": [],
+              "warning_codes": [],
+              "citation_count": 2
+            },
+            {
+              "agent": "data-analyst-agent",
+              "status": "ok",
+              "provider": "azure_foundry_responses",
+              "model": "fake-deployment",
+              "latency_ms": "<ms>",
+              "token_estimate": null,
+              "issue_codes": [],
+              "warning_codes": [],
+              "citation_count": 0
+            },
+            {
+              "agent": "support-recommendation-agent",
+              "status": "ok",
+              "provider": "azure_foundry_responses",
+              "model": "fake-deployment",
+              "latency_ms": "<ms>",
+              "token_estimate": null,
+              "issue_codes": [],
+              "warning_codes": [],
+              "citation_count": 0
+            },
+            {
+              "agent": "validator-agent",
+              "status": "passed",
+              "provider": "azure_foundry_responses",
+              "model": "fake-deployment",
+              "latency_ms": "<ms>",
+              "token_estimate": null,
+              "issue_codes": [],
+              "warning_codes": [],
+              "citation_count": 1
+            }
+          ],
+          "provider_model": "Microsoft Foundry (Agent Framework, prompt agents)",
+          "correlation_id": "<uuid>",
+          "dealer_group_id": "GROUP-DEMO",
+          "evidence_count": 2,
+          "citation_count": 1,
+          "citations_proposed": 2,
+          "citations_accepted": 1,
+          "resources_proposed": 1,
+          "resources_accepted": 1,
+          "unknown_resource_ids": [],
+          "validator_status": "Validator passed all deterministic checks.",
+          "validation_reached": true,
+          "attempts": 1,
+          "deterministic_checks_total": 8
+        }
+      },
+      "model_calls": [
+        {
+          "role": "data-analyst-agent",
+          "model": "fake-deployment",
+          "instructions_sha256": "cfe607284b6ecdbd595748f66c1dcdf1798cffb19f49945c446b318be915a12f",
+          "temperature": 0.2,
+          "max_output_tokens": 800,
+          "store": false,
+          "response_model": "DataAnalystModelOutput",
+          "user_message": "Analyze the synthetic dealership indicators below and produce the structured output required by your instructions.\n<<<UNTRUSTED_DATA>>> kind=synthetic_facts\n{\"dealership_label\": \"Dealership 0001\", \"region_id\": \"REG-001\", \"segment\": \"SEG-VOLUME\", \"process_score\": 42.3, \"appointment_attendance_rate\": 0.722, \"followup_index\": 87.4, \"engagement_index\": 91.2, \"category\": \"lead-response\", \"score_periods\": [\"2026-04\", \"2026-05\", \"2026-06\", \"2026-07\", \"2026-08\", \"2026-09\"], \"score_by_process_area\": {\"inventory-ageing\": [45, 50, 50, 54, 55, 59], \"lead-response\": [43, 46, 49, 53, 55, 60], \"listing-completeness\": [25, 28, 33, 36, 38, 44], \"price-data-freshness\": [42, 43, 48, 49, 52, 58], \"test-drive-conversion\": [41, 47, 46, 52, 57, 58]}, \"latest_band_by_process_area\": {\"inventory-ageing\": \"Developing\", \"lead-response\": \"On track\", \"listing-completeness\": \"Developing\", \"price-data-freshness\": \"Developing\", \"test-drive-conversion\": \"Developing\"}, \"area_score_count\": 30, \"duplicate_area_records\": 0, \"operations_periods\": [\"2026-04\", \"2026-05\", \"2026-06\", \"2026-07\", \"2026-08\", \"2026-09\"], \"appointment_attendance_rate_by_period\": [0.733, 0.724, 0.721, 0.729, 0.726, 0.719], \"escalations_by_period\": [4, 3, 0, 2, 4, 2], \"followup_completion_by_period\": [86.2, 87.6, 85.7, 88.9, 88.3, 89.1], \"operations_record_count\": 6}\n<<<END_UNTRUSTED_DATA>>>\n<<<UNTRUSTED_DATA>>> kind=concern_text\nFirst response to online enquiries is slower than the standard.\n<<<END_UNTRUSTED_DATA>>>"
+        },
+        {
+          "role": "support-recommendation-agent",
+          "model": "fake-deployment",
+          "instructions_sha256": "0aa2d30006197a08e47029fdf94f64e74f4b6be9a923f36ece81a4b1f5f22fe7",
+          "temperature": 0.2,
+          "max_output_tokens": 800,
+          "store": false,
+          "response_model": "SupportRecommendationModelOutput",
+          "user_message": "Category: lead-response. Produce a SupportRecommendationDraft.\n<<<UNTRUSTED_DATA>>> kind=prior_agent_output_data_analyst\n{\"contract_version\": \"1.0.0\", \"dealer_group_id\": \"GROUP-DEMO\", \"analysis\": {\"detected_need\": \"Slow enquiry response\", \"evidence_bullets\": [\"Process score below target across two periods.\", \"Appointment attendance within expected range.\"], \"missing_data_flags\": [], \"analysis_confidence\": 0.8}, \"citations\": []}\n<<<END_UNTRUSTED_DATA>>>\n<<<UNTRUSTED_DATA>>> kind=allowed_ids\n{\"resource_ids\": [\"RES-001\", \"RES-002\", \"RES-003\", \"RES-004\", \"RES-005\", \"RES-006\", \"RES-007\", \"RES-008\", \"RES-009\", \"RES-010\", \"RES-011\", \"RES-012\", \"RES-013\", \"RES-014\", \"RES-015\", \"RES-016\", \"RES-017\", \"RES-018\", \"RES-019\", \"RES-020\", \"RES-021\", \"RES-022\", \"RES-023\", \"RES-024\", \"RES-025\", \"RES-026\", \"RES-027\", \"RES-028\", \"RES-029\", \"RES-030\", \"RES-031\", \"RES-032\", \"RES-033\", \"RES-034\", \"RES-035\", \"RES-036\", \"RES-037\", \"RES-038\", \"RES-039\", \"RES-040\"], \"goal_ids\": [\"GOAL-lead-response-1\", \"GOAL-lead-response-2\"], \"strategy_ids\": [\"ST-lead-response-1\", \"ST-lead-response-2\", \"ST-lead-response-3\"], \"citation_ids\": [\"GROUP-DEMO-lead-01\", \"GROUP-DEMO-lead-02\"]}\n<<<END_UNTRUSTED_DATA>>>\n<<<UNTRUSTED_DATA>>> kind=group_evidence\n[{\"citation_id\": \"GROUP-DEMO-lead-01\", \"source_type\": \"synthetic_fixture\", \"source_title\": \"Demo group - Enquiry Response Benchmarks\", \"evidence_summary\": \"Synthetic benchmark describing the expected first-response window for online enquiries and the median response time recorded this review period.\"}, {\"citation_id\": \"GROUP-DEMO-lead-02\", \"source_type\": \"synthetic_fixture\", \"source_title\": \"Demo group - Follow-up Monitoring Guide\", \"evidence_summary\": \"Synthetic guide describing a weekly follow-up cadence for unanswered enquiries and how leads awaiting a reply are escalated.\"}]\n<<<END_UNTRUSTED_DATA>>>\n<<<UNTRUSTED_DATA>>> kind=concern_text\nFirst response to online enquiries is slower than the standard.\n<<<END_UNTRUSTED_DATA>>>\n"
+        },
+        {
+          "role": "validator-agent",
+          "model": "fake-deployment",
+          "instructions_sha256": "e9a110bae8c3ff9caf7a0da4826056a8951a446cb68e386e5f1255c4f930a355",
+          "temperature": 0.2,
+          "max_output_tokens": 800,
+          "store": false,
+          "response_model": "ValidatorCritiqueModelOutput",
+          "user_message": "Critique the draft against the analyst evidence. Return only JSON: {warning_codes:string[], repair_guidance:string}. Warning codes must be uppercase snake case. Repair guidance must be under 500 characters.\n<<<UNTRUSTED_DATA>>> kind=prior_agent_output_data_analyst\n{\"contract_version\": \"1.0.0\", \"dealer_group_id\": \"GROUP-DEMO\", \"analysis\": {\"detected_need\": \"Slow enquiry response\", \"evidence_bullets\": [\"Process score below target across two periods.\", \"Appointment attendance within expected range.\"], \"missing_data_flags\": [], \"analysis_confidence\": 0.8}, \"citations\": []}\n<<<END_UNTRUSTED_DATA>>>\n<<<UNTRUSTED_DATA>>> kind=prior_agent_output_support_recommender\n{\"contract_version\": \"1.0.0\", \"dealer_group_id\": \"GROUP-DEMO\", \"detected_need\": \"Enquiry response slower than the group standard\", \"support_tier\": \"Focused\", \"recommended_frequency\": \"weekly review, 20-25 min\", \"grouping_guidance\": \"single dealership with group oversight\", \"resource_ids\": [\"RES-001\"], \"rationale\": \"Synthetic dealership indicators support focused lead-response work.\", \"goal_suggestions\": [\"GOAL-lead-response-1\"], \"strategy_suggestions\": [\"ST-lead-response-1\"], \"manager_next_steps\": [\"Confirm the baseline with a short synthetic check.\"], \"progress_monitoring\": [\"Weekly check on the agreed measure.\"], \"review_window_days\": 28, \"decision_rule\": \"IF process_score < 60 THEN targeted.\", \"caveats\": [\"Illustrative synthetic output only; not a real benchmark.\", \"Human review is required before any decision or communication.\"], \"citations\": [{\"citation_id\": \"GROUP-DEMO-lead-01\", \"dealer_group_id\": \"GROUP-DEMO\", \"source_type\": \"synthetic_fixture\", \"source_title\": \"Demo group - Enquiry Response Benchmarks\", \"section_or_page\": \"section 1\", \"evidence_summary\": \"Synthetic benchmark describing the expected first-response window for online enquiries and the median response time recorded this review period.\", \"source_ref\": \"fixture://group-demo/lead-01\", \"retrieved_at\": \"<now>\", \"confidence\": 0.8}]}\n<<<END_UNTRUSTED_DATA>>>"
+        }
+      ]
+    }
+  ]
+}

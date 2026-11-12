@@ -1,64 +1,62 @@
 # Evaluations
 
-Synthetic evaluation cases and structural/safety checks for the three
-agents. All cases use synthetic dealerships only. Evaluation runs never
-capture full prompts or full completions in committed files.
+Synthetic evaluation cases for the agents. All cases use synthetic
+dealerships only. Evaluation runs never capture full prompts or full
+completions in committed files. The cases are shared: the Python and .NET
+tracks grade the same file.
 
 ## Layout
 
 - `synthetic_cases.jsonl` — one synthetic support-planning case per line.
-- `expected_checks.yaml` — structural and safety checks that must hold
-  for the coordinator output on each case.
 - `results/` — gitignored. Local eval outputs go here.
 
 ## Running evaluations
 
-[`scripts/run_evals.py`](../scripts/run_evals.py) scores every case in
-`synthetic_cases.jsonl` against `expected_checks.yaml`. It has two modes.
-
-### Offline (the CI gate)
+The cases are graded with Microsoft Agent Framework's evaluation and
+Foundry's built-in graders. Module 9 walks through it. Python:
 
 ```powershell
-cd services\api
-python ..\..\scripts\run_evals.py --offline
+.\python\services\api\.venv\Scripts\python.exe python\scripts\run_agent_evals.py --dry-run
+.\python\services\api\.venv\Scripts\python.exe python\scripts\run_agent_evals.py --apply
 ```
 
-Runs the real coordinator against in-repo fixtures. No Azure, no cost, no
-credentials. This is what runs on every pull request, so a change that
-breaks grounding, tier framing, the human-review caveat, or the failure
-paths fails the build.
-
-### Live (against a running backend)
+.NET, from the repo root:
 
 ```powershell
-python scripts\run_evals.py --live http://127.0.0.1:8000
+dotnet run dotnet/scripts/run_agent_evals.cs -- --dry-run
+dotnet run dotnet/scripts/run_agent_evals.cs -- --apply
 ```
 
-Calls a backend configured for Microsoft Foundry, so it exercises real
-model output. Use this before a demo or after changing an `agent.md`.
-It costs tokens, so it is deliberately not in CI.
+`--dry-run` prints the plan and calls nothing. `--apply` calls a model for
+every case and a grader for every score, so it costs tokens and is not in
+CI. Each track's **Evaluate** workflow —
+[`evaluate-python.yml`](../.github/workflows/evaluate-python.yml) or
+[`evaluate-dotnet.yml`](../.github/workflows/evaluate-dotnet.yml) — runs it
+on demand.
 
 ## What is graded
 
-Structure and safety, never prose. Model wording varies between runs and
-model versions; the checks that matter are:
+Quality, on a 1 to 5 scale, by a judge model that is a different deployment
+from the agents' own:
 
-- the envelope is well formed and the trace contains all three agents
-- `status=ok` carries a recommendation with `completeness.ok == true`
-- support tier uses baseline / focused / intensive / advanced framing
-- `review_window_days` is between 7 and 180
-- caveats contain the literal phrase `human review`
-- at least one citation is present, and every citation belongs to the
-  same dealer group as the recommendation
-- every free-text field contains no determination language
-  (pricing, financing, credit, compliance, safety, staffing)
-- on a non-ok status, no recommendation body leaks and an `error_code`
-  is present
+- **groundedness** — is the answer supported by the case's evidence?
+- **relevance** — does it address the question?
+- **coherence** — does it read as one consistent answer?
+
+A score below 3 fails the case.
+
+Structure and safety are not graded here, because they are not left to
+chance. The validator's deterministic checks refuse a draft with a citation
+from another dealer group, an out-of-catalog resource, a missing human-review
+caveat or determination language, and the test suite proves each check
+fires.
 
 Adding a case is one line in `synthetic_cases.jsonl`. It must include
 `dealer_group_id`, and its dealer group/category pair must have evidence
 fixtures, or the run is ungrounded by construction.
-`services/api/tests/test_eval_cases.py` enforces both.
+`python/services/api/tests/test_eval_cases.py` and
+`dotnet/services/api/AgenticSupportGuide.Api.Tests/EvalCasesTests.cs`
+enforce both.
 
 ## What must never be captured
 
@@ -68,9 +66,7 @@ fixtures, or the run is ungrounded by construction.
   (which is synthetic).
 - Any endpoint, connection string, or Azure resource ID.
 
-Committed eval artifacts must be **structural summaries only**:
-per-case pass/fail flags, counts of issue/warning codes, and latency
-buckets. The runner prints those summaries and does not persist model
-output; anything you capture yourself belongs in the gitignored
-`results/` directory and never
-gets committed (the `.gitignore` at the repo root excludes it).
+Committed eval artifacts must be **summaries only**: per-case scores and
+pass/fail flags. The runner prints those and does not persist model output;
+anything you capture yourself belongs in the gitignored `results/` directory
+and never gets committed (the `.gitignore` at the repo root excludes it).

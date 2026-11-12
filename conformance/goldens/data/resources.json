@@ -1,0 +1,282 @@
+[
+  {
+    "resource_id": "RES-001",
+    "label": "Process Kit 001",
+    "kind": "checklist",
+    "process_area": "price-data-freshness",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-002",
+    "label": "Process Kit 002",
+    "kind": "customer-message",
+    "process_area": "listing-completeness",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-003",
+    "label": "Process Kit 003",
+    "kind": "checklist",
+    "process_area": "inventory-ageing",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-004",
+    "label": "Process Kit 004",
+    "kind": "coaching-plan",
+    "process_area": "inventory-ageing",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-005",
+    "label": "Process Kit 005",
+    "kind": "audit-kit",
+    "process_area": "price-data-freshness",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-006",
+    "label": "Process Kit 006",
+    "kind": "checklist",
+    "process_area": "lead-response",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-007",
+    "label": "Process Kit 007",
+    "kind": "playbook",
+    "process_area": "listing-completeness",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-008",
+    "label": "Process Kit 008",
+    "kind": "checklist",
+    "process_area": "listing-completeness",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-009",
+    "label": "Process Kit 009",
+    "kind": "playbook",
+    "process_area": "inventory-ageing",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-010",
+    "label": "Process Kit 010",
+    "kind": "coaching-plan",
+    "process_area": "inventory-ageing",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-011",
+    "label": "Process Kit 011",
+    "kind": "customer-message",
+    "process_area": "lead-response",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-012",
+    "label": "Process Kit 012",
+    "kind": "coaching-plan",
+    "process_area": "listing-completeness",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-013",
+    "label": "Process Kit 013",
+    "kind": "audit-kit",
+    "process_area": "lead-response",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-014",
+    "label": "Process Kit 014",
+    "kind": "customer-message",
+    "process_area": "test-drive-conversion",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-015",
+    "label": "Process Kit 015",
+    "kind": "playbook",
+    "process_area": "price-data-freshness",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-016",
+    "label": "Process Kit 016",
+    "kind": "audit-kit",
+    "process_area": "lead-response",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-017",
+    "label": "Process Kit 017",
+    "kind": "playbook",
+    "process_area": "inventory-ageing",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-018",
+    "label": "Process Kit 018",
+    "kind": "audit-kit",
+    "process_area": "test-drive-conversion",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-019",
+    "label": "Process Kit 019",
+    "kind": "customer-message",
+    "process_area": "test-drive-conversion",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-020",
+    "label": "Process Kit 020",
+    "kind": "audit-kit",
+    "process_area": "listing-completeness",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-021",
+    "label": "Process Kit 021",
+    "kind": "customer-message",
+    "process_area": "price-data-freshness",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-022",
+    "label": "Process Kit 022",
+    "kind": "playbook",
+    "process_area": "inventory-ageing",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-023",
+    "label": "Process Kit 023",
+    "kind": "checklist",
+    "process_area": "price-data-freshness",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-024",
+    "label": "Process Kit 024",
+    "kind": "playbook",
+    "process_area": "inventory-ageing",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-025",
+    "label": "Process Kit 025",
+    "kind": "checklist",
+    "process_area": "test-drive-conversion",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-026",
+    "label": "Process Kit 026",
+    "kind": "audit-kit",
+    "process_area": "price-data-freshness",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-027",
+    "label": "Process Kit 027",
+    "kind": "playbook",
+    "process_area": "listing-completeness",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-028",
+    "label": "Process Kit 028",
+    "kind": "coaching-plan",
+    "process_area": "inventory-ageing",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-029",
+    "label": "Process Kit 029",
+    "kind": "customer-message",
+    "process_area": "inventory-ageing",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-030",
+    "label": "Process Kit 030",
+    "kind": "coaching-plan",
+    "process_area": "listing-completeness",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-031",
+    "label": "Process Kit 031",
+    "kind": "audit-kit",
+    "process_area": "price-data-freshness",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-032",
+    "label": "Process Kit 032",
+    "kind": "coaching-plan",
+    "process_area": "inventory-ageing",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-033",
+    "label": "Process Kit 033",
+    "kind": "checklist",
+    "process_area": "test-drive-conversion",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-034",
+    "label": "Process Kit 034",
+    "kind": "checklist",
+    "process_area": "test-drive-conversion",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-035",
+    "label": "Process Kit 035",
+    "kind": "audit-kit",
+    "process_area": "lead-response",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-036",
+    "label": "Process Kit 036",
+    "kind": "playbook",
+    "process_area": "test-drive-conversion",
+    "tier": "focused"
+  },
+  {
+    "resource_id": "RES-037",
+    "label": "Process Kit 037",
+    "kind": "customer-message",
+    "process_area": "price-data-freshness",
+    "tier": "baseline"
+  },
+  {
+    "resource_id": "RES-038",
+    "label": "Process Kit 038",
+    "kind": "audit-kit",
+    "process_area": "inventory-ageing",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-039",
+    "label": "Process Kit 039",
+    "kind": "audit-kit",
+    "process_area": "lead-response",
+    "tier": "intensive"
+  },
+  {
+    "resource_id": "RES-040",
+    "label": "Process Kit 040",
+    "kind": "checklist",
+    "process_area": "test-drive-conversion",
+    "tier": "focused"
+  }
+]

@@ -1,0 +1,49 @@
+{
+  "scenario": "recommendation_provider_missing",
+  "config": {
+    "provider": "none",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "provider_missing",
+          "error_code": "AGENT_PROVIDER_MISSING",
+          "error_message": "Microsoft Foundry Agent Service is not configured or bindings are missing. Run python/scripts/validate_agent_definitions.py.",
+          "recommendation": null,
+          "agent_trace": [],
+          "provider_model": "unconfigured (Microsoft Foundry not set up)",
+          "correlation_id": "",
+          "dealer_group_id": "GROUP-DEMO",
+          "evidence_count": null,
+          "citation_count": null,
+          "citations_proposed": null,
+          "citations_accepted": null,
+          "resources_proposed": null,
+          "resources_accepted": null,
+          "unknown_resource_ids": [],
+          "validator_status": null,
+          "validation_reached": false,
+          "attempts": null,
+          "deterministic_checks_total": null
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

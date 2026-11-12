@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>AgenticSupportGuide.Api.Tests</AssemblyName>
+    <RootNamespace>AgenticSupportGuide.Api.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- The scripts and workshop samples are file-based apps. The tests compile
+         them too, as Python's tests import them: the `#:` lines are ignored here,
+         and UNDER_TEST and INCLUDED leave out the top-level statements that run them. -->
+    <Features>$(Features);FileBasedProgram</Features>
+    <DefineConstants>$(DefineConstants);UNDER_TEST;INCLUDED</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgenticSupportGuide.Api\AgenticSupportGuide.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The hosted agent's gate, compiled against the API's shared code, as the
+         hosted project itself does. Tested without booting its server. -->
+    <Compile Include="..\..\..\hosted\support-explainer\SafetyGate.cs" Link="Hosted\SafetyGate.cs" />
+    <Compile Include="..\..\..\scripts\publish_hosted_agent.cs" Link="Scripts\publish_hosted_agent.cs" />
+    <Compile Include="..\..\..\scripts\publish_prompt_agents.cs" Link="Scripts\publish_prompt_agents.cs" />
+    <Compile Include="..\..\..\scripts\provision_foundry_iq.cs" Link="Scripts\provision_foundry_iq.cs" />
+    <Compile Include="..\..\..\scripts\render_workflow_diagram.cs" Link="Scripts\render_workflow_diagram.cs" />
+    <Compile Include="..\..\..\..\workshop\dotnet\code\_shared.cs" Link="Samples\_shared.cs" />
+    <Compile Include="..\..\..\..\workshop\dotnet\code\05_first_workflow.cs" Link="Samples\05_first_workflow.cs" />
+    <Compile Include="..\..\..\..\workshop\dotnet\code\07_conditional_repair.cs" Link="Samples\07_conditional_repair.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The app reads its configuration from environment variables, which are
+         process-wide, so tests that set them must not run at the same time. -->
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

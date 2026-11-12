@@ -51,7 +51,6 @@ export function AgentWorkflowPanel({ running, trace }: Props) {
             "provider_throttling",
             "provider_missing",
             "invalid_model_json",
-            "orchestration_budget_exhausted",
           ]);
           const tone =
             status === "ok" || status === "passed"

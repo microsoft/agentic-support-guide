@@ -1,0 +1,116 @@
+{
+  "scenario": "health_unconfigured",
+  "config": {
+    "provider": "none",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health",
+        "auth": "none"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "ok",
+          "service": "agentic-support-guide-api",
+          "version": "0.3.0",
+          "banner": "Prototype - synthetic data, three collaborating agents hosted in Foundry Agent Service, not a production system.",
+          "provider_configured": false,
+          "foundry_auth_mode": "entra",
+          "build_id": "conformance"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health/details"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "ok",
+          "service": "agentic-support-guide-api",
+          "version": "0.3.0",
+          "active_provider": "unconfigured",
+          "foundry_project_configured": false,
+          "agent_definitions_valid": false,
+          "model_deployments_configured": true,
+          "service_side_remote_workflow_active": false,
+          "evidence_fixture_available": true,
+          "evidence_source": "fixture",
+          "evidence_knowledge_base": "synthetic",
+          "evidence_verified": true,
+          "api_auth_mode": "shared_key",
+          "dealer_group_isolation_enabled": true,
+          "customer_demo_ready": false,
+          "checks": [
+            {
+              "name": "backend",
+              "label": "Backend service running",
+              "ok": true,
+              "detail": "The API is responding to requests."
+            },
+            {
+              "name": "foundry_project_endpoint",
+              "label": "Microsoft Foundry project endpoint configured",
+              "ok": false,
+              "detail": "Not set. Populate AZURE_AI_FOUNDRY_PROJECT_ENDPOINT."
+            },
+            {
+              "name": "model_deployments_configured",
+              "label": "Per-role model deployments configured",
+              "ok": true,
+              "detail": "All three role deployments are set."
+            },
+            {
+              "name": "agent_definitions_valid",
+              "label": "Agent definitions loaded",
+              "ok": false,
+              "detail": "One or more agent definitions could not be loaded."
+            },
+            {
+              "name": "evidence_fixture",
+              "label": "Synthetic evidence fixture available",
+              "ok": true,
+              "detail": "At least one group-scoped fixture is present."
+            },
+            {
+              "name": "dealer_group_isolation",
+              "label": "Dealer group isolation enforced by contracts",
+              "ok": true,
+              "detail": "dealer_group_id is required on every request, envelope, citation, audit row, and trace."
+            },
+            {
+              "name": "auth_mode",
+              "label": "Foundry authentication mode",
+              "ok": true,
+              "detail": "This API authenticates to Microsoft Foundry with Microsoft Entra ID (no keys). Separate from api_auth_mode, which is how callers authenticate to this API."
+            },
+            {
+              "name": "application_insights",
+              "label": "Application Insights configured",
+              "ok": false,
+              "detail": "Not set (optional). Telemetry no-ops."
+            }
+          ],
+          "warnings": [
+            "Microsoft Foundry project endpoint is not configured. Recommendation requests will fail with a typed provider_missing error until AZURE_AI_FOUNDRY_PROJECT_ENDPOINT is set."
+          ],
+          "guidance": "Not demo-ready. To finish setup: run Terraform in /python/infra, run .\\python\\scripts\\populate-env.ps1 to write python/services/api/.env, then start the backend with .\\python\\scripts\\run-backend.ps1. No agent deployment step is needed - agent definitions live in /agents and load at runtime."
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

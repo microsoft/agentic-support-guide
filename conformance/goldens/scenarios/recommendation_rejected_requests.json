@@ -1,0 +1,281 @@
+{
+  "scenario": "recommendation_rejected_requests",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-9999",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Unknown dealership_id"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-ZZZ",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Unknown dealer_group_id"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": ""
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.concern_text"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.concern_text"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "group-demo",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.dealer_group_id"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR 0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.dealership_id"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": 7,
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.dealership_id"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "json": {
+          "dealership_id": "DLR-0001"
+        }
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body.category",
+            "body.concern_text",
+            "body.dealer_group_id"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan"
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "body": "{\"dealership_id\": ",
+        "content_type": "application/json"
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "body": "{\"dealer_group_id\": \"GROUP-DEMO\", \"dealership_id\": \"DLR-0001\", \"category\": \"lead-response\", \"concern_text\": \"First response to online enquiries is slower than the standard.\"}",
+        "content_type": "text/plain"
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body"
+          ]
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

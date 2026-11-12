@@ -35,7 +35,7 @@ the guardrails ran.
 | --- | --- | --- |
 | Dealer group isolation | Enforced only by prompt text ("don't mix dealer groups"). One retrieval bug leaks another dealer group into context. | `dealer_group_id` is required in every contract; validator has deterministic `CROSS_DEALER_GROUP_CITATION` and `DRAFT_DEALER_GROUP_MISMATCH` checks. |
 | Evidence and citations | Ungrounded unless you also inline all documents. Citations are optional strings. | `Citation` is a typed schema; `minItems: 1`; validator raises `MISSING_CITATIONS` / `UNKNOWN_CITATION_ID`. |
-| Guardrails | Instructions in prompt; model can talk itself out of them. | Deterministic Python checks in the Validator Agent; regexes for forbidden determinations. |
+| Guardrails | Instructions in prompt; model can talk itself out of them. | Deterministic checks in code in the Validator Agent, the same in the Python and .NET tracks; regexes for forbidden determinations. |
 | Traceability | One opaque model call. | One `AgentTraceStep` per hop (`evidence-retrieval`, `data-analyst-agent`, `support-recommendation-agent`, `validator-agent`), each carrying provider, served model, latency, tokens and issue codes. |
 | Auditability | One row per request with no structure. | `correlation_id`, `dealer_group_id`, `evidence_count`, `citation_count`, `validator_status` per hop. No prompt/completion text stored. |
 | Replaceability | Whole prompt has to be re-tuned to change any behavior. | One agent can be re-versioned, re-bound, or swapped without touching the others. |
@@ -58,10 +58,9 @@ The three agents each have a **narrow, verifiable job**:
   one repair pass. It never fabricates content.
 
 The coordinator orchestrates these hops, generates a `correlation_id`,
-performs evidence retrieval, and stamps `dealer_group_id` on every
-payload. Every step is a **typed contract** (JSON Schema in
-`/contracts/v1/`), so a break anywhere shows up as a schema validation
-error, not as a subtle output regression.
+performs evidence retrieval, and passes `dealer_group_id` to every agent.
+Every step is a **typed contract**, so a break anywhere shows up as a named
+failure at the agent that produced it, not as a subtle output regression.
 
 ## What multiplying prompt context does not fix
 

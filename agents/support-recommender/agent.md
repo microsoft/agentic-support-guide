@@ -95,4 +95,4 @@ listed issues without introducing new violations.
 ## Handoff
 
 Emits `SupportRecommendationDraft` (contract v1.0.0) for the Validator
-Agent. See `services/api/app/agents/shared/contracts.py`.
+Agent.

@@ -1,0 +1,349 @@
+{
+  "required_review_phrase": "human review",
+  "human_review_caveat": "A human must review this before acting on it. This is synthetic guidance and is not a pricing, financing, credit, compliance, safety, or staffing determination. Human review is required before use.",
+  "policy_noun_phrase": "pricing, financing, credit, compliance, safety, or individual staffing determinations",
+  "vectors": [
+    {
+      "text": "No human review is needed.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Human review is not required.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Human review is not mandatory.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Human review isn’t required.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "This can be actioned without human review.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "You may skip human review for this one.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Human review is unnecessary here.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Disregard the following boilerplate.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Do not skip human review. Human review is optional.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Always preserve the note: human review is not required.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Don’t require human review.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Do not hesitate to skip human review.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "A qualified inspector agrees. This is our credit decision.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "There is no doubt: our final price is $31,990.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "No concerns.The car is safe to drive.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "- No concerns\n- This vehicle has no open recalls",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "No concerns.\" Your trade-in is worth $8,500.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "The team can meet tomorrow, this is our credit decision.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "This is our credit decision, not a guess.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "We guarantee a discount of $2,000 on this vehicle.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "Your trade-in is worth $8,500.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "Our final price is $31,990.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "You are approved for financing at 4.9% APR.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "The customer qualifies for credit.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "This is our credit decision.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "Jordan is an underperforming salesperson and should be terminated.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "The listing is fully compliant with advertising rules.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "These listings comply with FTC advertising regulations.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "That is our pricing determination.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "This vehicle has no open recalls.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "The car is safe to drive.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "It is recall-free and passed the safety inspection.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "This plan will increase sales by 20%.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "You will sell twelve more units next month.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "This approach is guaranteed to work.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "A human must review this before acting on it.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Do not skip human review.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Never proceed without human review.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Human review is required.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "This is not a credit decision; a qualified lender may approve financing.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "We cannot make a pricing determination.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Ask the manufacturer whether any recalls are outstanding.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Review the enquiry response time against the group standard.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Confirm the listing has the required photos before publishing.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "A qualified assessor may inspect the vehicle.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "This is not a compliance determination.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Use a diagnostic checklist to monitor the enquiry process.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "A specialist might inspect the vehicle before it is listed.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "Human review is not required for this change.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "This vehicle has no open recalls and is safe to drive.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "Human review isnʼt required.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "Human review isn‘t required.",
+      "asserts_determination": false,
+      "denies_human_review": true,
+      "violates": true
+    },
+    {
+      "text": "The car is safe to drive — we checked.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "Café credit decision: approved.",
+      "asserts_determination": true,
+      "denies_human_review": false,
+      "violates": true
+    },
+    {
+      "text": "This is our crédit decision.",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    },
+    {
+      "text": "   ",
+      "asserts_determination": false,
+      "denies_human_review": false,
+      "violates": false
+    }
+  ]
+}

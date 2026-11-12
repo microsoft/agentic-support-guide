@@ -1,9 +1,118 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/agents/support-recommender/output.schema.json",
-  "title": "Support Recommendation Agent output",
-  "type": "object",
-  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "detected_need": {
+      "maxLength": 300,
+      "title": "Detected Need",
+      "type": "string"
+    },
+    "support_tier": {
+      "maxLength": 60,
+      "title": "Support Tier",
+      "type": "string"
+    },
+    "recommended_frequency": {
+      "maxLength": 120,
+      "title": "Recommended Frequency",
+      "type": "string"
+    },
+    "grouping_guidance": {
+      "maxLength": 200,
+      "title": "Grouping Guidance",
+      "type": "string"
+    },
+    "resource_ids": {
+      "items": {
+        "maxLength": 60,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Resource Ids",
+      "type": "array"
+    },
+    "rationale": {
+      "maxLength": 2000,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "goal_suggestions": {
+      "items": {
+        "maxLength": 60,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 6,
+      "title": "Goal Suggestions",
+      "type": "array"
+    },
+    "strategy_suggestions": {
+      "items": {
+        "maxLength": 60,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Strategy Suggestions",
+      "type": "array"
+    },
+    "manager_next_steps": {
+      "items": {
+        "maxLength": 300,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Manager Next Steps",
+      "type": "array"
+    },
+    "progress_monitoring": {
+      "items": {
+        "maxLength": 300,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Progress Monitoring",
+      "type": "array"
+    },
+    "review_window_days": {
+      "maximum": 180,
+      "minimum": 7,
+      "title": "Review Window Days",
+      "type": "integer"
+    },
+    "decision_rule": {
+      "maxLength": 300,
+      "title": "Decision Rule",
+      "type": "string"
+    },
+    "caveats": {
+      "items": {
+        "maxLength": 300,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Caveats",
+      "type": "array"
+    },
+    "cited_ids": {
+      "items": {
+        "maxLength": 64,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 12,
+      "title": "Cited Ids",
+      "type": "array"
+    }
+  },
   "required": [
     "contract_version",
     "detected_need",
@@ -18,52 +127,10 @@
     "progress_monitoring",
     "review_window_days",
     "decision_rule",
-    "caveats"
+    "caveats",
+    "cited_ids"
   ],
-  "properties": {
-    "contract_version": { "const": "1.0.0" },
-    "detected_need": { "type": "string", "maxLength": 500 },
-    "support_tier": { "type": "string", "maxLength": 500 },
-    "recommended_frequency": { "type": "string", "maxLength": 500 },
-    "grouping_guidance": { "type": "string", "maxLength": 500 },
-    "resource_ids": {
-      "type": "array",
-      "maxItems": 8,
-      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
-    },
-    "rationale": { "type": "string", "maxLength": 2000 },
-    "goal_suggestions": {
-      "type": "array",
-      "maxItems": 6,
-      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
-    },
-    "strategy_suggestions": {
-      "type": "array",
-      "maxItems": 8,
-      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
-    },
-    "cited_ids": {
-      "description": "IDs only. The wrapper resolves them against the group-scoped evidence bundle, so the model cannot fabricate citation text.",
-      "type": "array",
-      "maxItems": 12,
-      "items": { "type": "string", "minLength": 1, "maxLength": 60 }
-    },
-    "manager_next_steps": {
-      "type": "array",
-      "maxItems": 8,
-      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
-    },
-    "progress_monitoring": {
-      "type": "array",
-      "maxItems": 8,
-      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
-    },
-    "review_window_days": { "type": "integer", "minimum": 7, "maximum": 180 },
-    "decision_rule": { "type": "string", "maxLength": 500 },
-    "caveats": {
-      "type": "array",
-      "maxItems": 8,
-      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
-    }
-  }
+  "title": "SupportRecommendationModelOutput",
+  "type": "object",
+  "additionalProperties": false
 }

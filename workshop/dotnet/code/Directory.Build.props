@@ -1,0 +1,4 @@
+<Project>
+  <!-- The samples build exactly as the .NET track does: same framework, same warnings-as-errors. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\dotnet\Directory.Build.props" />
+</Project>

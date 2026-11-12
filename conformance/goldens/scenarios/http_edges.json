@@ -1,0 +1,242 @@
+{
+  "scenario": "http_edges",
+  "config": {
+    "provider": "fake",
+    "api_key": "test-shared-key-not-a-real-secret"
+  },
+  "steps": [
+    {
+      "request": {
+        "method": "OPTIONS",
+        "path": "/api/recommendations/support-plan",
+        "auth": "none",
+        "headers": {
+          "Origin": "http://localhost:5173",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "content-type"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "text/plain; charset=utf-8",
+          "access-control-allow-origin": "http://localhost:5173",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "Accept, Accept-Language, Content-Language, Content-Type"
+        },
+        "body_kind": "text/plain"
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "OPTIONS",
+        "path": "/api/recommendations/support-plan",
+        "auth": "none",
+        "headers": {
+          "Origin": "https://example.invalid",
+          "Access-Control-Request-Method": "POST"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "content-type": "text/plain; charset=utf-8",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "Accept, Accept-Language, Content-Language, Content-Type"
+        },
+        "body_kind": "text/plain"
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "OPTIONS",
+        "path": "/api/recommendations/support-plan",
+        "auth": "none",
+        "headers": {
+          "Origin": "http://localhost:5173",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "x-api-key"
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "content-type": "text/plain; charset=utf-8",
+          "access-control-allow-origin": "http://localhost:5173",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "Accept, Accept-Language, Content-Language, Content-Type"
+        },
+        "body_kind": "text/plain"
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health",
+        "auth": "none",
+        "headers": {
+          "Origin": "http://localhost:5173"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json",
+          "access-control-allow-origin": "http://localhost:5173"
+        },
+        "json": {
+          "status": "ok",
+          "service": "agentic-support-guide-api",
+          "version": "0.3.0",
+          "banner": "Prototype - synthetic data, three collaborating agents hosted in Foundry Agent Service, not a production system.",
+          "provider_configured": true,
+          "foundry_auth_mode": "entra",
+          "build_id": "conformance"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health",
+        "auth": "none",
+        "headers": {
+          "Origin": "https://example.invalid"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "ok",
+          "service": "agentic-support-guide-api",
+          "version": "0.3.0",
+          "banner": "Prototype - synthetic data, three collaborating agents hosted in Foundry Agent Service, not a production system.",
+          "provider_configured": true,
+          "foundry_auth_mode": "entra",
+          "build_id": "conformance"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "HEAD",
+        "path": "/api/health",
+        "auth": "none"
+      },
+      "response": {
+        "status": 405,
+        "headers": {
+          "content-type": "application/json",
+          "allow": "GET"
+        },
+        "body": ""
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/health",
+        "auth": "none"
+      },
+      "response": {
+        "status": 405,
+        "headers": {
+          "content-type": "application/json",
+          "allow": "GET"
+        },
+        "json": {
+          "detail": "Method Not Allowed"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/health/",
+        "auth": "none"
+      },
+      "response": {
+        "status": 307,
+        "headers": {
+          "location": "/api/health"
+        },
+        "body": ""
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/nope"
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "detail": "Not Found"
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "auth": "none",
+        "body": "{",
+        "content_type": "application/json"
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "json": {
+          "status": "invalid_request",
+          "error_code": "REQUEST_VALIDATION_FAILED",
+          "error_message": "The request body did not match the expected shape.",
+          "fields": [
+            "body"
+          ]
+        }
+      },
+      "model_calls": []
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/recommendations/support-plan",
+        "auth": "none",
+        "json": {
+          "dealer_group_id": "GROUP-DEMO",
+          "dealership_id": "DLR-0001",
+          "category": "lead-response",
+          "concern_text": "First response to online enquiries is slower than the standard."
+        }
+      },
+      "response": {
+        "status": 401,
+        "headers": {
+          "content-type": "application/json",
+          "www-authenticate": "x-api-key"
+        },
+        "json": {
+          "detail": "Missing or invalid API key."
+        }
+      },
+      "model_calls": []
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "count": 720,
+  "sha256": "4ce457254164f9e2fff14fc67b330e74ea5b7b19edca38477ac059e35b2f98a5",
+  "head": [
+    {
+      "record_id": "OPS-00001",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "period": "2026-04",
+      "appointment_attendance_rate": 0.733,
+      "escalations": 4,
+      "followup_completion": 86.2
+    },
+    {
+      "record_id": "OPS-00002",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "period": "2026-05",
+      "appointment_attendance_rate": 0.724,
+      "escalations": 3,
+      "followup_completion": 87.6
+    },
+    {
+      "record_id": "OPS-00003",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "period": "2026-06",
+      "appointment_attendance_rate": 0.721,
+      "escalations": 0,
+      "followup_completion": 85.7
+    },
+    {
+      "record_id": "OPS-00004",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "period": "2026-07",
+      "appointment_attendance_rate": 0.729,
+      "escalations": 2,
+      "followup_completion": 88.9
+    },
+    {
+      "record_id": "OPS-00005",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "period": "2026-08",
+      "appointment_attendance_rate": 0.726,
+      "escalations": 4,
+      "followup_completion": 88.3
+    },
+    {
+      "record_id": "OPS-00006",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "period": "2026-09",
+      "appointment_attendance_rate": 0.719,
+      "escalations": 2,
+      "followup_completion": 89.1
+    },
+    {
+      "record_id": "OPS-00007",
+      "dealership_id": "DLR-0002",
+      "region_id": "REG-004",
+      "period": "2026-04",
+      "appointment_attendance_rate": 0.759,
+      "escalations": 2,
+      "followup_completion": 60.4
+    },
+    {
+      "record_id": "OPS-00008",
+      "dealership_id": "DLR-0002",
+      "region_id": "REG-004",
+      "period": "2026-05",
+      "appointment_attendance_rate": 0.757,
+      "escalations": 2,
+      "followup_completion": 59.6
+    },
+    {
+      "record_id": "OPS-00009",
+      "dealership_id": "DLR-0002",
+      "region_id": "REG-004",
+      "period": "2026-06",
+      "appointment_attendance_rate": 0.774,
+      "escalations": 2,
+      "followup_completion": 61.2
+    },
+    {
+      "record_id": "OPS-00010",
+      "dealership_id": "DLR-0002",
+      "region_id": "REG-004",
+      "period": "2026-07",
+      "appointment_attendance_rate": 0.764,
+      "escalations": 2,
+      "followup_completion": 64.0
+    },
+    {
+      "record_id": "OPS-00011",
+      "dealership_id": "DLR-0002",
+      "region_id": "REG-004",
+      "period": "2026-08",
+      "appointment_attendance_rate": 0.781,
+      "escalations": 1,
+      "followup_completion": 66.2
+    },
+    {
+      "record_id": "OPS-00012",
+      "dealership_id": "DLR-0002",
+      "region_id": "REG-004",
+      "period": "2026-09",
+      "appointment_attendance_rate": 0.777,
+      "escalations": 0,
+      "followup_completion": 66.9
+    },
+    {
+      "record_id": "OPS-00013",
+      "dealership_id": "DLR-0003",
+      "region_id": "REG-003",
+      "period": "2026-04",
+      "appointment_attendance_rate": 0.798,
+      "escalations": 0,
+      "followup_completion": 81.5
+    },
+    {
+      "record_id": "OPS-00014",
+      "dealership_id": "DLR-0003",
+      "region_id": "REG-003",
+      "period": "2026-05",
+      "appointment_attendance_rate": 0.794,
+      "escalations": 4,
+      "followup_completion": 83.5
+    },
+    {
+      "record_id": "OPS-00015",
+      "dealership_id": "DLR-0003",
+      "region_id": "REG-003",
+      "period": "2026-06",
+      "appointment_attendance_rate": 0.787,
+      "escalations": 2,
+      "followup_completion": 84.1
+    },
+    {
+      "record_id": "OPS-00016",
+      "dealership_id": "DLR-0003",
+      "region_id": "REG-003",
+      "period": "2026-07",
+      "appointment_attendance_rate": 0.793,
+      "escalations": 2,
+      "followup_completion": 83.6
+    },
+    {
+      "record_id": "OPS-00017",
+      "dealership_id": "DLR-0003",
+      "region_id": "REG-003",
+      "period": "2026-08",
+      "appointment_attendance_rate": 0.782,
+      "escalations": 1,
+      "followup_completion": 83.4
+    },
+    {
+      "record_id": "OPS-00018",
+      "dealership_id": "DLR-0003",
+      "region_id": "REG-003",
+      "period": "2026-09",
+      "appointment_attendance_rate": 0.787,
+      "escalations": 0,
+      "followup_completion": 82.6
+    },
+    {
+      "record_id": "OPS-00019",
+      "dealership_id": "DLR-0004",
+      "region_id": "REG-002",
+      "period": "2026-04",
+      "appointment_attendance_rate": 0.862,
+      "escalations": 2,
+      "followup_completion": 76.0
+    },
+    {
+      "record_id": "OPS-00020",
+      "dealership_id": "DLR-0004",
+      "region_id": "REG-002",
+      "period": "2026-05",
+      "appointment_attendance_rate": 0.859,
+      "escalations": 0,
+      "followup_completion": 75.8
+    },
+    {
+      "record_id": "OPS-00021",
+      "dealership_id": "DLR-0004",
+      "region_id": "REG-002",
+      "period": "2026-06",
+      "appointment_attendance_rate": 0.86,
+      "escalations": 2,
+      "followup_completion": 76.4
+    },
+    {
+      "record_id": "OPS-00022",
+      "dealership_id": "DLR-0004",
+      "region_id": "REG-002",
+      "period": "2026-07",
+      "appointment_attendance_rate": 0.868,
+      "escalations": 1,
+      "followup_completion": 78.3
+    },
+    {
+      "record_id": "OPS-00023",
+      "dealership_id": "DLR-0004",
+      "region_id": "REG-002",
+      "period": "2026-08",
+      "appointment_attendance_rate": 0.873,
+      "escalations": 2,
+      "followup_completion": 81.4
+    },
+    {
+      "record_id": "OPS-00024",
+      "dealership_id": "DLR-0004",
+      "region_id": "REG-002",
+      "period": "2026-09",
+      "appointment_attendance_rate": 0.87,
+      "escalations": 3,
+      "followup_completion": 81.4
+    },
+    {
+      "record_id": "OPS-00025",
+      "dealership_id": "DLR-0005",
+      "region_id": "REG-002",
+      "period": "2026-04",
+      "appointment_attendance_rate": 0.735,
+      "escalations": 2,
+      "followup_completion": 74.4
+    }
+  ]
+}

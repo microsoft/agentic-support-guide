@@ -1,0 +1,256 @@
+{
+  "count": 3600,
+  "sha256": "57fd28eabebed5dfdacc4b57b09d7060532ae8d0ccd5cc622e5eb7da80f7ed36",
+  "head": [
+    {
+      "record_id": "SCR-00001",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "lead-response",
+      "band": "Developing",
+      "score": 43,
+      "period": "2026-04"
+    },
+    {
+      "record_id": "SCR-00002",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "test-drive-conversion",
+      "band": "Developing",
+      "score": 41,
+      "period": "2026-04"
+    },
+    {
+      "record_id": "SCR-00003",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "listing-completeness",
+      "band": "At risk",
+      "score": 25,
+      "period": "2026-04"
+    },
+    {
+      "record_id": "SCR-00004",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "inventory-ageing",
+      "band": "Developing",
+      "score": 45,
+      "period": "2026-04"
+    },
+    {
+      "record_id": "SCR-00005",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "price-data-freshness",
+      "band": "Developing",
+      "score": 42,
+      "period": "2026-04"
+    },
+    {
+      "record_id": "SCR-00006",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "lead-response",
+      "band": "Developing",
+      "score": 46,
+      "period": "2026-05"
+    },
+    {
+      "record_id": "SCR-00007",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "test-drive-conversion",
+      "band": "Developing",
+      "score": 47,
+      "period": "2026-05"
+    },
+    {
+      "record_id": "SCR-00008",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "listing-completeness",
+      "band": "At risk",
+      "score": 28,
+      "period": "2026-05"
+    },
+    {
+      "record_id": "SCR-00009",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "inventory-ageing",
+      "band": "Developing",
+      "score": 50,
+      "period": "2026-05"
+    },
+    {
+      "record_id": "SCR-00010",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "price-data-freshness",
+      "band": "Developing",
+      "score": 43,
+      "period": "2026-05"
+    },
+    {
+      "record_id": "SCR-00011",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "lead-response",
+      "band": "Developing",
+      "score": 49,
+      "period": "2026-06"
+    },
+    {
+      "record_id": "SCR-00012",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "test-drive-conversion",
+      "band": "Developing",
+      "score": 46,
+      "period": "2026-06"
+    },
+    {
+      "record_id": "SCR-00013",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "listing-completeness",
+      "band": "At risk",
+      "score": 33,
+      "period": "2026-06"
+    },
+    {
+      "record_id": "SCR-00014",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "inventory-ageing",
+      "band": "Developing",
+      "score": 50,
+      "period": "2026-06"
+    },
+    {
+      "record_id": "SCR-00015",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "price-data-freshness",
+      "band": "Developing",
+      "score": 48,
+      "period": "2026-06"
+    },
+    {
+      "record_id": "SCR-00016",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "lead-response",
+      "band": "Developing",
+      "score": 53,
+      "period": "2026-07"
+    },
+    {
+      "record_id": "SCR-00017",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "test-drive-conversion",
+      "band": "Developing",
+      "score": 52,
+      "period": "2026-07"
+    },
+    {
+      "record_id": "SCR-00018",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "listing-completeness",
+      "band": "At risk",
+      "score": 36,
+      "period": "2026-07"
+    },
+    {
+      "record_id": "SCR-00019",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "inventory-ageing",
+      "band": "Developing",
+      "score": 54,
+      "period": "2026-07"
+    },
+    {
+      "record_id": "SCR-00020",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "price-data-freshness",
+      "band": "Developing",
+      "score": 49,
+      "period": "2026-07"
+    },
+    {
+      "record_id": "SCR-00021",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "lead-response",
+      "band": "Developing",
+      "score": 55,
+      "period": "2026-08"
+    },
+    {
+      "record_id": "SCR-00022",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "test-drive-conversion",
+      "band": "Developing",
+      "score": 57,
+      "period": "2026-08"
+    },
+    {
+      "record_id": "SCR-00023",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "listing-completeness",
+      "band": "At risk",
+      "score": 38,
+      "period": "2026-08"
+    },
+    {
+      "record_id": "SCR-00024",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "inventory-ageing",
+      "band": "Developing",
+      "score": 55,
+      "period": "2026-08"
+    },
+    {
+      "record_id": "SCR-00025",
+      "dealership_id": "DLR-0001",
+      "region_id": "REG-001",
+      "segment": "SEG-VOLUME",
+      "process_area": "price-data-freshness",
+      "band": "Developing",
+      "score": 52,
+      "period": "2026-08"
+    }
+  ]
+}

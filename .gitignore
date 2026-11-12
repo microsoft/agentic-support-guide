@@ -1,5 +1,5 @@
-# This repo is Python, TypeScript and Terraform. There is no .NET here, so
-# there is no Visual Studio / MSBuild / NuGet boilerplate either.
+# This repo has two tracks: Python under python/ and .NET under dotnet/, plus
+# a shared TypeScript UI and Terraform.
 
 # --- OS ---
 .DS_Store
@@ -30,6 +30,14 @@ coverage/
 htmlcov/
 *.egg-info/
 
+# --- .NET ---
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+*.nupkg
+
 # --- Node / Vite ---
 node_modules/
 dist/
@@ -46,7 +54,7 @@ build/
 *.log
 
 # Denylist local override (never commit real terms)
-services/api/denylist.local.txt
+maintenance/denylist.local.txt
 
 # --- Terraform ---
 .terraform/
@@ -65,10 +73,10 @@ override.tf.json
 evals/results/
 
 # --- Screenshot redaction config (contains real tenant identifiers) ---
-scripts/portal_redact.config.json
-!scripts/portal_redact.config.example.json
+maintenance/portal_redact.config.json
+!maintenance/portal_redact.config.example.json
 # Generated capture bundle: inlines the config above, so it holds real values.
-scripts/.portal_redact.bundle.js
+maintenance/.portal_redact.bundle.js
 
 # --- Foundry bindings (env-specific, never commit) ---
 .foundry/agent-bindings.local.json

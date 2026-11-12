@@ -34,8 +34,6 @@ const ERROR_MESSAGES: Record<string, string> = {
     "The model returned invalid JSON. The coordinator did not surface a recommendation.",
   validation_failed:
     "The recommendation could not be validated after one repair attempt. No recommendation was returned.",
-  orchestration_budget_exhausted:
-    "The three-agent workflow exceeded its overall budget. Try again in a moment.",
   orchestration_error: "The workflow failed before it could produce a recommendation.",
   evidence_missing:
     "No evidence was found for this dealer group, so no grounded recommendation could be made.",
