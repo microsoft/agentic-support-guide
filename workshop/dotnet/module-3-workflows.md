@@ -107,18 +107,19 @@ builds each workflow and calls `workflow.ToMermaidString()`, and a test fails
 if what is committed drifts from what the code produces.
 
 Agent Framework also writes Graphviz DOT (`workflow.ToDotString()`). The app's
-graph is committed as `apps/web/public/workflow-graph.svg`, which the app
-shows under **Workflow graph** at the foot of the agent panel on the Supports
-page, so the picture a learner sees in the running UI comes from the same
-`Graph.BuildPlanWorkflow` the request uses. `--dot` prints that graph;
-Graphviz turns it into the SVG:
+graph is committed as `apps/web/src/assets/workflow-graph.svg`, which the app
+builds into its bundle and shows under **Workflow graph** at the foot of the
+agent panel on the Supports page, so the picture a learner sees in the running
+UI comes from the same `Graph.BuildPlanWorkflow` the request uses. `--dot`
+prints that graph; Graphviz turns it into the SVG:
 
 ```powershell
-dotnet run dotnet/scripts/render_workflow_diagram.cs -- --dot | dot -Tsvg -o apps\web\public\workflow-graph.svg
+dotnet run dotnet/scripts/render_workflow_diagram.cs -- --dot | dot -Tsvg -o apps\web\src\assets\workflow-graph.svg
 ```
 
 That needs Graphviz installed. The SVG is committed for exactly that reason —
-App Service has no `dot`.
+App Service has no `dot` — and a test fails if its nodes and edges stop
+matching the graph the code builds.
 
 The pattern is **sequential orchestration with one conditional repair edge** —
 not handoff, concurrent, group chat or magentic.

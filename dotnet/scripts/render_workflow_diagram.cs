@@ -143,7 +143,7 @@ public static class RenderWorkflowDiagram
     /// <summary>The app graph in Graphviz DOT, straight from Agent Framework.</summary>
     /// <remarks>
     /// Pipe it through Graphviz `dot -Tsvg` to refresh
-    /// apps/web/public/workflow-graph.svg. The SVG is committed because App
+    /// apps/web/src/assets/workflow-graph.svg. The SVG is committed because App
     /// Service has no Graphviz.
     /// </remarks>
     public static string AppDot() => AppWorkflow().ToDotString().Trim();

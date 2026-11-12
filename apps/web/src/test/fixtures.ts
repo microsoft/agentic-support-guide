@@ -46,16 +46,16 @@ export const healthDetailsNotReadyFixture: HealthDetailsResponse = {
     },
     {
       name: "agent_definitions_valid",
-      label: "Foundry agent bindings present",
+      label: "Agent definitions loaded",
       ok: false,
-      detail:
-        "One or more roles are not bound. Run scripts/validate_agent_definitions.py.",
+      detail: "One or more agent definitions could not be loaded.",
     },
   ],
   warnings: [
     "Microsoft Foundry project endpoint is not configured. Recommendation requests will fail.",
   ],
-  guidance: "Not demo-ready. Finish Terraform + .env setup + validate_agent_definitions.py.",
+  guidance:
+    "Not demo-ready. To finish setup: run Terraform, run populate-env.ps1 to write the backend's .env, then start the backend with run-backend.ps1.",
 };
 
 export const healthDetailsReadyFixture: HealthDetailsResponse = {
