@@ -47,6 +47,10 @@ it arrives.
 Run [code/05_first_workflow.py](code/05_first_workflow.py). No model, no
 Azure, no network — three plain Python steps joined by two edges:
 
+```powershell
+.\python\services\api\.venv\Scripts\python.exe workshop\python\code\05_first_workflow.py
+```
+
 <!-- sample-05:start -->
 ```mermaid
 flowchart TD

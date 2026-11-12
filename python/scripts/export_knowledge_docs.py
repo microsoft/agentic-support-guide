@@ -76,10 +76,10 @@ async def _export(out_dir: Path) -> int:
 
     print(f"Wrote {written} document(s) to {out_dir}")
     print("\nUpload with:")
-    print("  az storage blob upload-batch \\")
-    print("    --account-name <storage-account> \\")
-    print("    --destination group-knowledge \\")
-    print(f"    --source {os.path.relpath(out_dir, REPO_ROOT)} \\")
+    print("  az storage blob upload-batch `")
+    print("    --account-name <storage-account> `")
+    print("    --destination group-knowledge `")
+    print(f"    --source {os.path.relpath(out_dir, REPO_ROOT)} `")
     print("    --auth-mode login")
     return 0
 

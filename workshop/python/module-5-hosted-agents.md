@@ -115,7 +115,7 @@ Runtime    : python_3_13
 Entrypoint : python main.py
 Protocol   : responses v2.0.0
 Resources  : cpu=1 memory=2Gi
-Zip        : 10,695 bytes, sha256=2b87f7d20ad740d7...
+Zip        : 10,683 bytes, sha256=d2821b290c47598e...
              main.py
              requirements.txt
              safety.py

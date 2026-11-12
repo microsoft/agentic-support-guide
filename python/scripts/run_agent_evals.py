@@ -23,6 +23,7 @@ import asyncio
 import json
 import os
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -143,12 +144,17 @@ async def _grade_all(
         client = FoundryChatClient(
             project_endpoint=endpoint, model=agent_model, credential=credential
         )
-        grader = FoundryEvals(
-            project_client=None,
-            client=client,
-            model=judge_model,
-            evaluators=evaluators,
-        )
+        # FoundryEvals warns that it is experimental every time it is built.
+        # Module 9's Limitations section says so once, and the version is
+        # pinned in requirements.txt.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=r"\[EVALS\]")
+            grader = FoundryEvals(
+                project_client=None,
+                client=client,
+                model=judge_model,
+                evaluators=evaluators,
+            )
 
         print()
         async with Agent(
