@@ -422,9 +422,10 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --env workshop-dotnet --body (ter
 > gets a 401 from the project endpoint. Without the second, the evaluation
 > runs complete in the portal, every grader errors with `PermissionDenied` on
 > `chat/completions`, and the script prints `grader returned no scores` for
-> every case. A new grant also takes a while to reach every model endpoint —
-> well over ten minutes here — and until it does, some graders score and the
-> rest come back `not graded`.
+> every case. A new grant also takes a while to reach every model endpoint,
+> and until it does, some graders score and the rest come back `not graded`.
+> That took hours here, more than ten in one environment, so re-run the
+> workflow before you change anything.
 
 Then:
 
