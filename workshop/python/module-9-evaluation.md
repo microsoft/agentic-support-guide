@@ -284,13 +284,19 @@ if not scores:
 
 below = [n for n, v, _ in scores if v < PASS_THRESHOLD]
 rejected = [n for n, _, p in scores if p is False]
+# A grader that errored leaves no score, and the others can still pass.
+ungraded = sorted(set(expected) - {n for n, _, _ in scores})
 # A missing verdict is a failed verdict: defaulting to True would let an
 # SDK shape change silently turn a regression into a green run.
 all_passed = all(getattr(r, "all_passed", False) for r in runs)
-regressed = bool(below or rejected) or not all_passed
+regressed = bool(below or rejected or ungraded) or not all_passed
 ```
 
 A run that produced no scores is a failure, not a pass — nothing was graded.
+So is a case where one grader errored and the others scored: any grader in
+`expected`, the ones you asked for, that has no score is listed as
+`not graded` and the case fails, rather than passing on the scores that
+happened to come back.
 A missing verdict is treated as a failed verdict, so an SDK response-shape
 change breaks the build rather than turning every run green.
 
@@ -380,23 +386,34 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --body (terraform -chdir=python/i
 > [!IMPORTANT]
 > **Contributor on the resource group is not enough.** That is a control-plane
 > role, and it lets the workflow create and delete the Search service without
-> ever being allowed to send a prompt through your project. Grading is a
-> data-plane call, so grant the same service principal `Cognitive Services User`
-> on the **project** before you run anything — the same role and scope
-> [python/infra/rbac.tf](../../python/infra/rbac.tf) gives you:
+> ever being allowed to send a prompt through your project. Grading is
+> data-plane work in two places, so grant the same service principal both
+> roles [python/infra/rbac.tf](../../python/infra/rbac.tf) gives you, before
+> you run anything: `Cognitive Services User` on the **project**, where the
+> agent runs, and `Cognitive Services OpenAI User` on the **AI Services
+> account**, where the graders call the judge deployment:
 >
 > ```powershell
 > $spObjectId = az ad sp show --id <appId> --query id -o tsv
 > az role assignment create --assignee-object-id $spObjectId `
 >     --assignee-principal-type ServicePrincipal --role "Cognitive Services User" `
 >     --scope (terraform -chdir=python/infra output -raw foundry_project_id)
+> az role assignment create --assignee-object-id $spObjectId `
+>     --assignee-principal-type ServicePrincipal --role "Cognitive Services OpenAI User" `
+>     --scope (terraform -chdir=python/infra output -raw ai_services_account_id)
 > ```
 >
 > `<appId>` is the app registration from Module 1. Its *object* ID is not the
 > same value, which is why the first line looks it up.
 >
-> Without the grant the deploy workflow keeps working and only this one fails,
-> with a 401 from the project endpoint rather than anything that mentions roles.
+> Without either grant the deploy workflow keeps working and only this one
+> fails, and neither failure mentions roles. Without the first, the agent call
+> gets a 401 from the project endpoint. Without the second, the evaluation
+> runs complete in the portal, every grader errors with `PermissionDenied` on
+> `chat/completions`, and the script prints `grader returned no scores` for
+> every case. A new grant also takes a while to reach every model endpoint —
+> well over ten minutes here — and until it does, some graders score and the
+> rest come back `not graded`.
 
 Then:
 

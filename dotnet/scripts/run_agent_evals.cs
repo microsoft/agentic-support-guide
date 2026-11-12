@@ -31,6 +31,7 @@ using Azure.AI.Projects;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Foundry;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.AI.Evaluation;
 
 return await RunAgentEvals.MainAsync(args);
 
@@ -160,7 +161,7 @@ public static class RunAgentEvals
             };
             var caseId = testCase.GetProperty("id").ToString();
             var results = await grader.EvaluateAsync([item], $"asg-{caseId}");
-            if (Report(caseId, [results]))
+            if (Report(caseId, [results], evaluators))
             {
                 failures++;
             }
@@ -226,18 +227,23 @@ public static class RunAgentEvals
         return failures > 0 ? 1 : 0;
     }
 
-    /// <summary>Flatten results -> per-item results -> scores into (name, score, passed).</summary>
+    /// <summary>Flatten results -> per-item metrics into (name, score, passed).</summary>
+    /// <remarks>
+    /// Read from <see cref="AgentEvaluationResults.Items"/>: a grader that errored has no
+    /// metric there, while <see cref="AgentEvaluationResults.DetailedItems"/> reports it as 0.
+    /// </remarks>
     private static List<(string Name, double Score, bool? Passed)> CollectScores(IEnumerable<AgentEvaluationResults> runs) =>
-        [.. runs.SelectMany(run => run.DetailedItems ?? [])
-            .SelectMany(item => item.Scores ?? [])
-            .Select(score => (score.Name is { Length: > 0 } name ? name : "?", score.Score, score.Passed))];
+        [.. runs.SelectMany(run => run.Items)
+            .SelectMany(item => item.Metrics.Values.OfType<NumericMetric>())
+            .Where(metric => metric.Value is not null)
+            .Select(metric => (metric.Name is { Length: > 0 } name ? name : "?", metric.Value!.Value, metric.Interpretation is { } verdict ? !verdict.Failed : (bool?)null))];
 
     /// <summary>Print one line per case. Returns true if this case regressed.</summary>
     /// <remarks>
     /// A run that produced no scores is a FAILURE, not a pass: it means the
     /// grader did not actually grade anything.
     /// </remarks>
-    private static bool Report(string caseId, IReadOnlyList<AgentEvaluationResults> runs)
+    private static bool Report(string caseId, IReadOnlyList<AgentEvaluationResults> runs, IEnumerable<string> expected)
     {
         var statusErrors = runs
             .Where(r => (r.Status ?? "completed") != "completed")
@@ -260,10 +266,12 @@ public static class RunAgentEvals
         // response that still scores above our local threshold.
         var below = scores.Where(s => s.Score < PassThreshold).Select(s => s.Name).ToList();
         var rejected = scores.Where(s => s.Passed == false).Select(s => s.Name).ToList();
+        // A grader that errored leaves no score, and the others can still pass.
+        var ungraded = expected.Except(scores.Select(s => s.Name), StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
         // A missing verdict is a failed verdict: defaulting to true would let an
         // SDK shape change silently turn a regression into a green run.
         var allPassed = runs.All(r => r.AllPassed);
-        var regressed = below.Count > 0 || rejected.Count > 0 || !allPassed;
+        var regressed = below.Count > 0 || rejected.Count > 0 || ungraded.Count > 0 || !allPassed;
 
         var detail = string.Join(", ", scores
             .OrderBy(s => s.Name, StringComparer.Ordinal)
@@ -273,6 +281,10 @@ public static class RunAgentEvals
         if (rejected.Count > 0)
         {
             Console.WriteLine($"           grader rejected: {string.Join(", ", rejected.Distinct().Order(StringComparer.Ordinal))}");
+        }
+        if (ungraded.Count > 0)
+        {
+            Console.WriteLine($"           not graded: {string.Join(", ", ungraded)}");
         }
 
         if (runs.Select(r => r.ReportUrl).FirstOrDefault(url => url is not null) is { } reportUrl)
