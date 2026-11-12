@@ -85,6 +85,11 @@ function Deploy-Web {
         Pop-Location
     }
 
+    # Vite names the entry script by content hash, so it identifies this build.
+    $index = Get-Content (Join-Path $repoRoot "apps\web\dist\index.html") -Raw
+    $script:webBundle = [regex]::Match($index, '/assets/index-[^"]+\.js').Value
+    if (-not $script:webBundle) { throw "No entry bundle in apps\web\dist\index.html" }
+
     # server.js sits beside dist/ and is what App Service starts. Shipping
     # only dist/ leaves the site with nothing to run.
     $webStage = Join-Path $staging "web"
@@ -119,15 +124,18 @@ Write-Host "  UI  : $webUrl"
 # App Service cold start after a zip deploy is slow; poll rather than
 # declaring failure on the first attempt.
 Write-Host ""
-if ($Only -eq "web") {
-    Write-Host "Waiting for the UI to serve ..." -NoNewline
+
+# The page must load the bundle this run built; a lingering worker keeps
+# serving the previous one.
+function Wait-UiBundle {
+    Write-Host "Waiting for the UI to serve $script:webBundle ..." -NoNewline
     for ($i = 0; $i -lt 30; $i++) {
         try {
-            $page = Invoke-WebRequest $webUrl -TimeoutSec 20 -UseBasicParsing
-            if ($page.StatusCode -eq 200 -and $page.Content -match 'id="root"') {
+            $page = Invoke-WebRequest $webUrl -TimeoutSec 20 -UseBasicParsing -Headers @{ "Cache-Control" = "no-cache" }
+            if ($page.StatusCode -eq 200 -and $page.Content.Contains($script:webBundle)) {
                 Write-Host ""
-                Write-Host "  UI is serving the built bundle." -ForegroundColor Green
-                exit 0
+                Write-Host "  UI is serving this build's bundle." -ForegroundColor Green
+                return $true
             }
         } catch {
             # Not up yet.
@@ -136,10 +144,13 @@ if ($Only -eq "web") {
         Start-Sleep -Seconds 10
     }
     Write-Host ""
-    Write-Host "  UI did not serve index.html after 5 minutes." -ForegroundColor Red
+    Write-Host "  UI did not serve $script:webBundle after 5 minutes." -ForegroundColor Red
     Write-Host "  Logs: az webapp log tail -g $resourceGroup -n $webApp" -ForegroundColor Yellow
-    exit 1
+    return $false
 }
+
+if ($Only -in @("both", "web") -and -not (Wait-UiBundle)) { exit 1 }
+if ($Only -eq "web") { exit 0 }
 
 Write-Host "Waiting for build $buildId to serve ..." -NoNewline
 $served = $null

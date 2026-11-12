@@ -42,7 +42,7 @@ jobs:
         run: dotnet test --solution dotnet/AgenticSupportGuide.slnx -c Release --no-build
 
   infra:
-    name: Infrastructure (Terraform)
+    name: Infrastructure (Terraform, .NET)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,7 +65,7 @@ jobs:
         run: terraform validate
 
   agent-definitions:
-    name: Agent definitions (validate)
+    name: Agent definitions (.NET)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

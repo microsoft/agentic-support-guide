@@ -375,23 +375,25 @@ The graded one is [.github/workflows/evaluate-python.yml](../../.github/workflow
 and it is `workflow_dispatch` only — the same reasoning as above, expressed
 in the trigger rather than in a team norm nobody remembers.
 
-It reads three repository variables:
+It reads three variables from the `workshop` environment:
 
 ```powershell
-gh variable set AZURE_AI_FOUNDRY_PROJECT_ENDPOINT --body (terraform -chdir=python/infra output -raw foundry_project_endpoint)
-gh variable set FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER --body (terraform -chdir=python/infra output -raw model_deployment_name)
-gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --body (terraform -chdir=python/infra output -raw judge_deployment_name)
+gh variable set AZURE_AI_FOUNDRY_PROJECT_ENDPOINT --env workshop --body (terraform -chdir=python/infra output -raw foundry_project_endpoint)
+gh variable set FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER --env workshop --body (terraform -chdir=python/infra output -raw model_deployment_name)
+gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --env workshop --body (terraform -chdir=python/infra output -raw judge_deployment_name)
 ```
 
 > [!IMPORTANT]
 > **Contributor on the resource group is not enough.** That is a control-plane
 > role, and it lets the workflow create and delete the Search service without
 > ever being allowed to send a prompt through your project. Grading is
-> data-plane work in two places, so grant the same service principal both
-> roles [python/infra/rbac.tf](../../python/infra/rbac.tf) gives you, before
-> you run anything: `Cognitive Services User` on the **project**, where the
-> agent runs, and `Cognitive Services OpenAI User` on the **AI Services
-> account**, where the graders call the judge deployment:
+> data-plane work in two places: `Cognitive Services User` on the **project**,
+> where the agent runs, and `Cognitive Services OpenAI User` on the **AI
+> Services account**, where the graders call the judge deployment — the same
+> two roles [python/infra/rbac.tf](../../python/infra/rbac.tf) gives you.
+> [Module 1 §6](module-1-deploy-the-app.md#6-optional--run-the-same-steps-as-a-pipeline)
+> grants them to the workflow's service principal. If you set it up without
+> them, grant them now:
 >
 > ```powershell
 > $spObjectId = az ad sp show --id <appId> --query id -o tsv

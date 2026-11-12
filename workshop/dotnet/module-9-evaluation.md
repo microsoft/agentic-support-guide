@@ -398,11 +398,13 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --env workshop-dotnet --body (ter
 > **Contributor on the resource group is not enough.** That is a control-plane
 > role, and it lets the workflow create and delete the Search service without
 > ever being allowed to send a prompt through your project. Grading is
-> data-plane work in two places, so grant the same service principal both
-> roles [dotnet/infra/rbac.tf](../../dotnet/infra/rbac.tf) gives you, before
-> you run anything: `Cognitive Services User` on the **project**, where the
-> agent runs, and `Cognitive Services OpenAI User` on the **AI Services
-> account**, where the graders call the judge deployment:
+> data-plane work in two places: `Cognitive Services User` on the **project**,
+> where the agent runs, and `Cognitive Services OpenAI User` on the **AI
+> Services account**, where the graders call the judge deployment — the same
+> two roles [dotnet/infra/rbac.tf](../../dotnet/infra/rbac.tf) gives you.
+> [Module 1 §6](module-1-deploy-the-app.md#6-optional--run-the-same-steps-as-a-pipeline)
+> grants them to the workflow's service principal. If you set it up without
+> them, grant them now:
 >
 > ```powershell
 > $spObjectId = az ad sp show --id <appId> --query id -o tsv
