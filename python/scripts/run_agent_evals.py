@@ -171,7 +171,7 @@ async def _grade_all(
                     context=context,
                     eval_name=f"asg-{case['id']}",
                 )
-                if _report(str(case["id"]), results):
+                if _report(str(case["id"]), results, evaluators):
                     failures += 1
     finally:
         # Exiting the Agent context leaves the chat client's inner sessions
@@ -251,7 +251,7 @@ def _collect_scores(runs: list[Any]) -> list[tuple[str, float, bool | None]]:
     return scores
 
 
-def _report(case_id: str, results: Any) -> bool:
+def _report(case_id: str, results: Any, expected: list[str]) -> bool:
     """Print one line per case. Returns True if this case regressed.
 
     A run that produced no scores is a FAILURE, not a pass: it means the
@@ -278,15 +278,19 @@ def _report(case_id: str, results: Any) -> bool:
     # response that still scores above our local threshold.
     below = [n for n, v, _ in scores if v < PASS_THRESHOLD]
     rejected = [n for n, _, p in scores if p is False]
+    # A grader that errored leaves no score, and the others can still pass.
+    ungraded = sorted(set(expected) - {n for n, _, _ in scores})
     # A missing verdict is a failed verdict: defaulting to True would let an
     # SDK shape change silently turn a regression into a green run.
     all_passed = all(getattr(r, "all_passed", False) for r in runs)
-    regressed = bool(below or rejected) or not all_passed
+    regressed = bool(below or rejected or ungraded) or not all_passed
 
     detail = ", ".join(f"{n}={v:.2f}" for n, v, _ in sorted(scores))
     print(f"  [{'fail' if regressed else 'ok  '}] {case_id}  {detail}")
     if rejected:
         print(f"           grader rejected: {', '.join(sorted(set(rejected)))}")
+    if ungraded:
+        print(f"           not graded: {', '.join(ungraded)}")
 
     url = next(
         (getattr(r, "report_url", None) for r in runs if getattr(r, "report_url", None)),

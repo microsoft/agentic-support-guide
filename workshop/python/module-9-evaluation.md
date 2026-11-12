@@ -284,13 +284,19 @@ if not scores:
 
 below = [n for n, v, _ in scores if v < PASS_THRESHOLD]
 rejected = [n for n, _, p in scores if p is False]
+# A grader that errored leaves no score, and the others can still pass.
+ungraded = sorted(set(expected) - {n for n, _, _ in scores})
 # A missing verdict is a failed verdict: defaulting to True would let an
 # SDK shape change silently turn a regression into a green run.
 all_passed = all(getattr(r, "all_passed", False) for r in runs)
-regressed = bool(below or rejected) or not all_passed
+regressed = bool(below or rejected or ungraded) or not all_passed
 ```
 
 A run that produced no scores is a failure, not a pass — nothing was graded.
+So is a case where one grader errored and the others scored: any grader in
+`expected`, the ones you asked for, that has no score is listed as
+`not graded` and the case fails, rather than passing on the scores that
+happened to come back.
 A missing verdict is treated as a failed verdict, so an SDK response-shape
 change breaks the build rather than turning every run green.
 
@@ -405,7 +411,9 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --body (terraform -chdir=python/i
 > gets a 401 from the project endpoint. Without the second, the evaluation
 > runs complete in the portal, every grader errors with `PermissionDenied` on
 > `chat/completions`, and the script prints `grader returned no scores` for
-> every case.
+> every case. A new grant also takes a while to reach every model endpoint —
+> well over ten minutes here — and until it does, some graders score and the
+> rest come back `not graded`.
 
 Then:
 

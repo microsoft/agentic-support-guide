@@ -294,13 +294,19 @@ if (scores.Count == 0)
 
 var below = scores.Where(s => s.Score < PassThreshold).Select(s => s.Name).ToList();
 var rejected = scores.Where(s => s.Passed == false).Select(s => s.Name).ToList();
+// A grader that errored leaves no score, and the others can still pass.
+var ungraded = expected.Except(scores.Select(s => s.Name), StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
 // A missing verdict is a failed verdict: defaulting to true would let an
 // SDK shape change silently turn a regression into a green run.
 var allPassed = runs.All(r => r.AllPassed);
-var regressed = below.Count > 0 || rejected.Count > 0 || !allPassed;
+var regressed = below.Count > 0 || rejected.Count > 0 || ungraded.Count > 0 || !allPassed;
 ```
 
 A run that produced no scores is a failure, not a pass — nothing was graded.
+So is a case where one grader errored and the others scored: any grader in
+`expected`, the ones you asked for, that has no score is listed as
+`not graded` and the case fails, rather than passing on the scores that
+happened to come back.
 A missing verdict is treated as a failed verdict, so an SDK response-shape
 change breaks the build rather than turning every run green.
 
@@ -416,7 +422,9 @@ gh variable set FOUNDRY_MODEL_DEPLOYMENT_JUDGE --env workshop-dotnet --body (ter
 > gets a 401 from the project endpoint. Without the second, the evaluation
 > runs complete in the portal, every grader errors with `PermissionDenied` on
 > `chat/completions`, and the script prints `grader returned no scores` for
-> every case.
+> every case. A new grant also takes a while to reach every model endpoint —
+> well over ten minutes here — and until it does, some graders score and the
+> rest come back `not graded`.
 
 Then:
 
