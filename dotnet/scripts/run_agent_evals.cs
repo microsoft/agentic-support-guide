@@ -31,6 +31,7 @@ using Azure.AI.Projects;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Foundry;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.AI.Evaluation;
 
 return await RunAgentEvals.MainAsync(args);
 
@@ -226,11 +227,16 @@ public static class RunAgentEvals
         return failures > 0 ? 1 : 0;
     }
 
-    /// <summary>Flatten results -> per-item results -> scores into (name, score, passed).</summary>
+    /// <summary>Flatten results -> per-item metrics into (name, score, passed).</summary>
+    /// <remarks>
+    /// Read from <see cref="AgentEvaluationResults.Items"/>: a grader that errored has no
+    /// metric there, while <see cref="AgentEvaluationResults.DetailedItems"/> reports it as 0.
+    /// </remarks>
     private static List<(string Name, double Score, bool? Passed)> CollectScores(IEnumerable<AgentEvaluationResults> runs) =>
-        [.. runs.SelectMany(run => run.DetailedItems ?? [])
-            .SelectMany(item => item.Scores ?? [])
-            .Select(score => (score.Name is { Length: > 0 } name ? name : "?", score.Score, score.Passed))];
+        [.. runs.SelectMany(run => run.Items)
+            .SelectMany(item => item.Metrics.Values.OfType<NumericMetric>())
+            .Where(metric => metric.Value is not null)
+            .Select(metric => (metric.Name is { Length: > 0 } name ? name : "?", metric.Value!.Value, metric.Interpretation is { } verdict ? !verdict.Failed : (bool?)null))];
 
     /// <summary>Print one line per case. Returns true if this case regressed.</summary>
     /// <remarks>
