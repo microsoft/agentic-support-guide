@@ -81,7 +81,7 @@ public sealed class FoundryResponsesClientFactory
         }
         return new ChatResult(
             Text: text,
-            Model: ServedModel(response) is { Length: > 0 } served ? served : definition.ModelDeployment,
+            Model: ServedModel(response, definition.ModelDeployment) is { Length: > 0 } served ? served : definition.ModelDeployment,
             InputTokens: response.Usage?.InputTokenCount is { } input ? (int)input : null,
             OutputTokens: response.Usage?.OutputTokenCount is { } output ? (int)output : null);
     }
@@ -113,6 +113,18 @@ public sealed class FoundryResponsesClientFactory
         };
     }
 
-    /// <summary><see cref="AgentResponse"/> has no model field; the underlying <see cref="ChatResponse"/> does.</summary>
-    private static string? ServedModel(AgentResponse response) => (response.RawRepresentation as ChatResponse)?.ModelId;
+    /// <summary>The model that answered. <see cref="AgentResponse"/> has no model field; the layers under it do.</summary>
+    /// <remarks>
+    /// <see cref="ChatResponse.ModelId"/> is the service's <c>x-ms-served-model</c>
+    /// header: the snapshot behind an ordinary deployment
+    /// (<c>gpt-4.1-mini-2025-04-14</c> for <c>asg-chat</c>), but the router itself
+    /// (<c>model-router-2025-11-18</c>) for a model-router deployment. The model the
+    /// router picked is in the response body one layer down, which for an ordinary
+    /// deployment only echoes the deployment name back.
+    /// </remarks>
+    internal static string? ServedModel(AgentResponse response, string deployment)
+    {
+        var chat = response.RawRepresentation as ChatResponse;
+        return chat?.RawRepresentation is ResponseResult { Model: { Length: > 0 } routed } && routed != deployment ? routed : chat?.ModelId;
+    }
 }

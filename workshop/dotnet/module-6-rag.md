@@ -338,7 +338,7 @@ would otherwise leave deleted evidence queryable.
 
 ```powershell
 dotnet run dotnet/scripts/provision_foundry_iq.cs -- --suffix <your-alias> `
-    --query "what does NADA report about new-vehicle sales"
+    --query "what were retail sales at US motor vehicle and parts dealers last month"
 ```
 
 ```

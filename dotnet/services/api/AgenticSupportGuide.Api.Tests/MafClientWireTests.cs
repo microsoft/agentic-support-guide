@@ -17,13 +17,13 @@ public sealed class CapturedResponses
 {
     public List<JsonObject> Requests { get; } = [];
 
-    public FoundryResponsesClientFactory Factory(string replyText) =>
+    public FoundryResponsesClientFactory Factory(string replyText, string replyModel = "served-deployment", string? servedModelHeader = null) =>
         new(
             FakeChatClientFactory.DefaultEndpoint,
             new StaticCredential(),
-            new AIProjectClientOptions { Transport = new HttpClientPipelineTransport(new HttpClient(new Handler(this, replyText))) });
+            new AIProjectClientOptions { Transport = new HttpClientPipelineTransport(new HttpClient(new Handler(this, replyText, replyModel, servedModelHeader))) });
 
-    private sealed class Handler(CapturedResponses owner, string replyText) : HttpMessageHandler
+    private sealed class Handler(CapturedResponses owner, string replyText, string replyModel, string? servedModelHeader) : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -38,7 +38,7 @@ public sealed class CapturedResponses
                 ["object"] = "response",
                 ["created_at"] = 1700000000,
                 ["status"] = "completed",
-                ["model"] = "served-deployment",
+                ["model"] = replyModel,
                 ["output"] = new JsonArray(new JsonObject
                 {
                     ["type"] = "message",
@@ -54,10 +54,15 @@ public sealed class CapturedResponses
                 }),
                 ["usage"] = new JsonObject { ["input_tokens"] = 11, ["output_tokens"] = 7, ["total_tokens"] = 18 },
             };
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(reply.ToJsonString(), Encoding.UTF8, "application/json"),
             };
+            if (servedModelHeader is not null)
+            {
+                response.Headers.Add("x-ms-served-model", servedModelHeader);
+            }
+            return response;
         }
     }
 
@@ -124,5 +129,21 @@ public class MafClientWireTests
         var captured = new CapturedResponses();
         var result = await captured.Factory(ReplyText).InvokeAsync(Definition(), "hello", typeof(DataAnalystModelOutput), CancellationToken.None);
         Assert.Equal(ReplyText, result.Text);
+    }
+
+    /// <summary>
+    /// What Foundry returned for each, measured: an ordinary deployment echoes
+    /// its own name in the body and names the snapshot in the header; a router
+    /// names itself in the header and the model it picked in the body.
+    /// </summary>
+    [Theory]
+    [InlineData("asg-chat", "asg-chat", "gpt-4.1-mini-2025-04-14", "gpt-4.1-mini-2025-04-14")]
+    [InlineData("asg-router", "gpt-5-nano-2025-08-07", "model-router-2025-11-18", "gpt-5-nano-2025-08-07")]
+    public async Task The_trace_names_the_model_that_answered(string deployment, string bodyModel, string header, string expected)
+    {
+        var captured = new CapturedResponses();
+        var definition = Definition() with { ModelDeployment = deployment };
+        var result = await captured.Factory(ReplyText, bodyModel, header).InvokeAsync(definition, "hello", typeof(DataAnalystModelOutput), CancellationToken.None);
+        Assert.Equal(expected, result.Model);
     }
 }

@@ -98,7 +98,8 @@ class FoundryResponsesClientFactory:
         return ChatResult(
             text=text,
             parsed=parsed,
-            model=_served_model(response) or definition.model_deployment,
+            model=_served_model(response, definition.model_deployment)
+            or definition.model_deployment,
             input_tokens=_usage(response, "input_token_count"),
             output_tokens=_usage(response, "output_token_count"),
         )
@@ -130,10 +131,21 @@ def _response_format(definition: RoleDefinition, response_model: type[BaseModel]
     }
 
 
-def _served_model(response: Any) -> str:
-    """`AgentResponse` has no model field; the underlying `ChatResponse` does."""
+def _served_model(response: Any, deployment: str) -> str:
+    """The model that answered. `AgentResponse` has no model field; the layers under it do.
+
+    `ChatResponse.model` is the service's `x-ms-served-model` header: the
+    snapshot behind an ordinary deployment (`gpt-4.1-mini-2025-04-14` for
+    `asg-chat`), but the router itself (`model-router-2025-11-18`) for a
+    model-router deployment. The model the router picked is in the response
+    body one layer down, which for an ordinary deployment only echoes the
+    deployment name back.
+    """
 
     raw = getattr(response, "raw_representation", None)
+    routed = getattr(getattr(raw, "raw_representation", None), "model", None)
+    if isinstance(routed, str) and routed and routed != deployment:
+        return routed
     for candidate in (response, raw):
         model = getattr(candidate, "model", None)
         if isinstance(model, str) and model:

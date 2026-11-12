@@ -75,10 +75,11 @@ through two functions in
 [python/services/api/app/foundry_agents/maf_client.py](../../python/services/api/app/foundry_agents/maf_client.py).
 
 ```python
-def _served_model(response: Any) -> str:
-    """`AgentResponse` has no model field; the underlying `ChatResponse` does."""
-
+def _served_model(response: Any, deployment: str) -> str:
     raw = getattr(response, "raw_representation", None)
+    routed = getattr(getattr(raw, "raw_representation", None), "model", None)
+    if isinstance(routed, str) and routed and routed != deployment:
+        return routed
     for candidate in (response, raw):
         model = getattr(candidate, "model", None)
         if isinstance(model, str) and model:
@@ -88,9 +89,16 @@ def _served_model(response: Any) -> str:
 
 This is the non-obvious part of building your own. In Microsoft Agent
 Framework, `AgentResponse` carries `usage_details` but no model field. The
-model that actually served the call is on the underlying `ChatResponse`,
-reachable through `raw_representation`. Read only the agent-level response
-and you will never see routing happen.
+underlying `ChatResponse`, reachable through `raw_representation`, does — but
+Agent Framework fills it from the `x-ms-served-model` response header, and
+for a router that header names the router itself, `model-router-2025-11-18`,
+on every call. The model the router actually picked is one layer further
+down, in the Responses API body. For an ordinary deployment the body only
+echoes the deployment name (`asg-chat`) and the header carries the snapshot
+(`gpt-4.1-mini-2025-04-14`), which is why the function falls back to it.
+Read only the agent-level response and you see nothing; read only the
+`ChatResponse` and you see the router on every row, and conclude it never
+routed.
 
 Token counts have their own trap:
 

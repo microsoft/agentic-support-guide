@@ -12,6 +12,7 @@ import asyncio
 import json
 import threading
 from collections.abc import Iterator
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
@@ -28,6 +29,8 @@ REPLY_TEXT = '{"ok": true}'
 
 class _Recorder(BaseHTTPRequestHandler):
     requests: list[dict[str, Any]] = []
+    reply_model = "served-deployment"
+    served_model_header: str | None = None
 
     def do_POST(self) -> None:  # noqa: N802 - http.server's naming
         length = int(self.headers.get("content-length", "0"))
@@ -38,7 +41,7 @@ class _Recorder(BaseHTTPRequestHandler):
                 "object": "response",
                 "created_at": 1700000000,
                 "status": "completed",
-                "model": "served-deployment",
+                "model": _Recorder.reply_model,
                 "output": [
                     {
                         "type": "message",
@@ -57,6 +60,8 @@ class _Recorder(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(payload)))
+        if _Recorder.served_model_header is not None:
+            self.send_header("x-ms-served-model", _Recorder.served_model_header)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -78,6 +83,8 @@ class _StaticCredential:
 @pytest.fixture
 def endpoint() -> Iterator[str]:
     _Recorder.requests = []
+    _Recorder.reply_model = "served-deployment"
+    _Recorder.served_model_header = None
     server = HTTPServer(("127.0.0.1", 0), _Recorder)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -133,3 +140,27 @@ def test_an_off_contract_reply_is_returned_for_the_app_to_judge(endpoint: str) -
     )
     result = asyncio.run(factory(_definition(), "hello", DataAnalystModelOutput))
     assert result.text == REPLY_TEXT
+
+
+@pytest.mark.parametrize(
+    ("deployment", "body_model", "header", "expected"),
+    [
+        # What Foundry returned for each, measured: an ordinary deployment
+        # echoes its own name in the body and names the snapshot in the header.
+        ("asg-chat", "asg-chat", "gpt-4.1-mini-2025-04-14", "gpt-4.1-mini-2025-04-14"),
+        # A router names itself in the header and the model it picked in the body.
+        ("asg-router", "gpt-5-nano-2025-08-07", "model-router-2025-11-18", "gpt-5-nano-2025-08-07"),
+    ],
+    ids=["ordinary-deployment", "model-router"],
+)
+def test_the_trace_names_the_model_that_answered(
+    endpoint: str, deployment: str, body_model: str, header: str, expected: str
+) -> None:
+    _Recorder.reply_model = body_model
+    _Recorder.served_model_header = header
+    factory = FoundryResponsesClientFactory(
+        project_endpoint=endpoint, credential_factory=_StaticCredential
+    )
+    definition = replace(_definition(), model_deployment=deployment)
+    result = asyncio.run(factory(definition, "hello", DataAnalystModelOutput))
+    assert result.model == expected

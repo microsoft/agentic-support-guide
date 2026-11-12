@@ -75,15 +75,25 @@ through one method in
 [dotnet/services/api/AgenticSupportGuide.Api/FoundryAgents/MafClient.cs](../../dotnet/services/api/AgenticSupportGuide.Api/FoundryAgents/MafClient.cs).
 
 ```csharp
-/// <summary><see cref="AgentResponse"/> has no model field; the underlying <see cref="ChatResponse"/> does.</summary>
-private static string? ServedModel(AgentResponse response) => (response.RawRepresentation as ChatResponse)?.ModelId;
+internal static string? ServedModel(AgentResponse response, string deployment)
+{
+    var chat = response.RawRepresentation as ChatResponse;
+    return chat?.RawRepresentation is ResponseResult { Model: { Length: > 0 } routed } && routed != deployment ? routed : chat?.ModelId;
+}
 ```
 
 This is the non-obvious part of building your own. In Microsoft Agent
-Framework, `AgentResponse` carries `Usage` but no model field. The model that
-actually served the call is on the underlying `ChatResponse`, reachable
-through `RawRepresentation`. Read only the agent-level response and you will
-never see routing happen.
+Framework, `AgentResponse` carries `Usage` but no model field. The
+underlying `ChatResponse`, reachable through `RawRepresentation`, does — but
+its `ModelId` comes from the `x-ms-served-model` response header, and for a
+router that header names the router itself, `model-router-2025-11-18`, on
+every call. The model the router actually picked is one layer further down,
+in the Responses API body (`ResponseResult.Model`). For an ordinary
+deployment the body only echoes the deployment name (`asg-chat`) and the
+header carries the snapshot (`gpt-4.1-mini-2025-04-14`), which is why the
+method falls back to it. Read only the agent-level response and you see
+nothing; read only the `ChatResponse` and you see the router on every row,
+and conclude it never routed.
 
 Token counts come straight off the agent-level response:
 

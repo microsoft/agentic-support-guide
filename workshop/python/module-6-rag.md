@@ -337,7 +337,7 @@ otherwise leave deleted evidence queryable.
 
 ```powershell
 .\python\services\api\.venv\Scripts\python.exe python\scripts\provision_foundry_iq.py --suffix <your-alias> `
-    --query "what does NADA report about new-vehicle sales"
+    --query "what were retail sales at US motor vehicle and parts dealers last month"
 ```
 
 ```
