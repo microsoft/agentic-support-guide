@@ -60,8 +60,6 @@ document.
   validator/
   support-explainer/           # Standalone workshop agent, not a coordinator role
 
-/.foundry/                     # Local, gitignored Foundry scratch state
-
 /python/services/api/          # Python track: orchestration + FastAPI (no direct model calls)
   app/foundry_agents/          # ONLY place that imports the Foundry SDK
     maf_client.py              #   the Agent Framework model-client import
