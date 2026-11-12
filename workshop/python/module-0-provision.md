@@ -41,7 +41,7 @@ cd python\services\api
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-cd ..\..
+cd ..\..\..
 
 # Frontend: Node 22 LTS
 cd apps\web
@@ -55,7 +55,7 @@ works without touching Azure:
 ```powershell
 cd python\services\api
 .\.venv\Scripts\python.exe -m pytest -q
-cd ..\..
+cd ..\..\..
 ```
 
 Every later command names `.\python\services\api\.venv\Scripts\python.exe` explicitly
