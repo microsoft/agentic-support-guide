@@ -20,7 +20,7 @@ calls from the three implemented agents:
 - Log Analytics workspace + Application Insights (metadata / telemetry).
 - Diagnostic setting routing the AI Services account's own logs and
   metrics into the Log Analytics workspace.
-- Eleven RBAC role assignments for keyless (Entra) access.
+- Twelve RBAC role assignments for keyless (Entra) access.
 
 > **Network exposure.** The AI Services account is created with
 > `public_network_access_enabled = true` and no network ACLs. Keyless
@@ -208,11 +208,12 @@ model_capacity = 1
 
 ## RBAC propagation
 
-`rbac.tf` creates **eleven** role assignments: five to whoever runs `apply`
+`rbac.tf` creates **twelve** role assignments: five to whoever runs `apply`
 (`Cognitive Services OpenAI User` at the account scope, the project role at
 the project scope, `Search Service Contributor`, `Search Index Data
-Contributor`, and `Storage Blob Data Contributor`) and six to service
-identities (the search service, the AI Services account and the API web app).
+Contributor`, and `Storage Blob Data Contributor`) and seven to service
+identities (the search service, the AI Services account, the Foundry project
+and the API web app).
 
 Both the account-scope and the project-scope grants are required. Account
 scope authorizes plain model calls; the app reaches its agents through the

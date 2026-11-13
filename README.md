@@ -152,8 +152,8 @@ No Docker. No local database. No global npm or pip packages, and no global
   Services accounts, and Log Analytics/Application Insights resources.
 - A user or admin who can create **role assignments** (`Owner` or
   `User Access Administrator` on the target subscription or resource
-  group). The stack creates **eleven** role assignments: five to whoever
-  runs `apply`, and six to the service identities it creates. See
+  group). The stack creates **twelve** role assignments: five to whoever
+  runs `apply`, and seven to the service identities it creates. See
   [docs/security-and-privacy.md](docs/security-and-privacy.md). If you
   cannot create role assignments yourself, ask your subscription admin to
   run `terraform apply` on your behalf.

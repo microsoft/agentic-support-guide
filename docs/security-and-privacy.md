@@ -162,7 +162,7 @@ resource).
 ### RBAC
 
 Each track's `rbac.tf` (`python/infra/rbac.tf`, `dotnet/infra/rbac.tf`)
-creates the same eleven role assignments. They fall into three groups.
+creates the same twelve role assignments. They fall into three groups.
 
 The learner (or the `principal_id` passed through `terraform.tfvars`):
 
@@ -188,6 +188,7 @@ Service-to-service identities:
 | --- | --- | --- |
 | `Storage Blob Data Reader` | Storage account | Search reads the knowledge container |
 | `Search Index Data Reader` | Search service | AI Services reads the index |
+| `Search Index Data Reader` | Search service | The project reads a knowledge base attached to an agent in the portal |
 | `Cognitive Services OpenAI User` | AI Services account | Search calls the embedding model |
 
 `Search Service Contributor` is service-wide. A holder can delete any

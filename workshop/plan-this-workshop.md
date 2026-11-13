@@ -102,7 +102,7 @@ Terraform creates all of the following, in one resource group per attendee:
 | Log Analytics workspace | 1 | |
 | Application Insights | 1 | |
 | Diagnostic setting | 1 | On the AI Services account, into the workspace. |
-| Role assignments | 11 | 5 to the attendee, 6 to service identities. Nobody creates these by hand. |
+| Role assignments | 12 | 5 to the attendee, 7 to service identities. Nobody creates these by hand. |
 
 That is the default configuration, with every workshop feature enabled. The
 `enable_app_hosting`, `enable_knowledge_plane`, `enable_model_router` and

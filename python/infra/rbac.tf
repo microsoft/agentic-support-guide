@@ -83,6 +83,16 @@ resource "azurerm_role_assignment" "ai_services_reads_index" {
   principal_id         = azurerm_cognitive_account.ai_services.identity[0].principal_id
 }
 
+# A knowledge base attached to an agent in the portal connects as the project's
+# own identity, not the account's (Module 6).
+resource "azurerm_role_assignment" "project_reads_index" {
+  count = var.enable_knowledge_plane ? 1 : 0
+
+  scope                = azurerm_search_service.knowledge[0].id
+  role_definition_name = "Search Index Data Reader"
+  principal_id         = azurerm_cognitive_account_project.foundry_project.identity[0].principal_id
+}
+
 # ---- Deployed app identities ------------------------------------------------
 #
 # The API runs as itself in Azure, not as the learner who deployed it, so it
