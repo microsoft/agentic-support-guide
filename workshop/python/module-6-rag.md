@@ -130,10 +130,10 @@ rather than crawled, so the blob source is optional.
 
 Two ways forward:
 
-1. **Use a File knowledge source instead of blob.** Upload the same files
-   from `evals/knowledge` directly in the Foundry portal when creating the
-   knowledge source. This bypasses storage networking entirely. File sources
-   are in preview.
+1. **Upload the files instead of using blob.** The knowledge base form in
+   step 3 has an **Upload files** button beside **Add sources**; give it the
+   same files from `evals/knowledge`. This bypasses storage networking
+   entirely.
 2. **Ask whoever owns the policy.** It is usually set above your
    subscription, so this is not something you can turn off yourself, and it
    is there for a reason — treat it as a conversation about the right path,
@@ -170,26 +170,37 @@ With both fields set, the form should look like this before you click
 and Auth Type set to Project Managed Identity, next to an enabled Connect
 button.](../images/module-6-knowledge-connect-configured.png)
 
-Then create the knowledge source over your blob container.
+Sources are created from the knowledge base form, so start one: **Create a
+knowledge base** → **Add sources** → **Azure Blob Storage**, and fill in the
+source:
 
-**If you took the File path in step 2**, create a File knowledge source and
-upload `evals/knowledge` directly instead — everything after this point is the
-same, because the knowledge base does not care where its source came from.
-The one difference to expect: step 6's script adds an `asg-ks-blob-<your-alias>`
-source whenever a container name is set, which `populate-env.ps1` always
-writes. Pass `--blob-container ''` to leave it out, and your base will span
-the index and web sources rather than all three.
+- **Name:** `asg-ks-<your-alias>-portal`.
+- **Storage account** and **Container:** yours, and `group-knowledge`.
+- **Authentication type:** **System assigned identity**. It defaults to API
+  Key, which cannot work here for the same reason as above: Terraform sets
+  `shared_access_key_enabled = false` on the storage account.
+
+Leave the embedding model empty and content extraction on **Minimal**, then
+**Create**.
 
 The Search service reads blob content using its own managed identity — Module
 0 granted it `Storage Blob Data Reader`. No key is involved anywhere in this
 path.
 
-Name it `asg-ks-<your-alias>`.
+**If you took the upload path in step 2**, use **Upload files** with
+`evals/knowledge` instead of adding a blob source — everything after this
+point is the same, because the knowledge base does not care where its source
+came from. The one difference to expect: step 6's script adds an
+`asg-ks-blob-<your-alias>` source whenever a container name is set, which
+`populate-env.ps1` always writes. Pass `--blob-container ''` to leave it out,
+and its base will span the index and web sources rather than all three.
 
-**Use that exact prefix.** `provision_foundry_iq.py` in step 6 and the app
-configuration in step 7 both assume `asg-ks-` and `asg-kb-`. Name it anything
-else and the script creates a *second* set alongside yours, and the app points
-at the one you did not build.
+**Keep the `-portal` ending.** `provision_foundry_iq.py` in step 6 builds a
+set of its own — `asg-ks-<your-alias>`, `asg-ks-blob-<your-alias>`,
+`asg-ks-web-<your-alias>` and the base `asg-kb-<your-alias>` — and step 7
+points the app at that base. A source you made by hand under one of those
+names stops the script: it will not turn a blob source into an index source,
+or change the storage connection a blob source reads from.
 
 > **Why the naming matters later.** `Search Service Contributor` covers the
 > entire search service, and Azure AI Search has no per-index RBAC. Here that
@@ -201,10 +212,9 @@ at the one you did not build.
 
 ## 4. Create the knowledge base
 
-On the same **Knowledge** page, use **Create a knowledge base** over the
-source you just created. Name it `asg-kb-<your-alias>` — again, the exact
-prefix matters, because step 7 points the running app at that name.
-Set `reasoning_effort` to `minimal`.
+Back on the form, name the base `asg-kb-<your-alias>-portal`. Leave
+**Retrieval reasoning effort** on its default, **Minimal**, and choose **Save
+knowledge base**.
 
 Wait for indexing to finish before testing. Querying an empty index returns
 nothing and looks exactly like a broken configuration.
@@ -324,14 +334,13 @@ markdown blob. Step 2 is convergent: it deletes index keys no longer in the
 fixtures before uploading, because `upload_documents` is an upsert and would
 otherwise leave deleted evidence queryable.
 
-> [!WARNING]
-> The script rebuilds `asg-ks-<your-alias>` over the new index, adds
-> `asg-ks-blob-<your-alias>` and `asg-ks-web-<your-alias>`, and replaces the
-> base's source list. It updates the base you made in step 4 in place — same
-> name, same object — so anything you attached to it by hand is replaced.
-> What survives is the **Search connection**: the lasting output of the
-> hand-work, and the reason nothing appeared on the Knowledge page until you
-> connected the resource.
+> [!NOTE]
+> The script builds its own base, `asg-kb-<your-alias>`, over three sources of
+> its own, and leaves your `-portal` pair alone. Re-running it updates its
+> own objects in place, so anything you add to `asg-kb-<your-alias>` by hand
+> is replaced. What you keep from the hand-work is the **Search
+> connection**: the lasting output of step 3, and the reason nothing appeared
+> on the Knowledge page until you connected the resource.
 
 ### Confirm the application's path works
 
@@ -343,6 +352,9 @@ otherwise leave deleted evidence queryable.
 ```
 group=GROUP-A citations=0
 ```
+
+If it fails with `FOUNDRY_IQ_UNAVAILABLE` instead, the base you just built is
+still settling. Wait a minute and run it again.
 
 **Zero citations is the expected answer, and it is the lesson.** That command
 exercises the path your *application* uses: retrieval scoped to the
@@ -359,8 +371,9 @@ want to see the whole base answer, query it directly with
 `include_activity=True` and read which source contributed from the `activity`
 list — `references[].sourceName` is empty on web results.
 
-The Knowledge bases list now shows the base spanning all three sources. This
-is also where a base created by `provision_foundry_iq.py` appears — the
+The Knowledge bases list now shows the script's base spanning all three
+sources, beside your `-portal` one (the capture below has only the script's).
+This is also where a base created by `provision_foundry_iq.py` appears — the
 script and the portal write to the same place, but nothing shows here until
 the connection from step 3 exists:
 
@@ -437,17 +450,23 @@ you build should report what actually ran, not what you intended to run.
 ## 8. Attach it to your agent
 
 Open `asg-support-explainer-agent-<your-alias>` → expand **Knowledge** →
-**Add** → **Connect to Foundry IQ**, pick your search connection and knowledge
-base, then **Connect**.
+**Add** → **Connect to Foundry IQ**, pick your search connection and the
+script's knowledge base, `asg-kb-<your-alias>`, then **Connect**.
 
 ![The agent's Knowledge section listing asg-kb-demo as an attached knowledge
-base, with Save and Publish buttons active in the
+base, with the Save button highlighted in the
 header.](../images/module-6-agent-knowledge-attached.png)
 
 **Then press Save.** Connecting only stages the change in the editor — the
 agent is not actually grounded until you save, which creates a new version.
 Navigate away first and the browser warns you about unsaved changes; dismiss
 that warning and the attachment is silently gone.
+
+The agent queries the base as the **project's** managed identity, not as you
+and not as the agent's own identity. Module 0's Terraform grants that identity
+`Search Index Data Reader` on the search service for exactly this. Without the
+grant, every grounded question in the playground fails with "A user error
+occurred while executing a tool call".
 
 > **Keep this attachment out of the publisher's way.** Republishing the
 > explainer from `agent.md` creates a new version built purely from the file,

@@ -96,8 +96,9 @@ investigate a bad score later, so learn the surface first.
 
 1. **Target** — what is being graded. Choose **Agent**, then tick
    `asg-support-explainer-agent-<your-alias>`. Note the **Version** column:
-   you are grading one specific version, not "the agent". A score belongs to
-   a version or it means nothing.
+   it reads **Latest available**, so the run grades whichever version is
+   newest when it starts, and the results record which one that was. A score
+   belongs to a version or it means nothing.
 2. **Scope** — how much of an interaction each grade covers. **Individual
    turns** grades one question and one answer, which is what your agent does.
    *Full conversations* grades a multi-turn exchange end to end.
@@ -108,11 +109,16 @@ investigate a bad score later, so learn the surface first.
 4. **Data** — where the questions come from. **Synthetic generation** has the
    portal write questions for you. **Existing dataset** uses questions you
    upload. **Benchmarks** uses public question sets. **Existing traces** grades
-   real production interactions. Pick **Synthetic generation** and choose your
-   chat deployment.
-5. **Criteria** — which graders to run. Choose `groundedness`, `relevance` and
-   `coherence`; §4 explains why those three and not the others.
-6. **Review** — submit.
+   real production interactions. Pick **Synthetic generation**, choose
+   `asg-chat` as the model, set how many rows to generate and name the
+   dataset.
+5. **Criteria** — which graders to run, and which model judges them. Change
+   **Judge model** to `asg-judge`: it defaults to a model the portal chose,
+   not the judge deployment Module 0 created. Six graders arrive preselected
+   as Recommended; choose **Clear selection**, then search for and tick
+   **Groundedness**, **Relevance** and **Coherence**. §4 explains why those
+   three and not the others.
+6. **Review** — name the evaluation, then **Submit**.
 
 > [!TIP]
 > The job queues and runs on Foundry's schedule, not yours — several minutes
@@ -140,20 +146,22 @@ When the run completes, open it. You get a per-case view with each grader's
 score *and the judge's reasoning* — which is the part a console line cannot
 give you, and the reason this module has you click before it has you script.
 
-Your runs are listed under **Build → Evaluations**. This is the page before
-you have created any — note the **Evaluations**, **Evaluator catalog** and
-**Red team** tabs, and that Evaluations sits under **Optimize** in the left
-rail, not under Build:
+Your runs are listed under **Build → Evaluations**, in the **Improve** group
+of the left rail. Note the **Evaluations**, **Evaluator catalog** and **Red
+team** tabs; under Evaluations, **Runs** lists one-off runs and **Recurring
+configs** the scheduled ones. This capture was taken after the script in §5
+had run, and its six cases are the `asg-eval-00N` rows:
 
-![The Foundry Evaluations page under Optimize, with the Evaluations,
-Evaluator catalog and Red team tabs, and an empty run list reading "No
-evaluations found".](../images/module-9-evaluations.png)
+![The Foundry Evaluations page under Improve, with the Evaluations, Evaluator
+catalog and Red team tabs, Runs and Recurring configs sub-tabs, and a list of
+completed asg-eval runs.](../images/module-9-evaluations.png)
 
 ## 4. See what graders are available
 
 In the portal, **Build → Evaluations → Evaluator catalog** is the library the
 Criteria step draws from. Open it and read what each grader claims to
-measure — the wording of the claim is the rubric.
+measure — the wording of the claim is the rubric. It lists more graders than
+the script below can call: 48 when we checked.
 
 The same list from a shell, which is what you want when wiring a gate:
 

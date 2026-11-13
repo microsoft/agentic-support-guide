@@ -546,6 +546,18 @@ dotnet run dotnet/scripts/publish_prompt_agents.cs -- --suffix <your-alias> --va
 dotnet run dotnet/scripts/publish_prompt_agents.cs -- --suffix <your-alias> --variant baseline --delete
 ```
 
+The portal also made things no script owns: a `<agent name>-toolbox` for each
+agent you built by hand in Modules 4 and 8, the `text-embedding-3-large`
+deployment, the `-portal` knowledge base from Module 6, the connection your
+agent made when you attached a knowledge base, and the guardrail from Module
+8. All of them live inside the Foundry resource or the search service, so the
+destroy below takes them too. If you are keeping the project, delete them in
+the portal instead, and remove the script's Foundry IQ objects:
+
+```powershell
+dotnet run dotnet/scripts/provision_foundry_iq.cs -- --suffix <your-alias> --delete
+```
+
 Then destroy the infrastructure:
 
 ```powershell

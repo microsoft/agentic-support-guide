@@ -97,8 +97,9 @@ A health endpoint cannot catch any of these:
 
 Then open the UI and submit a support request.
 
-![The App Service overview blade showing Status Running, Runtime status
-Healthy, the B1 App Service plan and the default domain.](../images/module-1-appservice-overview.png)
+![The App Service overview blade showing Status Running, the B1 App Service
+plan on Linux, Health Check at 100% healthy and the default
+domain.](../images/module-1-appservice-overview.png)
 
 If a deploy fails, read the log stream:
 
