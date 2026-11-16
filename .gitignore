@@ -78,8 +78,8 @@ maintenance/portal_redact.config.json
 # Generated capture bundle: inlines the config above, so it holds real values.
 maintenance/.portal_redact.bundle.js
 
-# --- Foundry bindings (env-specific, never commit) ---
-.foundry/agent-bindings.local.json
+# --- Local Foundry scratch state from the removed agent-bindings path ---
+.foundry/
 
 # --- Generated knowledge export (Module 6) ---
 evals/knowledge/

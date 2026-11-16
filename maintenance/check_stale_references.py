@@ -120,6 +120,7 @@ FORBIDDEN_OUTSIDE_ADRS = {
     r"\bdrain_calls\b": "removed; model and tokens come from the agent response",
     r"\btrace_local\b": "removed; trace rows come from Agent Framework workflow events",
     r"\bsave_svg\b": ".NET Agent Framework has no SVG export; both tracks emit DOT",
+    r"web[/\\]public[/\\]workflow-graph\.svg": "moved to apps/web/src/assets; part of the bundle",
 }
 
 # This file necessarily names the things it forbids. `scanner.py` lists

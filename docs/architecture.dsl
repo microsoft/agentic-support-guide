@@ -7,7 +7,7 @@ workspace "Agentic Support Guide" "High-level C4 container and component views f
             webApp = container "Web App" "React and TypeScript user interface" {
                 tags "LocalApp"
             }
-            apiService = container "API Service" "FastAPI backend that owns request handling and error taxonomy" {
+            apiService = container "API Service" "FastAPI or ASP.NET Core backend that owns request handling and error taxonomy" {
                 tags "LocalApp"
                 coordinator = component "Workflow Coordinator" "Deterministic code that builds and runs the Agent Framework workflow graph and parses every agent reply into its typed contract"
             }

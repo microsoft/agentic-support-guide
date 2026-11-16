@@ -26,8 +26,9 @@ export function ApiUnavailable({ onRetry }: { onRetry?: () => void }) {
     >
       <div className="font-semibold">API unavailable - start the local backend.</div>
       <p className="mt-1 text-sm text-rose-100/80">
-        Confirm the FastAPI service is running at http://127.0.0.1:8000. See the
-        troubleshooting section in the README for CORS and port guidance.
+        Confirm the API is running at http://127.0.0.1:8000: start it with your
+        track&apos;s run-backend.ps1. See the troubleshooting section in the README
+        for CORS and port guidance.
       </p>
       {onRetry && (
         <button

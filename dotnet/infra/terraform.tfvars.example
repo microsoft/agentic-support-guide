@@ -93,7 +93,8 @@ principal_id = ""
 # network access on the storage account. Defaults to false because many tenants
 # forbid it by policy, and asking for it where policy says no leaves
 # `terraform plan` in permanent drift rather than failing loudly.
-# Module 6 documents a File knowledge source that needs no storage access.
+# Module 6 documents uploading the files to the knowledge base instead, which
+# needs no storage access.
 #
 #   knowledge_storage_public_access = true
 

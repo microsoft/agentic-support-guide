@@ -25,27 +25,25 @@ permissions:
 
 concurrency:
   # Two overlapping deploys to one App Service make the first fail to start.
-  # Keyed on the deployment target, not the branch: every branch deploys to
-  # the same apps, so a per-ref lock does not actually serialise anything.
-  # `vars` here resolves REPOSITORY variables only - the group is computed
-  # before any job declares an environment. Module 1 sets AZURE_RESOURCE_GROUP
-  # with `gh variable set` (no --env) for this reason; moving it onto the
-  # `workshop` environment silently degrades the group to `deploy-`.
-  group: deploy-${{ vars.AZURE_RESOURCE_GROUP }}
+  # Keyed on the workflow, not the branch: every branch deploys to the same
+  # Python apps, so a per-ref lock would not actually serialise anything. The
+  # group cannot name the resource group, because this track keeps its
+  # variables on the workshop environment and `vars` in a concurrency key
+  # resolves repository variables only.
+  group: deploy-python
   cancel-in-progress: false
-
-env:
-  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-  API_APP: ${{ vars.AZURE_API_APP_NAME }}
-  WEB_APP: ${{ vars.AZURE_WEB_APP_NAME }}
-  API_URL: ${{ vars.AZURE_API_URL }}
-  WEB_URL: ${{ vars.AZURE_WEB_URL }}
 
 jobs:
   deploy:
     name: Deploy to App Service
     runs-on: ubuntu-latest
     environment: workshop
+    env:
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      API_APP: ${{ vars.AZURE_API_APP_NAME }}
+      WEB_APP: ${{ vars.AZURE_WEB_APP_NAME }}
+      API_URL: ${{ vars.AZURE_API_URL }}
+      WEB_URL: ${{ vars.AZURE_WEB_URL }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -56,7 +54,7 @@ jobs:
             if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
           done
           if [ -n "$missing" ]; then
-            echo "Missing repository variables:$missing" >&2
+            echo "Missing workshop environment variables:$missing" >&2
             echo "Set them from 'terraform output' before running this workflow." >&2
             exit 1
           fi
@@ -125,7 +123,7 @@ jobs:
           (cd build/web && zip -qr ../../web.zip .)
           az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$WEB_APP" \
             --src-path web.zip --type zip --async false || \
-            echo "::warning::az webapp deploy reported failure; the smoke test decides"
+            echo "::warning::az webapp deploy reported failure; the bundle check decides"
 
       # A green deploy step does not mean the new code is live: Oryx can skip
       # the rebuild and the old worker can keep answering.
@@ -143,6 +141,26 @@ jobs:
             sleep 10
           done
           echo "expected build_id $expected, got '${served:-no response}'" >&2
+          exit 1
+
+      # Vite names the entry script by content hash, so the page must load the
+      # one this run built; a lingering worker keeps serving the previous one.
+      - name: Verify the new UI is serving
+        if: inputs.component != 'api'
+        run: |
+          set -euo pipefail
+          bundle=$(grep -o -m1 '/assets/index-[^"]*\.js' apps/web/dist/index.html || true)
+          bundle=${bundle%%$'\n'*}
+          if [ -z "$bundle" ]; then echo "no entry bundle in apps/web/dist/index.html" >&2; exit 1; fi
+          for _ in $(seq 1 30); do
+            page=$(curl -fsS --max-time 20 -H "Cache-Control: no-cache" "$WEB_URL/" || true)
+            if [[ "$page" == *"$bundle"* ]]; then
+              echo "UI bundle $bundle is serving"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "the UI never served $bundle" >&2
           exit 1
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5

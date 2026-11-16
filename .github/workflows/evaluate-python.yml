@@ -19,16 +19,15 @@ concurrency:
   group: evaluate-python
   cancel-in-progress: false
 
-env:
-  AZURE_AI_FOUNDRY_PROJECT_ENDPOINT: ${{ vars.AZURE_AI_FOUNDRY_PROJECT_ENDPOINT }}
-  FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER }}
-  FOUNDRY_MODEL_DEPLOYMENT_JUDGE: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_JUDGE }}
-
 jobs:
   graded:
     name: Graded evaluation
     runs-on: ubuntu-latest
     environment: workshop
+    env:
+      AZURE_AI_FOUNDRY_PROJECT_ENDPOINT: ${{ vars.AZURE_AI_FOUNDRY_PROJECT_ENDPOINT }}
+      FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_EXPLAINER }}
+      FOUNDRY_MODEL_DEPLOYMENT_JUDGE: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT_JUDGE }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -39,7 +38,7 @@ jobs:
             if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
           done
           if [ -n "$missing" ]; then
-            echo "Missing repository variables:$missing" >&2
+            echo "Missing workshop environment variables:$missing" >&2
             echo "Set them from your .env or 'terraform output' before running this workflow." >&2
             exit 1
           fi

@@ -16,7 +16,9 @@ conditional edge "conditional".
 
 from __future__ import annotations
 
+import html
 import importlib
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -181,4 +183,50 @@ def test_committed_diagram_matches_the_built_workflow(
     assert actual == expected, (
         f"{path.name} is stale. Regenerate with:\n"
         "  python python/scripts/render_workflow_diagram.py --write"
+    )
+
+
+WEB_GRAPH_SVG = REPO_ROOT / "apps" / "web" / "src" / "assets" / "workflow-graph.svg"
+
+Graph = tuple[set[str], set[tuple[str, str, bool]], set[str]]
+
+
+def _dot_graph(dot: str) -> Graph:
+    nodes: set[str] = set()
+    edges: set[tuple[str, str, bool]] = set()
+    starts: set[str] = set()
+    for line in dot.splitlines():
+        if edge := re.match(r'\s*"([^"]+)" -> "([^"]+)"(.*);', line):
+            edges.add((edge[1], edge[2], "style=dashed" in edge[3]))
+        elif node := re.match(r'\s*"([^"]+)" \[(.*)\];', line):
+            nodes.add(node[1])
+            if "fillcolor=lightgreen" in node[2]:
+                starts.add(node[1])
+    return nodes, edges, starts
+
+
+def _svg_graph(svg: str) -> Graph:
+    nodes: set[str] = set()
+    edges: set[tuple[str, str, bool]] = set()
+    starts: set[str] = set()
+    node_pattern = r'class="node">\s*<title>(.*?)</title>\s*<polygon fill="([^"]*)"'
+    for title, fill in re.findall(node_pattern, svg):
+        nodes.add(html.unescape(title))
+        if fill == "lightgreen":
+            starts.add(html.unescape(title))
+    for title, path in re.findall(r'class="edge">\s*<title>(.*?)</title>\s*<path ([^>]*)>', svg):
+        source, target = html.unescape(title).split("->")
+        edges.add((source, target, "stroke-dasharray" in path))
+    return nodes, edges, starts
+
+
+def test_web_graph_svg_matches_the_app_workflow() -> None:
+    """The UI says its picture matches the graph a request runs; this keeps that true."""
+
+    expected = _dot_graph(render_workflow_diagram.app_dot())
+    assert expected[0], "parsed no nodes from the DOT export"
+    assert _svg_graph(WEB_GRAPH_SVG.read_text(encoding="utf-8")) == expected, (
+        f"{WEB_GRAPH_SVG.name} is stale. Regenerate with:\n"
+        "  python python/scripts/render_workflow_diagram.py --dot | dot -Tsvg -o "
+        "apps/web/src/assets/workflow-graph.svg"
     )

@@ -21,7 +21,7 @@ calls from the three implemented agents:
 - Log Analytics workspace + Application Insights (metadata / telemetry).
 - Diagnostic setting routing the AI Services account's own logs and
   metrics into the Log Analytics workspace.
-- Eleven RBAC role assignments for keyless (Entra) access.
+- Twelve RBAC role assignments for keyless (Entra) access.
 
 > **Network exposure.** The AI Services account is created with
 > `public_network_access_enabled = true` and no network ACLs. Keyless
@@ -145,9 +145,7 @@ outputs.
 
 If you'd rather do it by hand:
 
-1. Create `dotnet/services/api/.env`. This track has no `.env.example`;
-   [the API README](../services/api/README.md#environment-variables) lists
-   the keys.
+1. Copy `dotnet/services/api/.env.example` to `dotnet/services/api/.env`.
 2. From `dotnet/infra/`, run `terraform output`.
 3. Open `dotnet/services/api/.env` in VS Code and paste the values into the
    corresponding `AZURE_AI_FOUNDRY_*` keys:
@@ -161,7 +159,8 @@ If you'd rather do it by hand:
      `terraform output -raw application_insights_connection_string`) →
      `APPLICATIONINSIGHTS_CONNECTION_STRING`
 
-4. Save. `.env` is gitignored.
+4. Save. `.env` is gitignored; `.env.example` is tracked and contains
+   only placeholders.
 
 ## Expected cost
 
@@ -210,11 +209,12 @@ model_capacity = 1
 
 ## RBAC propagation
 
-`rbac.tf` creates **eleven** role assignments: five to whoever runs `apply`
+`rbac.tf` creates **twelve** role assignments: five to whoever runs `apply`
 (`Cognitive Services OpenAI User` at the account scope, the project role at
 the project scope, `Search Service Contributor`, `Search Index Data
-Contributor`, and `Storage Blob Data Contributor`) and six to service
-identities (the search service, the AI Services account and the API web app).
+Contributor`, and `Storage Blob Data Contributor`) and seven to service
+identities (the search service, the AI Services account, the Foundry project
+and the API web app).
 
 Both the account-scope and the project-scope grants are required. Account
 scope authorizes plain model calls; the app reaches its agents through the

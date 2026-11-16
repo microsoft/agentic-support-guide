@@ -41,7 +41,7 @@ cd python\services\api
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-cd ..\..
+cd ..\..\..
 
 # Frontend: Node 22 LTS
 cd apps\web
@@ -55,7 +55,7 @@ works without touching Azure:
 ```powershell
 cd python\services\api
 .\.venv\Scripts\python.exe -m pytest -q
-cd ..\..
+cd ..\..\..
 ```
 
 Every later command names `.\python\services\api\.venv\Scripts\python.exe` explicitly
@@ -266,17 +266,21 @@ Every portal screenshot in this workshop uses the **New Foundry** experience.
 Two UIs sit behind <https://ai.azure.com> and their navigation differs, so
 turn the toggle on now rather than in the middle of a module.
 
-![The Microsoft Foundry header showing a New Foundry toggle in the on
-position, followed by the Home, Discover, Build, Operate, Manage and Docs
-navigation items.](../images/portal-new-foundry-toggle.png)
+![The Microsoft Foundry header showing the New Foundry toggle in the on
+position, followed by the Build, Manage and Docs navigation
+items.](../images/portal-new-foundry-toggle.png)
 
-The navigation should read **Home / Discover / Build / Operate / Manage /
-Docs**. Every portal path in this workshop starts from there.
+The header should read **Build / Manage / Docs**. Some tenants still show an
+**Operate** item as well, as a few screenshots here do; nothing in this
+workshop uses it. Everything you need sits under **Build**, whose left rail
+groups its pages as **Create** (Agents, Models, Tools, Knowledge, Guardrails
+and more), **Observe** (Monitor, Traces) and **Improve** (Data, Evaluations,
+Fine-tune). Every portal path in this workshop starts from there.
 
 The three model deployments live under **Build → Models → Deployments**:
 
-![The Foundry deployments list showing asg-judge, asg-router and asg-chat, all
-with a Succeeded provisioning state.](../images/module-0-model-deployments.png)
+![The Foundry Models page on its Deployments tab, listing asg-judge, asg-router
+and asg-chat, all with a Succeeded deployment status.](../images/module-0-model-deployments.png)
 
 A **deployment** is a named instance of a model with its own quota. Your code
 never names a model; it names a deployment. That indirection is what lets

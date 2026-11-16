@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text.RegularExpressions;
 using Microsoft.Agents.AI.Workflows;
 
 namespace AgenticSupportGuide.Api.Tests;
@@ -143,5 +145,71 @@ public class SampleWorkflowsTests
         Assert.True(
             actual == expected,
             $"{Path.GetFileName(path)} is stale. Regenerate with:\n  dotnet run dotnet/scripts/render_workflow_diagram.cs -- --write");
+    }
+
+    private static readonly string WebGraphSvg =
+        Path.Combine(Conformance.Goldens.RepoRoot, "apps", "web", "src", "assets", "workflow-graph.svg");
+
+    private sealed record GraphShape(string[] Nodes, string[] Edges, string[] Starts);
+
+    private static GraphShape DotGraph(string dot)
+    {
+        var nodes = new SortedSet<string>(StringComparer.Ordinal);
+        var edges = new SortedSet<string>(StringComparer.Ordinal);
+        var starts = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var line in dot.Split('\n'))
+        {
+            var edge = Regex.Match(line, "^\\s*\"([^\"]+)\" -> \"([^\"]+)\"(.*);");
+            if (edge.Success)
+            {
+                var dashed = edge.Groups[3].Value.Contains("style=dashed", StringComparison.Ordinal);
+                edges.Add($"{edge.Groups[1].Value}->{edge.Groups[2].Value} dashed={dashed}");
+                continue;
+            }
+            var node = Regex.Match(line, "^\\s*\"([^\"]+)\" \\[(.*)\\];");
+            if (node.Success)
+            {
+                nodes.Add(node.Groups[1].Value);
+                if (node.Groups[2].Value.Contains("fillcolor=lightgreen", StringComparison.Ordinal))
+                {
+                    starts.Add(node.Groups[1].Value);
+                }
+            }
+        }
+        return new GraphShape([.. nodes], [.. edges], [.. starts]);
+    }
+
+    private static GraphShape SvgGraph(string svg)
+    {
+        var nodes = new SortedSet<string>(StringComparer.Ordinal);
+        var edges = new SortedSet<string>(StringComparer.Ordinal);
+        var starts = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (Match node in Regex.Matches(svg, "class=\"node\">\\s*<title>(.*?)</title>\\s*<polygon fill=\"([^\"]*)\""))
+        {
+            var title = WebUtility.HtmlDecode(node.Groups[1].Value);
+            nodes.Add(title);
+            if (node.Groups[2].Value == "lightgreen")
+            {
+                starts.Add(title);
+            }
+        }
+        foreach (Match edge in Regex.Matches(svg, "class=\"edge\">\\s*<title>(.*?)</title>\\s*<path ([^>]*)>"))
+        {
+            var dashed = edge.Groups[2].Value.Contains("stroke-dasharray", StringComparison.Ordinal);
+            edges.Add($"{WebUtility.HtmlDecode(edge.Groups[1].Value)} dashed={dashed}");
+        }
+        return new GraphShape([.. nodes], [.. edges], [.. starts]);
+    }
+
+    [Fact]
+    public void Web_graph_svg_matches_the_app_workflow()
+    {
+        // The UI says its picture matches the graph a request runs; this keeps that true.
+        var expected = DotGraph(RenderWorkflowDiagram.AppDot());
+        var actual = SvgGraph(File.ReadAllText(WebGraphSvg));
+        Assert.NotEmpty(expected.Nodes);
+        Assert.Equal(expected.Nodes, actual.Nodes);
+        Assert.Equal(expected.Edges, actual.Edges);
+        Assert.Equal(expected.Starts, actual.Starts);
     }
 }

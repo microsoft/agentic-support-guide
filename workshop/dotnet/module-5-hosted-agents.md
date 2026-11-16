@@ -33,7 +33,7 @@ protocol, streamed or not, as the caller asks.
 | Answer from a knowledge base | Yes | Overkill |
 | Custom NuGet dependencies | No | **Yes** |
 | Deterministic multi-step orchestration | No | **Yes** |
-| Its own identity for downstream RBAC | No | **Yes** |
+| Its own identity for downstream RBAC | Only through tools that support it | **Yes**, in any call your code makes |
 | Call your private network / database | No | **Yes** |
 
 The identity row is the one people undervalue. Step 6 makes it concrete.
@@ -181,10 +181,11 @@ laptop but not there fails here, and step 4 is where you find out.
 In the portal it appears alongside your prompt agents. Its kind is `hosted`,
 which the **Agent info** panel shows:
 
-![The hosted agent page showing Version 1 and tabs for Playground, Details,
-Traces, Monitor, Evaluation and Optimize. The Agent info panel lists Kind
-hosted, Endpoint & IDs and Environment
-variables.](../images/module-5-hosted-agent.png)
+![The hosted agent page with tabs for Playground, Details, Traces, Insights,
+Monitor, Evaluation and Optimize. The Agent info panel lists Kind hosted,
+Endpoint & IDs and Environment variables, above Code asset, Protocols and
+Guardrail sections, with a Log stream pane on the
+right.](../images/module-5-hosted-agent.png)
 
 ## 4. Check what the tooling tells you
 
@@ -290,8 +291,12 @@ identity object that represents a workload rather than a person.
 
 This is what hosting buys you. You can grant *this agent* access to a
 specific database and audit what *this agent* did, instead of every agent
-sharing one identity. Prompt agents cannot do that — they run under the
-project's identity, so there is nothing to grant to.
+sharing one identity. Prompt agents have an identity of their own too —
+Foundry creates one for every new agent — but they can only use it through a
+tool whose connection supports agent identity, such as an MCP server. Many
+connections authenticate as the project's managed identity instead, which
+every agent in the project shares; the knowledge base in Module 6 is one of
+them. A hosted agent's code uses its own identity for every call it makes.
 
 ## 7. How rollback works
 

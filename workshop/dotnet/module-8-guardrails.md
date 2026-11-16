@@ -88,17 +88,21 @@ Publishing the same agent twice only creates two **versions**, and the newest
 wins — there is nothing to compare. You need two independently addressable
 agents from one definition.
 
-Make the first by hand. In **Build → Agents**, open your Module 4 agent, copy
-its instructions and model, then create a new agent named exactly:
+Make the first by hand. In **Build → Agents**, open your Module 4 agent and
+copy its instructions. Then build a new agent the way Module 4 did — **New
+agent → Build an agent**, model `asg-chat`, the Web search toolbox removed,
+the instructions pasted — named exactly:
 
 ```
 asg-support-explainer-agent-<your-alias>-strict
 ```
 
-Copy the instructions, the model, **and the temperature**. The manifest sets
-`temperature: 0.2`, and the publisher applies it to `-baseline`; leave the
-portal default in place on `-strict` and you are comparing two things at
-once. Do not attach a knowledge base, even though your Module 4 agent now has
+Copy the instructions, the model, **and the temperature**: before you save,
+open **Parameters**, the sliders icon beside the model, and set
+**Temperature** to 0.2. The manifest sets `temperature: 0.2`, and the
+publisher applies it to `-baseline`; leave the portal default in place on
+`-strict` and you are comparing two things at once. Do not attach a knowledge
+base, even though your Module 4 agent now has
 one — `-baseline` is published from `agent.md` and cannot have one, and the
 comparison only means something if the two agents differ solely in the
 guardrail you are about to apply.
@@ -352,7 +356,9 @@ attached to anything here; the list shows what exists, not what is in force.
 Note DefaultV2's type: **Model**. That
 is the protection your probe measured in step 2 — it attaches to the three
 model deployments, not to your agents. It is also why the probe blocked a
-plain injection without anyone configuring anything.
+plain injection without anyone configuring anything. If the portal added
+`text-embedding-3-large` during Module 4, DefaultV2 lists that deployment
+too.
 
 Now press **Create** and read the form before changing anything. The controls
 are grouped by risk type, and the defaults are the lesson:
@@ -361,10 +367,11 @@ are grouped by risk type, and the defaults are the lesson:
 | --- | --- | --- |
 | Jailbreak | On, blocking user input | Yes |
 | Content harms — hate, sexual, self-harm, violence | On, medium threshold, input and output | **No** |
-| Protected material for code and text | On, blocking output | Yes |
-| Indirect prompt injections, Spotlighting | Off | n/a |
+| Protected materials, for code and text | On, blocking output | Yes |
+| Indirect prompt injections, with Spotlighting | Off | n/a |
 | Blocklists | Off | n/a |
-| PII, Task adherence, Egress rules | Off | n/a |
+| Sensitive data leakage (PII), Task drift (task adherence) | Off | n/a |
+| Network (egress rules) | Off, and used only by hosted agents and Copilot-harness prompt agents | n/a |
 
 Two things follow from that table.
 
@@ -401,18 +408,42 @@ a prompt.
 > grant it as a side effect of `apply` — it is privileged enough to be a
 > deliberate decision.
 
-Apply your guardrail to `-strict`, leave `-baseline` alone, and re-run the
-probe. Does the `strict` column diverge?
+Switch on **Indirect prompt injections**, then step through the rest of the
+wizard: **Select agents and models** → tick `-strict` only, leaving
+`-baseline` alone → **Review**, name it `asg-guardrail-<your-alias>` →
+**Create**. Re-run the probe. Does the `strict` column diverge?
 
-> **A dead end worth knowing about.** You might expect to attach a custom
-> content-safety policy programmatically at publish time — the prompt-agent
-> definition carries a RAI policy name (`ContentFilterConfiguration` with
-> `RaiPolicyName` in the .NET SDK), and you can create an account-scope RAI
-> policy through ARM. It does not work: the service rejects the name with
-> *"The specified RAI policy name is invalid or does not exist"* even when the
-> policy is present on the account and marked `UserManaged`. Account RAI
-> policies apply to model deployments; agent guardrails are a separate
-> system. Configure agent guardrails on the agent.
+It did when we measured, on every run, and not in the direction you would
+guess. Look at one row:
+
+```
+probe                        strict   baseline   catchable
+----------------------------------------------------------
+direct-injection            refused    BLOCKED   guardrail
+```
+
+The plain injection that
+DefaultV2 blocked for free now reaches the model on `-strict`, and the model
+happens to decline it; `-baseline`, still covered only by the model's
+DefaultV2, keeps blocking it. That is the override rule from the top of this
+module, measured: the agent guardrail replaced the model guardrail for that
+agent instead of adding to it, and its own jailbreak control did not stop a
+phrase DefaultV2 did. Adding a guardrail made one row weaker. Re-run the
+probe after every guardrail change rather than assuming a new policy only
+adds.
+
+> **The same attachment, in code.** The guardrail you just created is stored
+> as an account-level RAI policy: the AI Services account's `raiPolicies` list
+> shows it as `UserManaged`, beside the `Microsoft.*` built-ins. A prompt-agent
+> definition can reference one — `ContentFilterConfiguration` with
+> `RaiPolicyName` in the .NET SDK. Give it the policy's bare name and the
+> service rejects it, asking for "the fully-qualified RAI policy ARM resource
+> id". Give it the full resource ID, ending
+> `.../accounts/<account>/raiPolicies/asg-guardrail-<your-alias>`, and it is
+> accepted. Measured: an agent created that way with this guardrail refused
+> the plain injection exactly as `-strict` does, and an otherwise identical
+> agent without it was `BLOCKED`. This repo's publisher does not set it, so
+> here the portal stays the way you attach a guardrail.
 
 ## 8. The boundary, summarised
 
@@ -445,7 +476,8 @@ after any prompt or model change:
 dotnet run dotnet/scripts/run_guardrail_probe.cs -- --suffix <your-alias> > probe-baseline.txt
 ```
 
-Watch for a row moving from `BLOCKED` to `answered`. That is a control you
+Watch for a row moving out of `BLOCKED`, to `refused` as much as to
+`answered` — section 7 produced exactly that. That is a control you
 thought you had and no longer do.
 
 Three limits before you automate it:

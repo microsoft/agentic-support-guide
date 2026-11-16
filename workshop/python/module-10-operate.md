@@ -200,6 +200,7 @@ These are the span names you will see:
 | `workflow.build` | graph construction |
 | `executor.process <id>` | node — `data-analyst`, `support-recommender`, `validator`, … |
 | `edge_group.process …` | edge delivery, with `edge_group.delivered` |
+| `message.send` | message handed from one node to the next |
 | `invoke_agent <agent>` | agent call — `invoke_agent data-analyst-agent`, … |
 | `chat <deployment>` | model call, with `gen_ai.*` token and model attributes |
 
@@ -333,18 +334,28 @@ A 500 means your code ran and failed. A 503 from the platform means there is
 no healthy worker. This app also returns its own 503 when `API_SHARED_KEY` is
 missing — a JSON `detail` body is the application, the branded page is not.
 
-**Do not expect a Python traceback.** The platform reports its own view:
+**Do not expect a Python traceback.** The platform reports its own view, and
+`az webapp troubleshoot status -g $rg -n $app` shows it:
 
 ```
-ContainerStartupFailure ... Container exited with exit code 1 during startup
-Site startup probe failed after 7.4 seconds.
+"lastError": "ContainerStartupFailure",
+"lastErrorDetails": "Container exited with exit code 1 during startup after 34.5s. Please inspect your container logs for more details.",
 ```
 
-The `ModuleNotFoundError` went to the container's stderr, and in a downloaded
-bundle the `containerStream` file for the failed instance was empty — the
-worker died before the log pipeline shipped anything. To see the traceback you
-generally have to be attached to the live stream when it crashes. For the same
-reason nothing reached Application Insights: the SDK never initialised.
+1 is the exit code Python uses when an exception goes unhandled. That run was
+a one-character mistake made on purpose: `EVIDENCE_SOURCE` set to
+`foundry-iq` instead of `foundry_iq`, which the app rejects as it starts. The
+exception itself went to the container's stderr:
+
+```
+ValueError: Unknown EVIDENCE_SOURCE 'foundry-iq'. Use 'fixtures' or 'foundry_iq'.
+```
+
+In the downloaded bundle (`az webapp log download`), the `containerStream`
+file for the failed instance was empty, but
+`LogFiles/StartupLogs/<date>_<instance>_failure.log` carried the whole
+traceback — that file is the place to look. Nothing reached Application
+Insights: the process died before the exporter sent anything.
 
 | Failure | What you see | What catches it |
 | --- | --- | --- |
@@ -479,9 +490,9 @@ anything.
 
 > [!NOTE]
 > The optional CI sections create things Terraform does not own: an Entra app
-> registration and federated credential (Module 1), and GitHub repository
-> variables and a role assignment (Module 9). If you did those, remove them
-> separately.
+> registration with its federated credential and three role assignments, and a
+> GitHub environment with its variables and secrets (Modules 1 and 9). If you
+> did those, remove them separately.
 
 Delete the agents first, while the project still exists. Each command
 matches your suffix exactly, so a colleague's agents on the same project
@@ -498,6 +509,18 @@ remove those by name:
 ```powershell
 .\python\services\api\.venv\Scripts\python.exe python\scripts\publish_prompt_agents.py --suffix <your-alias> --variant strict --delete
 .\python\services\api\.venv\Scripts\python.exe python\scripts\publish_prompt_agents.py --suffix <your-alias> --variant baseline --delete
+```
+
+The portal also made things no script owns: a `<agent name>-toolbox` for each
+agent you built by hand in Modules 4 and 8, the `text-embedding-3-large`
+deployment, the `-portal` knowledge base from Module 6, the connection your
+agent made when you attached a knowledge base, and the guardrail from Module
+8. All of them live inside the Foundry resource or the search service, so the
+destroy below takes them too. If you are keeping the project, delete them in
+the portal instead, and remove the script's Foundry IQ objects:
+
+```powershell
+.\python\services\api\.venv\Scripts\python.exe python\scripts\provision_foundry_iq.py --suffix <your-alias> --delete
 ```
 
 Then destroy the infrastructure:

@@ -1,5 +1,6 @@
-// Hand-written types mirroring the Pydantic v2 models in /services/api/app/models.py.
-// The FastAPI OpenAPI at /openapi.json is the source of truth.
+// Hand-written types mirroring the API's response models (python/services/api/app/models.py,
+// dotnet/services/api/AgenticSupportGuide.Api/Models.cs). The OpenAPI document at
+// /api/openapi.json is the source of truth.
 
 export interface HealthResponse {
   status: string;

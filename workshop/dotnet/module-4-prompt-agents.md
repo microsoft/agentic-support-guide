@@ -25,7 +25,7 @@ Compare the three ways to run an agent on Foundry:
 | Where code runs | Foundry | Foundry-managed container | Your process |
 | Visible in portal | Yes | Yes | No |
 | Versioned | Yes | Yes | No |
-| Own identity | No | Yes, dedicated Entra identity | No |
+| Own identity | Yes, used by tools that support it | Yes, used by your code | No |
 | Custom dependencies | No | Yes | Yes |
 | You operate it | No | No | Yes |
 
@@ -102,19 +102,32 @@ ended up. That mapping is the entire mechanism.
 
 Copy it. Then in your Foundry project:
 
-1. **Build → Agents → New agent.** An *agent* here is a named, versioned
-   record holding instructions and a model reference. Creating one calls no
-   model and costs nothing.
+1. **Build → Agents → New agent → Build an agent.** An *agent* here is a
+   named, versioned record holding instructions and a model reference.
+   Creating one calls no model.
 2. Name it `asg-support-explainer-agent-<your-alias>`. The name matters —
-   Module 8 and the cleanup in Module 10 both match on it.
-3. Set the model to `asg-chat` — the deployment Module 0 created, not a model
-   name.
-4. Paste the composed instructions.
-5. **Save.** This creates version 1.
+   Module 8 and the cleanup in Module 10 both match on it. Leave
+   **Interaction mode** on **Text** and **Use the Microsoft Copilot harness**
+   unticked, then choose **Create agent and open playground**. That already
+   saves version 1, with a default model the portal chose and a toolbox
+   holding **Web search**.
+3. Set **Model** to `asg-chat`, listed under Deployments — the deployment
+   Module 0 created, not a model name.
+4. Under **Tools**, open the toolbox's actions menu and choose **Remove**.
+   Web search sends queries to Bing, outside the Azure compliance boundary,
+   and section 4 needs an agent with nothing to look anything up in.
+5. Paste the composed instructions into **Instructions**.
+6. **Save.** This creates version 2, the first version that is yours.
+
+The portal also creates two things you did not ask for. The toolbox stays in
+the project after you remove it from the agent, as
+`asg-support-explainer-agent-<your-alias>-toolbox`, and the project may gain
+a fourth model deployment, `text-embedding-3-large`. Nothing in this workshop
+uses either, and the clean-up in Module 10 removes both.
 
 ![The Foundry Agents list showing four agents. The one just created,
-asg-support-explainer-agent-demo, sits above the three role agents Module 3
-published, all at version 1 with a Running status and a Prompt type
+asg-support-explainer-agent-demo, sits at version 2 above the three role
+agents Module 3 published at version 1, all Running with a Prompt type
 badge.](../images/module-4-agents-list.png)
 
 Screenshots in this workshop were captured with the suffix `demo`; yours
@@ -124,9 +137,10 @@ carry whatever you chose.
 
 Open the agent and use the playground:
 
-![The agent's Playground tab showing Model asg-chat, the composed Instructions
-beginning "# Support Explainer Agent", empty Tools and Knowledge sections, and
-a chat pane on the right.](../images/module-4-agent-detail.png)
+![The agent's Playground tab at version 2, showing Model asg-chat, the
+composed Instructions beginning "# Support Explainer Agent", a Tools section
+with nothing attached, a collapsed Knowledge section, and a chat pane on the
+right.](../images/module-4-agent-detail.png)
 
 Note the **Knowledge** section is empty. That matters in a moment.
 
@@ -193,8 +207,8 @@ In the portal, the agent gains another version. Prompt agents are
 versioned artifacts, which is what makes "who changed the prompt and when"
 answerable.
 
-![The agent's version selector expanded, showing Version 2 selected and
-Version 1 beneath it, along with Compare versions and Show all version
+![The agent's version selector expanded, showing Version 3 selected above
+Versions 2 and 1, along with Compare versions and Show all version
 history.](../images/module-4-agent-versions.png)
 
 That capture is the state after section 5; once your edit here publishes you
@@ -251,6 +265,7 @@ same reason.
 - [ ] Your agent appears in the Foundry portal Agents list, with your suffix.
 - [ ] You ran it in the playground and got an answer.
 - [ ] You found a question it answers confidently and wrongly.
-- [ ] You published a second version and can see both.
+- [ ] You published a version from disk and can see it beside the ones you
+      saved in the portal.
 
 Next: [Module 5 — Hosted agents](module-5-hosted-agents.md)

@@ -22,6 +22,7 @@ import asyncio
 import os
 import re
 import sys
+import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -101,7 +102,12 @@ async def _build_prompt_agent(endpoint: str, definition: RoleDefinition, agent_n
             instructions=definition.instructions,
             default_options=options or None,
         ) as agent:
-            return to_prompt_agent(agent)
+            # Agent Framework marks to_prompt_agent experimental and warns on
+            # every publish. The version is pinned in requirements.txt, so the
+            # warning gives a learner nothing to act on.
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=r"\[TO_PROMPT_AGENT\]")
+                return to_prompt_agent(agent)
     finally:
         # Exiting the Agent context does NOT close FoundryChatClient's own
         # HTTP sessions, so this has to be explicit or the script leaks a

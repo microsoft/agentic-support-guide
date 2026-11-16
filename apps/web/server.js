@@ -232,11 +232,11 @@ async function serveStatic(req, res, url) {
   }
 
   const type = MIME[extname(filePath).toLowerCase()] ?? "application/octet-stream";
-  // Hashed asset filenames are immutable; index.html must never be pinned or
-  // a deploy leaves browsers on the previous bundle.
-  const cache = filePath.endsWith("index.html")
-    ? "no-cache"
-    : "public, max-age=31536000, immutable";
+  // Only Vite's content-hashed files under /assets can be pinned. Anything else
+  // keeps its name across deploys, so pinning it leaves browsers on an old copy.
+  const cache = filePath.startsWith(join(ROOT, "assets") + sep)
+    ? "public, max-age=31536000, immutable"
+    : "no-cache";
 
   setSecurityHeaders(res);
   res.writeHead(200, { "content-type": type, "cache-control": cache });

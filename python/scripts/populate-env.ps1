@@ -81,5 +81,5 @@ if (-not $suffix) {
 Write-Host ""
 Write-Host "Next:"
 Write-Host "  1. Set WORKSHOP_LEARNER_SUFFIX in python\services\api\.env"
-Write-Host "  2. python python/scripts/validate_agent_definitions.py"
-Write-Host "  3. python python/scripts/publish_prompt_agents.py --suffix <your-alias> --apply"
+Write-Host "  2. .\python\services\api\.venv\Scripts\python.exe python\scripts\validate_agent_definitions.py"
+Write-Host "  3. .\python\scripts\run-backend.ps1, then .\python\scripts\verify-demo.ps1 in a second terminal"

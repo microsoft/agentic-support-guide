@@ -460,7 +460,8 @@ function RecommendationPanel({
   providerModel: string;
 }) {
   const ok = rec.completeness.ok;
-  // Must match PROVIDER_DISPLAY_CONFIGURED in services/api/app/config.py.
+  // Must match PROVIDER_DISPLAY_CONFIGURED (python/services/api/app/config.py) and
+  // Config.ProviderDisplayConfigured (dotnet/services/api/AgenticSupportGuide.Api/Config.cs).
   const isFoundry = providerModel.startsWith("Microsoft Foundry");
   return (
     <div className="mt-3 rounded border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200">

@@ -54,9 +54,13 @@ also why the web tier runs `node server.js` rather than serving static files.
 ## 3. Confirm your build is serving
 
 The script stamps the API package with a `build_id` and polls `/api/health`
-until that value comes back:
+until that value comes back. It checks the UI the same way: Vite names the
+entry script after a hash of its content, so the script waits until the served
+page loads the script it just built:
 
 ```
+Waiting for the UI to serve /assets/index-p5JHz2TJ.js ...
+  UI is serving this build's bundle.
 Waiting for build 20260905-123439-620 to serve ...
   status   = ok
   build_id = 20260905-123439-620
@@ -64,7 +68,8 @@ Waiting for build 20260905-123439-620 to serve ...
 
 A successful deploy does not prove the new code is running. Oryx can skip a
 rebuild and the old worker can keep answering, so the deploy goes green while
-your change is nowhere. The `build_id` is the only signal that settles it.
+your change is nowhere. The `build_id` and the bundle name are the only
+signals that settle it.
 
 `/api/health` is the only anonymous route in the API, because this poll runs
 before the web tier is up and before anyone holds a key. Everything else,
@@ -92,8 +97,9 @@ A health endpoint cannot catch any of these:
 
 Then open the UI and submit a support request.
 
-![The App Service overview blade showing Status Running, Runtime status
-Healthy, the B1 App Service plan and the default domain.](../images/module-1-appservice-overview.png)
+![The App Service overview blade showing Status Running, the B1 App Service
+plan on Linux, Health Check at 100% healthy and the default
+domain.](../images/module-1-appservice-overview.png)
 
 If a deploy fails, read the log stream:
 
@@ -149,24 +155,27 @@ Same code in both places.
 Skip this unless you want CI.
 
 [.github/workflows/deploy-python.yml](../../.github/workflows/deploy-python.yml) packages,
-deploys, confirms the `build_id`, and runs the smoke test. It signs in with
-federated credentials, so there is no stored publish profile. It is
-`workflow_dispatch` only.
+deploys, confirms the `build_id` and the UI bundle, and runs the smoke test.
+It signs in with federated credentials, so there is no stored publish
+profile. It is `workflow_dispatch` only.
 
-Set five repository variables:
+Everything it reads lives on a `workshop` environment, so this track's
+settings never collide with the .NET track's in the same repository. A fresh
+fork does not have that environment — create it first, under
+**Settings → Environments → New environment**, or every `--env workshop`
+command below fails.
+
+Set five environment variables:
 
 ```powershell
-gh variable set AZURE_RESOURCE_GROUP --body (terraform -chdir=python/infra output -raw resource_group_name)
-gh variable set AZURE_API_APP_NAME   --body (terraform -chdir=python/infra output -raw api_app_name)
-gh variable set AZURE_WEB_APP_NAME   --body (terraform -chdir=python/infra output -raw web_app_name)
-gh variable set AZURE_API_URL        --body (terraform -chdir=python/infra output -raw api_url)
-gh variable set AZURE_WEB_URL        --body (terraform -chdir=python/infra output -raw web_url)
+gh variable set AZURE_RESOURCE_GROUP --env workshop --body (terraform -chdir=python/infra output -raw resource_group_name)
+gh variable set AZURE_API_APP_NAME   --env workshop --body (terraform -chdir=python/infra output -raw api_app_name)
+gh variable set AZURE_WEB_APP_NAME   --env workshop --body (terraform -chdir=python/infra output -raw web_app_name)
+gh variable set AZURE_API_URL        --env workshop --body (terraform -chdir=python/infra output -raw api_url)
+gh variable set AZURE_WEB_URL        --env workshop --body (terraform -chdir=python/infra output -raw web_url)
 ```
 
-The post-deploy smoke test calls the API directly, so it needs the key. The
-secrets below are scoped to a `workshop` environment, and a fresh fork does
-not have one — create it first, under **Settings → Environments → New
-environment**, or every `--env workshop` command below fails:
+The post-deploy smoke test calls the API directly, so it needs the key:
 
 ```powershell
 gh secret set API_SHARED_KEY --env workshop `
@@ -189,7 +198,24 @@ gh secret set AZURE_SUBSCRIPTION_ID --env workshop --body <subscriptionId>
 ```
 
 The role assignment needs the service principal's *object* ID, which is not
-`<appId>` — hence the lookup on the third line.
+`<appId>` — hence the lookup on the third line. If you already did this for
+the .NET track, reuse that app registration: grant it Contributor on this
+track's resource group too, and add the federated credential below.
+
+Module 9's graded evaluation runs as this identity too, and Contributor is a
+control-plane role: it cannot send a prompt. Grant it the two data-plane roles
+now rather than in Module 9, because a new grant can take hours to reach
+every model endpoint:
+
+```powershell
+$spObjectId = az ad sp show --id <appId> --query id -o tsv
+az role assignment create --assignee-object-id $spObjectId `
+    --assignee-principal-type ServicePrincipal --role "Cognitive Services User" `
+    --scope (terraform -chdir=python/infra output -raw foundry_project_id)
+az role assignment create --assignee-object-id $spObjectId `
+    --assignee-principal-type ServicePrincipal --role "Cognitive Services OpenAI User" `
+    --scope (terraform -chdir=python/infra output -raw ai_services_account_id)
+```
 
 Add the federated credential that trusts the repository environment:
 

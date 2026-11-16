@@ -87,10 +87,10 @@ public static class ExportKnowledgeDocs
 
         Console.WriteLine($"Wrote {written} document(s) to {outDir}");
         Console.WriteLine("\nUpload with:");
-        Console.WriteLine("  az storage blob upload-batch \\");
-        Console.WriteLine("    --account-name <storage-account> \\");
-        Console.WriteLine("    --destination group-knowledge \\");
-        Console.WriteLine($"    --source {Path.GetRelativePath(RepoRoot, outDir)} \\");
+        Console.WriteLine("  az storage blob upload-batch `");
+        Console.WriteLine("    --account-name <storage-account> `");
+        Console.WriteLine("    --destination group-knowledge `");
+        Console.WriteLine($"    --source {Path.GetRelativePath(RepoRoot, outDir)} `");
         Console.WriteLine("    --auth-mode login");
         return 0;
     }

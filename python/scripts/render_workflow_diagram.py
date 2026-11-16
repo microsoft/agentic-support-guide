@@ -113,7 +113,7 @@ def app_dot() -> str:
     """The app graph in Graphviz DOT, straight from Agent Framework.
 
     Pipe it through Graphviz `dot -Tsvg` to refresh
-    apps/web/public/workflow-graph.svg. The SVG is committed because App
+    apps/web/src/assets/workflow-graph.svg. The SVG is committed because App
     Service has no Graphviz.
     """
 

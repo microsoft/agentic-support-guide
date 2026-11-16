@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import workflowGraphSvg from "../assets/workflow-graph.svg?raw";
 import type { AgentTraceStep } from "../api/types";
 
 interface Props {
@@ -28,43 +29,25 @@ function paint(root: SVGElement, node: string, fill: string | null, pulse: boole
   );
   const shape = g?.querySelector("polygon, ellipse") as SVGElement | undefined;
   if (!g || !shape) return;
+  // Graphviz's own fill (light green marks the start node) is what an unlit node goes back to.
+  if (!shape.hasAttribute("data-fill")) shape.setAttribute("data-fill", shape.getAttribute("fill") ?? "");
   if (fill) {
     shape.setAttribute("fill", fill);
     shape.setAttribute("stroke-width", "2");
   } else {
+    const original = shape.getAttribute("data-fill");
+    if (original) shape.setAttribute("fill", original);
+    else shape.removeAttribute("fill");
     shape.removeAttribute("stroke-width");
   }
   g.classList.toggle("wf-pulse", pulse);
 }
 
-// Our own build artifact, served same-origin, but it is injected as markup:
-// strip anything executable so a tampered asset cannot become script execution.
-function sanitizeSvg(raw: string): string {
-  return raw
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(href|xlink:href)\s*=\s*(?:"|')?\s*javascript:[^"'\s>]*/gi, "");
-}
-
 export function WorkflowGraph({ running, trace }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const [markup, setMarkup] = useState<string>("");
   const [cursor, setCursor] = useState<number>(-1);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/workflow-graph.svg")
-      .then((r) => (r.ok ? r.text() : ""))
-      .then((t) => {
-        if (!cancelled) setMarkup(sanitizeSvg(t));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Replay the path the run actually took, paced by its own step latencies.
+  // Replay the stages the run reached, paced by its own step latencies.
   useEffect(() => {
     const ran = SEQUENCE.filter((s) => trace.some((t) => t.agent.replace(":repair", "") === s.node || t.agent === s.agent));
     if (running || ran.length === 0) {
@@ -112,12 +95,12 @@ export function WorkflowGraph({ running, trace }: Props) {
     const refused = finished && !OK.has(validator.status);
     paint(svg, "finalise", finished && !refused ? FILL.done : null, false);
     paint(svg, "refuse", refused ? FILL.failed : null, false);
-  }, [cursor, running, trace, markup]);
+  }, [cursor, running, trace]);
 
   const caption = running
     ? "Running. The app cannot see which node is active until the run returns."
     : trace.length > 0
-    ? "Replaying the path this run actually took, paced by its own step latencies."
+    ? "Replaying the stages this run reached and how it ended, paced by its own step latencies. A repair pass is not drawn as a second visit."
     : "Green is the start node; dashed edges are conditional.";
 
   return (
@@ -125,8 +108,8 @@ export function WorkflowGraph({ running, trace }: Props) {
       <style>{`@keyframes wfPulse{0%,100%{opacity:1}50%{opacity:.45}}.wf-pulse{animation:wfPulse 1.1s ease-in-out infinite}`}</style>
       <p className="text-xs font-semibold text-slate-300">Workflow graph</p>
       <p className="mt-1 text-xs text-slate-400">
-        Rendered by Agent Framework&apos;s <code>WorkflowViz</code> from the same graph
-        this request runs, so it cannot drift from the code. {caption}
+        Drawn from the graph Agent Framework exports for the workflow this request
+        runs; a test in each track fails if the two disagree. {caption}
       </p>
       <div
         ref={host}
@@ -134,7 +117,8 @@ export function WorkflowGraph({ running, trace }: Props) {
         role="img"
         aria-label="The plan workflow graph: retrieve evidence, analyse, recommend, validate, then finalise, with conditional edges from validate back to recommend for one repair attempt and onward to refuse when repair is exhausted."
         className="mx-auto mt-2 w-fit rounded bg-white p-2 [&_svg]:h-auto [&_svg]:max-h-96 [&_svg]:w-auto"
-        dangerouslySetInnerHTML={{ __html: markup }}
+        // A file committed to this repo and compiled into the bundle, not runtime input.
+        dangerouslySetInnerHTML={{ __html: workflowGraphSvg }}
       />
     </div>
   );
